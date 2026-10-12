@@ -1,6 +1,7 @@
 from backend.db import EMBEDDING_DIM, Track, connect, find_similar_embeddings, init_db, upsert_embedding, upsert_track
 from backend.search.cloud_query_parser import parse_query
 from backend.search.engine import (
+    _apply_genre_aliases,
     _base_title,
     _dedupe_by_song,
     _filtered_candidate_ids,
@@ -52,6 +53,50 @@ def test_filtered_candidate_ids_returns_none_without_hard_constraints():
     assert _filtered_candidate_ids(conn, {"semantic_query": "chill"}) is None
 
 
+def test_filtered_candidate_ids_year_range_excludes_null_year_without_content_filter():
+    # A pure decade query (no genre/mood) should stay strict - letting every undated track
+    # through would defeat the point of the year filter.
+    conn = connect(":memory:")
+    init_db(conn)
+    dated_id = upsert_track(conn, Track(external_id="a", source="local", title="A", year=1985))
+    undated_id = upsert_track(conn, Track(external_id="b", source="local", title="B"))
+    conn.commit()
+
+    ids = _filtered_candidate_ids(conn, {"year_min": 1980, "year_max": 1989})
+
+    assert dated_id in ids
+    assert undated_id not in ids
+
+
+def test_filtered_candidate_ids_year_range_includes_null_year_alongside_genre_filter():
+    # Ghosttown by The Specials has no year tagged - "1980s ska" should still surface it since
+    # genre already did real narrowing, so letting an undated-but-genre-matched track through is
+    # safer than silently dropping a genuine match for missing metadata.
+    conn = connect(":memory:")
+    init_db(conn)
+    dated_id = upsert_track(conn, Track(external_id="a", source="local", title="A", genre="Ska", year=1981))
+    undated_id = upsert_track(conn, Track(external_id="b", source="local", title="B", genre="Ska"))
+    wrong_genre_id = upsert_track(conn, Track(external_id="c", source="local", title="C", genre="Rock"))
+    conn.commit()
+
+    ids = _filtered_candidate_ids(conn, {"genre_include": ["Ska"], "year_min": 1980, "year_max": 1989})
+
+    assert dated_id in ids
+    assert undated_id in ids
+    assert wrong_genre_id not in ids
+
+
+def test_apply_genre_aliases_maps_two_tone_to_ska():
+    for query in ["two tone", "2 tone", "2-tone", "Two-Tone revival"]:
+        filt = _apply_genre_aliases(query, {"semantic_query": query})
+        assert filt["genre_include"] == ["ska"]
+
+
+def test_apply_genre_aliases_leaves_unrelated_queries_untouched():
+    filt = _apply_genre_aliases("chill study music", {"semantic_query": "chill study music"})
+    assert "genre_include" not in filt
+
+
 def test_dedupe_by_song_supports_pagination_via_offset_plus_limit_then_slice():
     # This is the pattern search() uses for offset-based pagination: dedupe down to
     # (offset + limit) entries, then slice [offset:] for the requested page.
@@ -67,6 +112,32 @@ def test_dedupe_by_song_supports_pagination_via_offset_plus_limit_then_slice():
 
     assert [r["title"] for r in page1] == ["Song 0", "Song 1"]
     assert [r["title"] for r in page2] == ["Song 2", "Song 3"]
+
+
+def test_dedupe_by_song_merges_plex_reversed_article_artist_with_local_copy(tmp_path):
+    # Plex tags this artist "Specials, The" (its sort-name convention); the local file tags it
+    # "The Specials". Without normalizing, these looked like two different artists and both
+    # copies of every track showed up in search - including the Plex one, which has no file_path
+    # and so isn't even playable.
+    mp3_path = tmp_path / "ghosttown.mp3"
+    mp3_path.write_bytes(b"x" * 100)
+
+    conn = connect(":memory:")
+    init_db(conn)
+    plex_id = upsert_track(
+        conn, Track(external_id="a", source="plex", title="Ghosttown", artist="Specials, The")
+    )
+    local_id = upsert_track(
+        conn, Track(external_id="b", source="local", title="Ghosttown", artist="The Specials", file_path=str(mp3_path))
+    )
+    conn.commit()
+    rows = [conn.execute("SELECT * FROM tracks WHERE id = ?", (plex_id,)).fetchone(),
+            conn.execute("SELECT * FROM tracks WHERE id = ?", (local_id,)).fetchone()]
+
+    result = _dedupe_by_song(rows, limit=25)
+
+    assert len(result) == 1
+    assert result[0]["id"] == local_id
 
 
 def test_dedupe_by_song_prefers_higher_quality_duplicate(tmp_path):

@@ -5,6 +5,7 @@ const resultsEl = document.getElementById("results");
 const resultsHeaderEl = document.getElementById("results-header");
 const contextBannerEl = document.getElementById("context-banner");
 const playAllBtn = document.getElementById("play-all-btn");
+const playlistAllBtn = document.getElementById("playlist-all-btn");
 const reindexBtn = document.getElementById("reindex-btn");
 const reindexStatusEl = document.getElementById("reindex-status");
 
@@ -292,7 +293,12 @@ function renderResults(results) {
   }
 }
 
-function buildPlaylistPickerPanel(r) {
+// trackIdsSource is either a fixed array (single track) or a function returning the current
+// ids to add (e.g. "add all" needs the live result list, since it can grow via Load more or
+// shrink via dismiss between opening the panel and clicking a playlist).
+function buildPlaylistPickerPanel(trackIdsSource) {
+  const trackIds = () => (typeof trackIdsSource === "function" ? trackIdsSource() : trackIdsSource);
+
   const panel = document.createElement("div");
   panel.className = "playlist-picker-panel";
   panel.hidden = true;
@@ -308,7 +314,7 @@ function buildPlaylistPickerPanel(r) {
     await fetch("/playlists", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), track_ids: [r.id] }),
+      body: JSON.stringify({ name: name.trim(), track_ids: trackIds() }),
     });
     loadPlaylists();
     panel.hidden = true;
@@ -327,11 +333,15 @@ function buildPlaylistPickerPanel(r) {
         const btn = document.createElement("button");
         btn.textContent = p.name;
         btn.addEventListener("click", async () => {
-          await fetch(`/playlists/${p.id}/tracks`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ track_id: r.id }),
-          });
+          // Sequential, not Promise.all, so tracks land in the playlist in the same order
+          // they're shown in the results.
+          for (const id of trackIds()) {
+            await fetch(`/playlists/${p.id}/tracks`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ track_id: id }),
+            });
+          }
           loadPlaylists();
           panel.hidden = true;
         });
@@ -483,7 +493,7 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
   const playlistBtn = document.createElement("button");
   playlistBtn.textContent = "+ Playlist";
   playlistBtn.title = "Add this track to a playlist";
-  const playlistPanel = buildPlaylistPickerPanel(r);
+  const playlistPanel = buildPlaylistPickerPanel([r.id]);
   playlistBtn.addEventListener("click", () => {
     playlistPanel.hidden = !playlistPanel.hidden;
     if (!playlistPanel.hidden) playlistPanel.load();
@@ -617,6 +627,15 @@ playAllBtn.addEventListener("click", () => {
   queue = playable.map(toQueueEntry);
   renderQueue();
   playAt(0);
+});
+
+// Reads lastResults live (not a snapshot at click time) so it stays correct across Load more
+// and dismiss. Only playable tracks, matching playAllBtn's behavior above.
+const playlistAllPanel = buildPlaylistPickerPanel(() => lastResults.filter((r) => r.file_path).map((r) => r.id));
+resultsHeaderEl.appendChild(playlistAllPanel);
+playlistAllBtn.addEventListener("click", () => {
+  playlistAllPanel.hidden = !playlistAllPanel.hidden;
+  if (!playlistAllPanel.hidden) playlistAllPanel.load();
 });
 
 function addToQueue(track) {

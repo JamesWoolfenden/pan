@@ -18,6 +18,25 @@ from backend.search.query_router import is_complex_query
 
 VECTOR_CANDIDATE_MULTIPLIER = 8
 
+# Genre-movement terms that don't literally appear in any track's genre tag but should still
+# surface it - e.g. no track is tagged "2 Tone", but "two tone"/"2 tone" names the early-80s UK
+# ska revival scene (The Specials, Madness, ...), so it should match genre="Ska" tracks. A free
+# local lookup, not a cloud_query_parser case, since it's a fixed vocabulary rather than something
+# that needs language understanding per query.
+GENRE_ALIASES = {
+    r"\btwo[\s-]?tone\b": "ska",
+    r"\b2[\s-]?tone\b": "ska",
+}
+
+
+def _apply_genre_aliases(query: str, filt: dict) -> dict:
+    for pattern, genre in GENRE_ALIASES.items():
+        if re.search(pattern, query, re.IGNORECASE):
+            genre_include = filt.setdefault("genre_include", [])
+            if genre not in genre_include:
+                genre_include.append(genre)
+    return filt
+
 
 def _filtered_candidate_ids(conn: sqlite3.Connection, filt: dict) -> set[int] | None:
     """Build the set of track ids matching the structured filter's hard constraints.
@@ -40,11 +59,23 @@ def _filtered_candidate_ids(conn: sqlite3.Connection, filt: dict) -> set[int] | 
     for artist in filt.get("artist_exclude") or []:
         clauses.append("(artist IS NULL OR artist NOT LIKE ?)")
         params.append(f"%{artist}%")
+    # A plain `year >= ? AND year <= ?` clause always evaluates false for year IS NULL rows,
+    # silently dropping genuine matches with missing year metadata (e.g. Ghosttown by The
+    # Specials has no year tagged). That's an acceptable risk for a decade-only query, but
+    # once genre/mood has already done real narrowing, letting undated tracks through the
+    # year clause too catches far more than it lets through wrongly.
+    has_content_filter = bool(filt.get("genre_include") or filt.get("mood_include"))
     if filt.get("year_min"):
-        clauses.append("year >= ?")
+        clause = "year >= ?"
+        if has_content_filter:
+            clause = f"(year IS NULL OR {clause})"
+        clauses.append(clause)
         params.append(filt["year_min"])
     if filt.get("year_max"):
-        clauses.append("year <= ?")
+        clause = "year <= ?"
+        if has_content_filter:
+            clause = f"(year IS NULL OR {clause})"
+        clauses.append(clause)
         params.append(filt["year_max"])
 
     if not clauses:
@@ -54,8 +85,21 @@ def _filtered_candidate_ids(conn: sqlite3.Connection, filt: dict) -> set[int] | 
     return {row["id"] for row in rows}
 
 
+def _normalize_artist(artist: str) -> str:
+    """Collapse Plex's reversed-article sort form ("Specials, The") and the natural form
+    ("The Specials") to the same key, so the same artist from different sources dedupes
+    instead of showing up as two separate "artists" in search results. The key just needs to
+    be consistent, not readable, so stripping the article is simpler than reconstructing it."""
+    artist = artist.strip().lower()
+    if artist.endswith(", the"):
+        artist = artist[: -len(", the")]
+    elif artist.startswith("the "):
+        artist = artist[len("the "):]
+    return artist
+
+
 def _song_key(row: sqlite3.Row) -> tuple[str, str]:
-    return (row["title"] or "").strip().lower(), (row["artist"] or "").strip().lower()
+    return (row["title"] or "").strip().lower(), _normalize_artist(row["artist"] or "")
 
 
 # Lossless > better-lossy > common-lossy > worse-lossy > unknown/unplayable.
@@ -102,6 +146,7 @@ def _dedupe_by_song(rows: list[sqlite3.Row], limit: int) -> list[sqlite3.Row]:
 
 def search(conn: sqlite3.Connection, query: str, limit: int = 25, offset: int = 0) -> list[dict]:
     filt = parse_query(query) if is_complex_query(query) else {"semantic_query": query}
+    filt = _apply_genre_aliases(query, filt)
 
     candidate_ids = _filtered_candidate_ids(conn, filt)
     semantic_query = filt.get("semantic_query") or query

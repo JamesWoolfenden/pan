@@ -23,7 +23,11 @@ def extract_features(file_path: str | Path) -> dict | None:
     if y.size == 0:
         return None
 
-    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    # hop_length=512 (the default) quantizes tempo to a coarse lag-bin grid - e.g. 60*sr/512/lag
+    # for integer lag - so hundreds of unrelated tracks collide on bit-identical BPM values
+    # (verified: 1302 of 19191 tracks landed on exactly 143.5546875). hop_length=128 gives 4x
+    # finer resolution and separates them into genuinely distinct values.
+    tempo, _ = librosa.beat.beat_track(y=y, sr=sr, hop_length=128)
     rms = librosa.feature.rms(y=y)
     energy = float(np.clip(np.mean(rms) * 10, 0.0, 1.0))
 
