@@ -15,6 +15,7 @@ from backend.db import (
     tracks_missing_tags,
 )
 from backend.ingest.merge import run_ingest
+from backend.paths import resolve as resolve_file_path
 from backend.search.embeddings import reindex_embeddings
 from backend.tagging.audio_features import extract_features
 from backend.tagging.cloud_tagger import tag_with_cloud
@@ -43,7 +44,7 @@ def main() -> None:
         feature_count = 0
         start = time.monotonic()
         for processed, row in enumerate(to_process, start=1):
-            features = extract_features(row["file_path"])
+            features = extract_features(resolve_file_path(row["file_path"]))
             if features:
                 set_audio_features(conn, row["id"], features["tempo"], features["energy"], features["musical_key"])
                 feature_count += 1

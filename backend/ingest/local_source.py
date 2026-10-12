@@ -8,6 +8,7 @@ from typing import Iterator
 import mutagen
 
 from backend.db import Track
+from backend.paths import resolve, to_relative
 
 log = logging.getLogger(__name__)
 
@@ -15,8 +16,10 @@ AUDIO_EXTENSIONS = {".mp3", ".flac", ".m4a", ".ogg", ".wav", ".aac", ".wma"}
 
 
 def normalize_path(path: str) -> str:
-    """Normalize a filesystem path for cross-source matching (case/separator-insensitive)."""
-    return str(Path(path).resolve()).lower()
+    """Normalize a filesystem path for cross-source matching (case/separator-insensitive).
+    Accepts either an absolute path or one stored relative to SHARED_DRIVE_PATH."""
+    resolved = resolve(path)
+    return str(resolved.resolve()).lower() if resolved else ""
 
 
 def _stable_id(path: str) -> str:
@@ -44,7 +47,7 @@ def iter_local_tracks(root: str, skip_paths: set[str] | None = None) -> Iterator
         yield Track(
             external_id=f"local:{_stable_id(str(file_path))}",
             source="local",
-            file_path=str(file_path),
+            file_path=to_relative(str(file_path), root),
             title=tags.get("title", file_path.stem),
             artist=tags.get("artist", ""),
             album=tags.get("album", ""),

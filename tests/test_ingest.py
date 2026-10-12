@@ -1,4 +1,4 @@
-from backend.db import Track, connect, init_db, merge_plex_metadata, set_audio_features, upsert_track
+from backend.db import Track, connect, init_db, merge_plex_metadata, set_ai_background, set_audio_features, upsert_track
 from backend.ingest.local_source import normalize_path
 from backend.ingest.merge import known_file_paths, path_to_id_map
 from backend.ingest.plex_source import remap_plex_path
@@ -52,7 +52,7 @@ def test_remap_plex_path_translates_nas_prefix_to_local_share(monkeypatch):
 
     result = remap_plex_path("/volume1/plexdata/music/Artist/Album/01 - Song.flac")
 
-    assert result == "Z:\\music\\Artist\\Album\\01 - Song.flac"
+    assert result == "Artist/Album/01 - Song.flac"
 
 
 def test_remap_plex_path_leaves_unmatched_paths_untouched(monkeypatch):
@@ -98,3 +98,51 @@ def test_merge_plex_metadata_preserves_id_and_audio_features():
     assert row["genre"] == "Rock"
     assert row["tempo"] == 120.0
     assert conn.execute("SELECT COUNT(*) c FROM tracks").fetchone()["c"] == 1
+
+
+def test_set_ai_background_persists_and_defaults_to_null():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="a", source="local", title="Song"))
+    conn.commit()
+
+    before = conn.execute("SELECT ai_background FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert before["ai_background"] is None
+
+    set_ai_background(conn, track_id, "Some interesting trivia.")
+    conn.commit()
+
+    after = conn.execute("SELECT ai_background FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert after["ai_background"] == "Some interesting trivia."
+
+
+def test_migrate_adds_ai_background_to_a_pre_existing_tracks_table():
+    conn = connect(":memory:")
+    # Simulate an older database created before ai_background existed (the real pre-migration
+    # schema, minus that one column).
+    conn.executescript("""
+        CREATE TABLE tracks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            external_id TEXT UNIQUE NOT NULL,
+            source TEXT NOT NULL,
+            plex_rating_key TEXT,
+            file_path TEXT,
+            title TEXT,
+            artist TEXT,
+            album TEXT,
+            genre TEXT,
+            mood TEXT,
+            year INTEGER,
+            duration_ms INTEGER,
+            tempo REAL,
+            energy REAL,
+            musical_key TEXT,
+            tag_source TEXT NOT NULL DEFAULT 'none'
+        );
+    """)
+    conn.commit()
+
+    init_db(conn)
+
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()}
+    assert "ai_background" in columns

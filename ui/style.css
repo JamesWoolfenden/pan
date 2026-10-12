@@ -270,8 +270,102 @@ header h1 {
   color: var(--danger);
 }
 
+#playlists-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.75rem 1.1rem;
+  margin-bottom: 1.75rem;
+}
+
+#playlists-header strong {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#stats-panel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.75rem;
+}
+
+#stats-panel > strong {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#playlists-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+#playlists-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#playlists-list li:hover {
+  background: var(--surface-alt);
+}
+
+#playlists-list li button {
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  padding: 0.1rem 0.4rem;
+  line-height: 1;
+}
+
+#playlists-list li button:hover {
+  color: var(--danger);
+}
+
 #results-header {
   margin-bottom: 0.9rem;
+}
+
+.dismiss-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.dismiss-btn:hover {
+  color: var(--danger);
+  background: var(--surface-alt);
+  border: none;
+}
+
+#load-more-btn {
+  display: block;
+  margin: 1rem auto 0;
+  background: var(--surface);
 }
 
 #context-banner {
@@ -287,6 +381,23 @@ header h1 {
   text-decoration: underline;
   padding: 0;
   font-size: 0.85rem;
+}
+
+.artist-link,
+.album-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.artist-link:hover,
+.album-link:hover {
+  color: var(--accent);
+  border: none;
 }
 
 #play-all-btn {
@@ -305,10 +416,11 @@ header h1 {
 }
 
 #results li {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.8rem 1rem;
+  padding: 0.8rem 2.2rem 0.8rem 1rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -362,12 +474,27 @@ header h1 {
 }
 
 .edit-panel,
-.info-panel {
+.info-panel,
+.playlist-picker-panel {
   flex-basis: 100%;
   background: var(--surface-alt);
   border-radius: 8px;
   padding: 0.7rem 0.8rem;
   margin-top: 0.3rem;
+}
+
+.playlist-picker-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.playlist-picker-list button {
+  background: var(--surface);
+  font-size: 0.8rem;
 }
 
 .info-facts {

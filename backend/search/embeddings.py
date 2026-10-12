@@ -15,7 +15,16 @@ def get_model() -> SentenceTransformer:
 
 
 def track_text(row: sqlite3.Row) -> str:
-    parts = [row["title"], row["artist"], row["album"], row["genre"], row["mood"]]
+    """Text used to build this track's search/similarity embedding. Deliberately excludes
+    title: literal word overlap between unrelated songs' titles (e.g. two different tracks that
+    happen to both contain "Feel") is noise for "what does this sound like" purposes, not
+    signal - it was dominating "Similar" results over genuinely similar genre/mood tracks.
+    Genre is repeated to weight it more heavily, since it's the most meaningful field here.
+    Tempo/energy/key/year are NOT folded in here as fuzzy text buckets - backend/search/engine.py
+    uses the real numeric values directly for those, as explicit weighted factors alongside this
+    text embedding's distance, which is more precise than hoping a text model captures them."""
+    genre = row["genre"]
+    parts = [row["artist"], row["album"], genre, genre, row["mood"]]
     return " ".join(p for p in parts if p)
 
 

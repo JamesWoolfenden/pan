@@ -14,12 +14,22 @@ const nowPlayingEl = document.getElementById("queue-now-playing");
 const prevBtn = document.getElementById("queue-prev");
 const playPauseBtn = document.getElementById("queue-playpause");
 const nextBtn = document.getElementById("queue-next");
+const saveBtn = document.getElementById("queue-save");
 const clearBtn = document.getElementById("queue-clear");
+const playlistsListEl = document.getElementById("playlists-list");
+const loadMoreBtn = document.getElementById("load-more-btn");
+const nowPlayingActionsEl = document.getElementById("queue-now-playing-actions");
 
 let queue = []; // [{id, title, artist, file_path}]
 let currentIndex = -1;
 let lastResults = [];
 let previousResults = null;
+
+const SEARCH_PAGE_SIZE = 25;
+let lastQuery = "";
+let searchOffset = 0;
+let searchHasMore = false;
+let previousSearchHasMore = false;
 
 const HISTORY_KEY = "pan_search_history";
 const MAX_HISTORY = 12;
@@ -83,14 +93,34 @@ form.addEventListener("submit", async (e) => {
   if (!q) return;
 
   addToHistory(q);
+  lastQuery = q;
+  searchOffset = 0;
   previousResults = null;
   contextBannerEl.hidden = true;
   resultsEl.innerHTML = "<li>Searching...</li>";
   resultsHeaderEl.hidden = true;
-  const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+  loadMoreBtn.hidden = true;
+  const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=${SEARCH_PAGE_SIZE}&offset=0`);
   const data = await res.json();
   lastResults = data.results;
+  searchOffset = data.results.length;
+  searchHasMore = data.results.length === SEARCH_PAGE_SIZE;
   renderResults(lastResults);
+  loadMoreBtn.hidden = !searchHasMore;
+});
+
+loadMoreBtn.addEventListener("click", async () => {
+  loadMoreBtn.disabled = true;
+  loadMoreBtn.textContent = "Loading...";
+  const res = await fetch(`/search?q=${encodeURIComponent(lastQuery)}&limit=${SEARCH_PAGE_SIZE}&offset=${searchOffset}`);
+  const data = await res.json();
+  lastResults = lastResults.concat(data.results);
+  searchOffset += data.results.length;
+  searchHasMore = data.results.length === SEARCH_PAGE_SIZE;
+  renderResults(lastResults);
+  loadMoreBtn.disabled = false;
+  loadMoreBtn.textContent = "Load more";
+  loadMoreBtn.hidden = !searchHasMore;
 });
 
 function showSimilar(track) {
@@ -105,9 +135,34 @@ async function showRelated(track, endpointPath, bannerText) {
   const res = await fetch(`/track/${track.id}/${endpointPath}`);
   const data = await res.json();
   previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
   lastResults = data.results;
   renderResults(lastResults);
+  setContextBanner(bannerText, restorePreviousResults);
+}
 
+async function showDiscography(artist) {
+  const res = await fetch(`/artist/discography?artist=${encodeURIComponent(artist)}`);
+  const data = await res.json();
+  previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
+  resultsHeaderEl.hidden = true;
+  renderAlbums(data.albums, artist);
+  setContextBanner(`Discography: ${artist}`, restorePreviousResults);
+}
+
+function restorePreviousResults() {
+  lastResults = previousResults;
+  previousResults = null;
+  contextBannerEl.hidden = true;
+  searchHasMore = previousSearchHasMore;
+  loadMoreBtn.hidden = !searchHasMore;
+  renderResults(lastResults);
+}
+
+function setContextBanner(bannerText, onBack) {
   contextBannerEl.hidden = false;
   contextBannerEl.innerHTML = "";
   const label = document.createElement("span");
@@ -115,13 +170,36 @@ async function showRelated(track, endpointPath, bannerText) {
   const backLink = document.createElement("button");
   backLink.className = "context-back";
   backLink.textContent = "back to search results";
-  backLink.addEventListener("click", () => {
-    lastResults = previousResults;
-    previousResults = null;
-    contextBannerEl.hidden = true;
-    renderResults(lastResults);
-  });
+  backLink.addEventListener("click", onBack);
   contextBannerEl.append(label, backLink);
+}
+
+function renderAlbums(albums, artist) {
+  if (!albums.length) {
+    resultsEl.innerHTML = "<li>No albums found.</li>";
+    return;
+  }
+  resultsEl.innerHTML = "";
+  for (const a of albums) {
+    const li = document.createElement("li");
+
+    const info = document.createElement("div");
+    const titleStrong = document.createElement("strong");
+    titleStrong.textContent = a.album;
+    info.appendChild(titleStrong);
+    const meta = document.createElement("div");
+    meta.className = "track-meta";
+    meta.textContent = `${a.year || ""} · ${a.track_count} track${a.track_count === 1 ? "" : "s"}`;
+    info.appendChild(meta);
+
+    const playBtn = document.createElement("button");
+    playBtn.textContent = "Play";
+    playBtn.addEventListener("click", () => playArtistAlbum(artist, a.album));
+
+    li.appendChild(info);
+    li.appendChild(playBtn);
+    resultsEl.appendChild(li);
+  }
 }
 
 function renderResults(results) {
@@ -137,10 +215,42 @@ function renderResults(results) {
     const li = document.createElement("li");
 
     const info = document.createElement("div");
-    info.innerHTML = `
-      <div><strong>${escapeHtml(r.title || "Untitled")}</strong> — ${escapeHtml(r.artist || "Unknown artist")}</div>
-      <div class="track-meta">${escapeHtml(r.album || "")} ${r.year ? `(${r.year})` : ""} · ${r.source}</div>
-    `;
+
+    const titleEl = document.createElement("div");
+    const titleStrong = document.createElement("strong");
+    titleStrong.textContent = r.title || "Untitled";
+    titleEl.appendChild(titleStrong);
+    titleEl.append(" — ");
+    if (r.artist) {
+      const artistLink = document.createElement("button");
+      artistLink.className = "artist-link";
+      artistLink.textContent = r.artist;
+      artistLink.title = "Browse this artist's discography";
+      artistLink.addEventListener("click", () => showDiscography(r.artist));
+      titleEl.appendChild(artistLink);
+    } else {
+      titleEl.append("Unknown artist");
+    }
+    info.appendChild(titleEl);
+
+    const metaEl = document.createElement("div");
+    metaEl.className = "track-meta";
+    if (r.album) {
+      const albumLink = document.createElement("button");
+      albumLink.className = "album-link";
+      albumLink.textContent = r.album;
+      albumLink.title = "Queue and play the whole album";
+      albumLink.addEventListener("click", () => playAlbum(r));
+      metaEl.appendChild(albumLink);
+      metaEl.append(" ");
+    }
+    metaEl.append(`${r.year ? `(${r.year})` : ""} · ${r.source}`);
+    if (r.play_count !== undefined) {
+      const heard = r.avg_percent_listened != null ? `, avg ${Math.round(r.avg_percent_listened * 100)}% heard` : "";
+      metaEl.append(` · played ${r.play_count}×${heard}`);
+    }
+    info.appendChild(metaEl);
+
     const tagsEl = document.createElement("div");
     tagsEl.className = "track-tags";
     setTagsText(tagsEl, r);
@@ -164,61 +274,101 @@ function renderResults(results) {
       playArea.textContent = "(not playable here)";
     }
 
-    const similarBtn = document.createElement("button");
-    similarBtn.textContent = "Similar";
-    similarBtn.title = "Find tracks like this one";
-    similarBtn.addEventListener("click", () => showSimilar(r));
-    playArea.appendChild(similarBtn);
+    appendDiscoveryActions(r, tagsEl, playArea, li);
 
-    const versionsBtn = document.createElement("button");
-    versionsBtn.textContent = "Versions";
-    versionsBtn.title = "Other mixes/edits/remixes of this song";
-    versionsBtn.addEventListener("click", () => showVersions(r));
-    playArea.appendChild(versionsBtn);
-
-    if (r.album) {
-      const albumBtn = document.createElement("button");
-      albumBtn.textContent = "Play album";
-      albumBtn.title = "Queue and play the whole album";
-      albumBtn.addEventListener("click", () => playAlbum(r));
-      playArea.appendChild(albumBtn);
-    }
-
-    const infoBtn = document.createElement("button");
-    infoBtn.textContent = "Info";
-    infoBtn.title = "Track/album/artist details";
-    const infoPanel = buildInfoPanel(r);
-    infoBtn.addEventListener("click", () => {
-      infoPanel.hidden = !infoPanel.hidden;
-      infoBtn.textContent = infoPanel.hidden ? "Info" : "Hide info";
-      if (!infoPanel.hidden) infoPanel.load();
+    const dismissBtn = document.createElement("button");
+    dismissBtn.textContent = "×";
+    dismissBtn.className = "dismiss-btn";
+    dismissBtn.title = "Remove from this list";
+    dismissBtn.addEventListener("click", () => {
+      lastResults = lastResults.filter((x) => x.id !== r.id);
+      li.remove();
     });
-    playArea.appendChild(infoBtn);
-
-    const editBtn = document.createElement("button");
-    editBtn.textContent = "Edit tags";
-    editBtn.className = "edit-tags-btn";
-    const editPanel = buildEditPanel(r, tagsEl, editBtn);
-    editBtn.addEventListener("click", () => {
-      editPanel.hidden = !editPanel.hidden;
-      editBtn.textContent = editPanel.hidden ? "Edit tags" : "Cancel";
-    });
-    playArea.appendChild(editBtn);
+    li.appendChild(dismissBtn);
 
     li.appendChild(info);
     li.appendChild(playArea);
-    li.appendChild(infoPanel);
-    li.appendChild(editPanel);
     resultsEl.appendChild(li);
   }
+}
+
+function buildPlaylistPickerPanel(r) {
+  const panel = document.createElement("div");
+  panel.className = "playlist-picker-panel";
+  panel.hidden = true;
+
+  const listEl = document.createElement("div");
+  listEl.className = "playlist-picker-list";
+
+  const newBtn = document.createElement("button");
+  newBtn.textContent = "+ New playlist";
+  newBtn.addEventListener("click", async () => {
+    const name = prompt("Playlist name?");
+    if (!name || !name.trim()) return;
+    await fetch("/playlists", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim(), track_ids: [r.id] }),
+    });
+    loadPlaylists();
+    panel.hidden = true;
+  });
+
+  let loaded = false;
+  panel.load = async () => {
+    if (loaded) return;
+    loaded = true;
+    const res = await fetch("/playlists");
+    const data = await res.json();
+    if (!data.playlists.length) {
+      listEl.textContent = "No playlists yet.";
+    } else {
+      for (const p of data.playlists) {
+        const btn = document.createElement("button");
+        btn.textContent = p.name;
+        btn.addEventListener("click", async () => {
+          await fetch(`/playlists/${p.id}/tracks`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ track_id: r.id }),
+          });
+          loadPlaylists();
+          panel.hidden = true;
+        });
+        listEl.appendChild(btn);
+      }
+    }
+  };
+
+  panel.append(listEl, newBtn);
+  return panel;
 }
 
 async function playAlbum(track) {
   const res = await fetch(`/track/${track.id}/album`);
   const data = await res.json();
-  queue = data.results.map(toQueueEntry);
+  playTrackList(data.results, `Album: "${track.album}" — ${track.artist || "Unknown artist"}`);
+}
+
+async function playArtistAlbum(artist, album) {
+  const res = await fetch(`/artist/album?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`);
+  const data = await res.json();
+  playTrackList(data.results, `Album: "${album}" — ${artist}`);
+}
+
+// Used by both "play this album" paths. Keeps the tracks visible in the main results list (with
+// their full set of controls - Info, Edit tags, Similar, etc.) rather than only in the compact
+// queue list, which has none of that.
+function playTrackList(results, bannerText) {
+  previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
+  lastResults = results;
+  renderResults(lastResults);
+  queue = results.filter((r) => r.file_path).map(toQueueEntry);
   renderQueue();
   playAt(0);
+  setContextBanner(bannerText, restorePreviousResults);
 }
 
 function buildInfoPanel(r) {
@@ -287,6 +437,89 @@ function formatBytes(bytes) {
 
 function setTagsText(tagsEl, r) {
   tagsEl.textContent = `${r.genre || ""}${r.mood ? ` · ${r.mood}` : ""}`;
+}
+
+// Shared by search result rows and the queue panel's "now playing" track, so both get the
+// same Similar/Versions/Info/Edit tags/+Playlist actions instead of search results being the
+// only place you can do anything with a track.
+function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
+  const similarBtn = document.createElement("button");
+  similarBtn.textContent = "Similar";
+  similarBtn.title = "Find tracks like this one";
+  similarBtn.addEventListener("click", () => showSimilar(r));
+  buttonHost.appendChild(similarBtn);
+
+  if (looksLikeVersionedTitle(r.title)) {
+    const versionsBtn = document.createElement("button");
+    versionsBtn.textContent = "Versions";
+    versionsBtn.title = "Other mixes/edits/remixes of this song";
+    versionsBtn.addEventListener("click", () => showVersions(r));
+    buttonHost.appendChild(versionsBtn);
+  }
+
+  const infoBtn = document.createElement("button");
+  infoBtn.textContent = "Info";
+  infoBtn.title = "Track/album/artist details";
+  const infoPanel = buildInfoPanel(r);
+  infoBtn.addEventListener("click", () => {
+    infoPanel.hidden = !infoPanel.hidden;
+    infoBtn.textContent = infoPanel.hidden ? "Info" : "Hide info";
+    if (!infoPanel.hidden) infoPanel.load();
+  });
+  buttonHost.appendChild(infoBtn);
+  panelHost.appendChild(infoPanel);
+
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "Edit tags";
+  editBtn.className = "edit-tags-btn";
+  const editPanel = buildEditPanel(r, tagsEl, editBtn);
+  editBtn.addEventListener("click", () => {
+    editPanel.hidden = !editPanel.hidden;
+    editBtn.textContent = editPanel.hidden ? "Edit tags" : "Cancel";
+  });
+  buttonHost.appendChild(editBtn);
+  panelHost.appendChild(editPanel);
+
+  const playlistBtn = document.createElement("button");
+  playlistBtn.textContent = "+ Playlist";
+  playlistBtn.title = "Add this track to a playlist";
+  const playlistPanel = buildPlaylistPickerPanel(r);
+  playlistBtn.addEventListener("click", () => {
+    playlistPanel.hidden = !playlistPanel.hidden;
+    if (!playlistPanel.hidden) playlistPanel.load();
+  });
+  buttonHost.appendChild(playlistBtn);
+  panelHost.appendChild(playlistPanel);
+}
+
+function renderNowPlayingActions(track) {
+  nowPlayingActionsEl.innerHTML = "";
+  if (!track) {
+    nowPlayingActionsEl.hidden = true;
+    return;
+  }
+  nowPlayingActionsEl.hidden = false;
+
+  const tagsEl = document.createElement("span");
+  tagsEl.className = "track-tags";
+  setTagsText(tagsEl, track);
+  nowPlayingActionsEl.appendChild(tagsEl);
+
+  const buttonRow = document.createElement("div");
+  buttonRow.className = "play-area";
+  const panelHost = document.createElement("div");
+  appendDiscoveryActions(track, tagsEl, buttonRow, panelHost);
+  nowPlayingActionsEl.append(buttonRow, panelHost);
+}
+
+// Cheap, no-extra-query heuristic for whether the "Versions" button is worth showing: does
+// this track's own title already look like a mix/edit/remix (mirrors backend _base_title's
+// stripping logic)? Under-shows rather than over-shows - a plain-titled original won't get the
+// button even if remixes of it exist elsewhere, but every remix-titled track will.
+function looksLikeVersionedTitle(title) {
+  if (!title) return false;
+  const stripped = title.replace(/[\(\[][^\)\]]*[\)\]]/g, "").replace(/\s+-\s+.+$/, "").trim();
+  return stripped.toLowerCase() !== title.trim().toLowerCase();
 }
 
 function buildEditPanel(r, tagsEl, editBtn) {
@@ -393,7 +626,10 @@ function addToQueue(track) {
 }
 
 function toQueueEntry(r) {
-  return { id: r.id, title: r.title, artist: r.artist, file_path: r.file_path };
+  // Keep the full result object (not just id/title/artist/file_path) so the "now playing" bar
+  // can offer the same Similar/Info/Edit tags/+Playlist actions search results have, including
+  // genre/mood pre-filled correctly in the edit panel.
+  return r;
 }
 
 function renderQueue() {
@@ -420,6 +656,7 @@ function renderQueue() {
   prevBtn.disabled = !hasQueue;
   playPauseBtn.disabled = !hasQueue;
   nextBtn.disabled = !hasQueue;
+  saveBtn.disabled = !hasQueue;
   clearBtn.disabled = !hasQueue;
 }
 
@@ -430,6 +667,7 @@ function removeFromQueue(i) {
     queuePlayer.pause();
     currentIndex = -1;
     nowPlayingEl.textContent = "";
+    renderNowPlayingActions(null);
   } else if (i < currentIndex) {
     currentIndex -= 1;
   }
@@ -456,8 +694,22 @@ function schedulePrefetch(track) {
   nextPrefetch = { id: track.id, abort, promise };
 }
 
+function recordCurrentPlayProgress() {
+  if (currentIndex === -1 || !queue[currentIndex]) return;
+  const track = queue[currentIndex];
+  const duration = queuePlayer.duration;
+  if (!duration || !isFinite(duration)) return;
+  const percentListened = queuePlayer.currentTime / duration;
+  fetch(`/track/${track.id}/play-event`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ percent_listened: percentListened }),
+  }).catch(() => {});
+}
+
 async function playAt(i) {
   if (i < 0 || i >= queue.length) return;
+  recordCurrentPlayProgress();
   currentIndex = i;
   const track = queue[i];
 
@@ -484,6 +736,7 @@ async function playAt(i) {
   queuePlayer.play();
   pauseOtherPlayers(queuePlayer);
   nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"}`;
+  renderNowPlayingActions(track);
   renderQueue();
 
   schedulePrefetch(queue[i + 1]);
@@ -511,7 +764,18 @@ playPauseBtn.addEventListener("click", () => {
 });
 prevBtn.addEventListener("click", () => playAt(currentIndex - 1));
 nextBtn.addEventListener("click", () => playAt(currentIndex + 1));
+saveBtn.addEventListener("click", async () => {
+  const name = prompt("Playlist name?");
+  if (!name || !name.trim()) return;
+  await fetch("/playlists", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name.trim(), track_ids: queue.map((t) => t.id) }),
+  });
+  loadPlaylists();
+});
 clearBtn.addEventListener("click", () => {
+  recordCurrentPlayProgress();
   queuePlayer.pause();
   queuePlayer.removeAttribute("src");
   cancelPrefetch();
@@ -522,8 +786,66 @@ clearBtn.addEventListener("click", () => {
   queue = [];
   currentIndex = -1;
   nowPlayingEl.textContent = "";
+  renderNowPlayingActions(null);
   renderQueue();
 });
+
+async function loadPlaylists() {
+  const res = await fetch("/playlists");
+  const data = await res.json();
+  renderPlaylists(data.playlists);
+}
+
+function renderPlaylists(playlists) {
+  playlistsListEl.innerHTML = "";
+  if (!playlists.length) {
+    playlistsListEl.innerHTML = "<li>No saved playlists yet.</li>";
+    return;
+  }
+  for (const p of playlists) {
+    const li = document.createElement("li");
+
+    const label = document.createElement("span");
+    label.textContent = `${p.name} (${p.track_count} track${p.track_count === 1 ? "" : "s"})`;
+    label.addEventListener("click", () => playPlaylist(p.id, p.name));
+    li.appendChild(label);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "×";
+    deleteBtn.title = "Delete playlist";
+    deleteBtn.addEventListener("click", async () => {
+      if (!confirm(`Delete playlist "${p.name}"?`)) return;
+      await fetch(`/playlists/${p.id}`, { method: "DELETE" });
+      loadPlaylists();
+    });
+    li.appendChild(deleteBtn);
+
+    playlistsListEl.appendChild(li);
+  }
+}
+
+async function playPlaylist(id, name) {
+  const res = await fetch(`/playlists/${id}`);
+  const data = await res.json();
+  playTrackList(data.results, `Playlist: "${name}"`);
+}
+
+loadPlaylists();
+
+async function showStats(endpointPath, label) {
+  const res = await fetch(`/stats/${endpointPath}`);
+  const data = await res.json();
+  previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
+  lastResults = data.results;
+  renderResults(lastResults);
+  setContextBanner(label, restorePreviousResults);
+}
+
+document.getElementById("stats-most-played").addEventListener("click", () => showStats("most-played", "Most played"));
+document.getElementById("stats-most-skipped").addEventListener("click", () => showStats("most-skipped", "Most skipped"));
+document.getElementById("stats-never-played").addEventListener("click", () => showStats("never-played", "Never played"));
 
 function escapeHtml(str) {
   const div = document.createElement("div");

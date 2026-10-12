@@ -10,7 +10,7 @@ COMPLEX_PATTERNS = [
     r"\bother than\b",
     r"\bbefore \d{4}\b",
     r"\bafter \d{4}\b",
-    r"\bfrom the \d{2,4}s\b",
+    r"\b(?:19|20)?\d{2}'?s\b",  # "1990s", "90s", "'90s", "2000s", "00s" - anywhere, not just after "from the"
 ]
 
 _COMPLEX_RE = re.compile("|".join(COMPLEX_PATTERNS), re.IGNORECASE)

@@ -21,11 +21,27 @@
           <button id="queue-prev" disabled>&#9664;&#9664;</button>
           <button id="queue-playpause" disabled>&#9654;</button>
           <button id="queue-next" disabled>&#9654;&#9654;</button>
+          <button id="queue-save" disabled>Save as playlist</button>
           <button id="queue-clear" disabled>Clear</button>
         </div>
       </div>
+      <div id="queue-now-playing-actions" hidden></div>
       <audio id="queue-player" controls></audio>
       <ol id="queue-list"></ol>
+    </section>
+
+    <section id="playlists-panel">
+      <div id="playlists-header">
+        <strong>Playlists</strong>
+      </div>
+      <ul id="playlists-list"></ul>
+    </section>
+
+    <section id="stats-panel">
+      <strong>Stats</strong>
+      <button id="stats-most-played">Most played</button>
+      <button id="stats-most-skipped">Most skipped</button>
+      <button id="stats-never-played">Never played</button>
     </section>
 
     <form id="search-form">
@@ -38,6 +54,7 @@
     </div>
     <div id="context-banner" hidden></div>
     <ul id="results"></ul>
+    <button id="load-more-btn" hidden>Load more</button>
   </main>
 
   <script src="/static/app.js"></script>

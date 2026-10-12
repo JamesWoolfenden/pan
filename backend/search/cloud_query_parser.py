@@ -27,6 +27,11 @@ captured as a hard filter). Schema (omit fields that don't apply, use null/empty
   "semantic_query": string
 }}
 
+A decade like "1990s" or "90s" means year_min=1990, year_max=1999 (and "00s"/"2000s" means
+2000-2009, etc.) - always convert a decade mention to a year_min/year_max range rather than
+leaving it in semantic_query, since embedding similarity alone can't reliably enforce a
+release-year constraint.
+
 Respond with ONLY the JSON object, no other text.
 
 Query: {query}

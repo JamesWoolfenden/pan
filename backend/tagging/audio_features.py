@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import librosa
 import numpy as np
@@ -10,7 +11,7 @@ log = logging.getLogger(__name__)
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
-def extract_features(file_path: str) -> dict | None:
+def extract_features(file_path: str | Path) -> dict | None:
     """Extract tempo (BPM), energy (RMS, normalized 0-1) and estimated musical key from an
     audio file. Returns None if the file can't be loaded (missing, corrupt, unreadable)."""
     try:

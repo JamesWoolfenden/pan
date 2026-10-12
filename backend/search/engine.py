@@ -4,7 +4,14 @@ import re
 import sqlite3
 from pathlib import Path
 
-from backend.db import find_similar_embeddings, get_tracks_by_ids, search_embeddings
+from backend.db import (
+    find_similar_embeddings,
+    get_playlist_track_ids,
+    get_tracks_by_ids,
+    rank_by_embedding,
+    search_embeddings,
+)
+from backend.paths import resolve as resolve_file_path
 from backend.search.cloud_query_parser import parse_query
 from backend.search.embeddings import embed_text
 from backend.search.query_router import is_complex_query
@@ -61,12 +68,12 @@ FORMAT_QUALITY_TIER = {
 
 
 def _file_quality(row: sqlite3.Row) -> tuple[int, int]:
-    path = row["file_path"]
-    if not path:
+    path = resolve_file_path(row["file_path"])
+    if path is None:
         return (-1, 0)
-    tier = FORMAT_QUALITY_TIER.get(Path(path).suffix.lower(), 0)
+    tier = FORMAT_QUALITY_TIER.get(path.suffix.lower(), 0)
     try:
-        size = Path(path).stat().st_size
+        size = path.stat().st_size
     except OSError:
         size = 0
     return (tier, size)
@@ -93,43 +100,96 @@ def _dedupe_by_song(rows: list[sqlite3.Row], limit: int) -> list[sqlite3.Row]:
     ]
 
 
-def search(conn: sqlite3.Connection, query: str, limit: int = 25) -> list[dict]:
+def search(conn: sqlite3.Connection, query: str, limit: int = 25, offset: int = 0) -> list[dict]:
     filt = parse_query(query) if is_complex_query(query) else {"semantic_query": query}
 
     candidate_ids = _filtered_candidate_ids(conn, filt)
     semantic_query = filt.get("semantic_query") or query
-
-    vector_limit = limit * VECTOR_CANDIDATE_MULTIPLIER
     query_embedding = embed_text(semantic_query)
-    hits = search_embeddings(conn, query_embedding, limit=vector_limit)
 
     if candidate_ids is not None:
-        hits = [(track_id, dist) for track_id, dist in hits if track_id in candidate_ids]
+        # A hard filter (genre/year/etc.) narrows the field to a specific set of tracks, which
+        # can rank arbitrarily poorly against whatever's left of the query once the filtered
+        # part is stripped out (e.g. "1990s house classics" -> filter handles genre+year,
+        # leaving just "classic" as the semantic remainder - too weak a signal to guarantee the
+        # real matches land in a bounded top-N KNN scan, which sqlite-vec also caps at k=4096
+        # regardless). Rank just the filtered candidates directly instead of intersecting with
+        # a capped KNN window, so a valid match can never be silently dropped.
+        hits = rank_by_embedding(conn, list(candidate_ids), query_embedding)
+    else:
+        vector_limit = (offset + limit) * VECTOR_CANDIDATE_MULTIPLIER
+        hits = search_embeddings(conn, query_embedding, limit=vector_limit)
 
     ids_in_order = [track_id for track_id, _ in hits]
     distance_by_id = dict(hits)
     rows = get_tracks_by_ids(conn, ids_in_order)
-    rows = _dedupe_by_song(rows, limit)
+    rows = _dedupe_by_song(rows, offset + limit)[offset:]
     return [_to_result(row, distance_by_id[row["id"]]) for row in rows]
 
 
+# Pure text-embedding similarity has a real ceiling: it can only approximate numeric audio
+# attributes (tempo/energy/key) and recency (year) via fuzzy text tokens, not use them
+# precisely. These weights combine the text embedding's distance (genre/mood/artist/album -
+# the one thing that's genuinely text) with explicit numeric factors for the data we actually
+# have exact values for. Swapping in a real audio-content embedding distance later is a
+# drop-in addition to this same weighted sum (one more term + weight), not a redesign.
+SIMILARITY_WEIGHTS = {"text": 0.45, "tempo": 0.20, "energy": 0.10, "key": 0.05, "year": 0.20}
+TEMPO_NORM = 40.0  # BPM difference treated as "maximally different" for scoring purposes
+YEAR_NORM = 15.0  # years apart treated as "maximally different" for scoring purposes
+
+
+def _numeric_distance(a: float | None, b: float | None, norm: float) -> float:
+    """0 = identical, 1 = at-or-beyond `norm` apart. 0.5 (neutral - neither rewarded nor
+    penalized) when either value is unknown, rather than guessing."""
+    if a is None or b is None:
+        return 0.5
+    return min(abs(a - b) / norm, 1.0)
+
+
+def _key_distance(a: str | None, b: str | None) -> float:
+    if a is None or b is None:
+        return 0.5
+    return 0.0 if a == b else 1.0
+
+
+def _combined_distance(anchor: sqlite3.Row, candidate: sqlite3.Row, text_distance: float) -> float:
+    w = SIMILARITY_WEIGHTS
+    return (
+        w["text"] * text_distance
+        + w["tempo"] * _numeric_distance(anchor["tempo"], candidate["tempo"], TEMPO_NORM)
+        + w["energy"] * _numeric_distance(anchor["energy"], candidate["energy"], 1.0)
+        + w["key"] * _key_distance(anchor["musical_key"], candidate["musical_key"])
+        + w["year"] * _numeric_distance(anchor["year"], candidate["year"], YEAR_NORM)
+    )
+
+
 def similar(conn: sqlite3.Connection, track_id: int, limit: int = 25) -> list[dict]:
-    """Find tracks whose embedding is closest to the given track's own - "more like this",
-    using the vector already stored for it rather than re-embedding anything."""
+    """Find tracks most like the given track's own - "more like this" - combining the text
+    embedding's distance with explicit tempo/energy/key/year factors (see _combined_distance)
+    rather than relying on the text embedding alone."""
     anchor_rows = get_tracks_by_ids(conn, [track_id])
-    anchor_key = _song_key(anchor_rows[0]) if anchor_rows else None
+    if not anchor_rows:
+        return []
+    anchor = anchor_rows[0]
+    anchor_key = _song_key(anchor)
 
     hits = find_similar_embeddings(conn, track_id, limit=(limit + 1) * VECTOR_CANDIDATE_MULTIPLIER)
     hits = [(tid, dist) for tid, dist in hits if tid != track_id]
 
     ids_in_order = [tid for tid, _ in hits]
-    distance_by_id = dict(hits)
+    text_distance_by_id = dict(hits)
     rows = get_tracks_by_ids(conn, ids_in_order)
     # Exclude other physical copies of the anchor track itself, not just its own id - "similar
     # to X" shouldn't recommend X back to you under a different filename.
     rows = [row for row in rows if _song_key(row) != anchor_key]
+
+    combined_distance_by_id = {
+        row["id"]: _combined_distance(anchor, row, text_distance_by_id[row["id"]]) for row in rows
+    }
+    rows.sort(key=lambda row: combined_distance_by_id[row["id"]])
+
     rows = _dedupe_by_song(rows, limit)
-    return [_to_result(row, distance_by_id[row["id"]]) for row in rows]
+    return [_to_result(row, combined_distance_by_id[row["id"]]) for row in rows]
 
 
 _TRACK_NUMBER_RE = re.compile(r"^\s*(\d+)")
@@ -143,17 +203,21 @@ def _track_number(row: sqlite3.Row) -> int | None:
 
 
 def album_tracks(conn: sqlite3.Connection, track_id: int, limit: int = 200) -> list[dict]:
-    """All tracks from the same album as the given track, in track order (parsed from the
-    leading number in each file's name, since the catalog has no explicit track-number field),
-    deduped the same way search results are."""
+    """All tracks from the same album as the given track, in track order."""
     anchor_rows = get_tracks_by_ids(conn, [track_id])
     if not anchor_rows or not anchor_rows[0]["album"]:
         return []
     anchor = anchor_rows[0]
+    return album_tracks_by_name(conn, anchor["artist"], anchor["album"], limit)
 
+
+def album_tracks_by_name(conn: sqlite3.Connection, artist: str, album: str, limit: int = 200) -> list[dict]:
+    """All tracks for a given (artist, album), in track order (parsed from the leading number
+    in each file's name, since the catalog has no explicit track-number field), deduped the
+    same way search results are."""
     rows = conn.execute(
         "SELECT * FROM tracks WHERE lower(trim(artist)) = ? AND lower(trim(album)) = ?",
-        ((anchor["artist"] or "").strip().lower(), (anchor["album"] or "").strip().lower()),
+        ((artist or "").strip().lower(), (album or "").strip().lower()),
     ).fetchall()
 
     groups: dict[tuple[str, str], list[sqlite3.Row]] = {}
@@ -163,6 +227,39 @@ def album_tracks(conn: sqlite3.Connection, track_id: int, limit: int = 200) -> l
     deduped.sort(key=lambda r: (_track_number(r) is None, _track_number(r) or 0, (r["title"] or "").lower()))
 
     return [_to_result(row, 0.0) for row in deduped[:limit]]
+
+
+def discography(conn: sqlite3.Connection, artist: str) -> list[dict]:
+    """Every album by this artist, grouped with year and (deduped) track count, oldest first."""
+    artist_norm = (artist or "").strip().lower()
+    if not artist_norm:
+        return []
+
+    rows = conn.execute("SELECT * FROM tracks WHERE lower(trim(artist)) = ?", (artist_norm,)).fetchall()
+
+    albums: dict[str, dict] = {}
+    for row in rows:
+        album = (row["album"] or "").strip()
+        if not album:
+            continue
+        entry = albums.setdefault(album.lower(), {"album": album, "year": row["year"], "songs": set()})
+        entry["songs"].add(_song_key(row))
+        if row["year"] and not entry["year"]:
+            entry["year"] = row["year"]
+
+    result = [
+        {"album": a["album"], "year": a["year"], "track_count": len(a["songs"])}
+        for a in albums.values()
+    ]
+    result.sort(key=lambda a: (a["year"] is None, a["year"] or 0, a["album"].lower()))
+    return result
+
+
+def playlist_tracks(conn: sqlite3.Connection, playlist_id: int) -> list[dict]:
+    """A saved playlist's tracks, in the order they were saved."""
+    ids = get_playlist_track_ids(conn, playlist_id)
+    rows = get_tracks_by_ids(conn, ids)
+    return [_to_result(row, 0.0) for row in rows]
 
 
 _BRACKETED_RE = re.compile(r"[\(\[][^\)\]]*[\)\]]")

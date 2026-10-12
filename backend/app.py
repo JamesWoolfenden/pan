@@ -9,13 +9,31 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from backend.db import connection, get_track, init_db, set_tags
+from backend.db import (
+    add_track_to_playlist,
+    connection,
+    create_playlist,
+    delete_playlist,
+    get_playlist,
+    get_track,
+    init_db,
+    list_playlists,
+    record_play_event,
+    rename_playlist,
+    set_ai_background,
+    set_tags,
+)
 from backend.info import get_track_background
+from backend.paths import resolve as resolve_file_path
 from backend.search.embeddings import reindex_embeddings
 from backend.search.engine import album_tracks as run_album_tracks
+from backend.search.engine import album_tracks_by_name as run_album_tracks_by_name
+from backend.search.engine import discography as run_discography
+from backend.search.engine import playlist_tracks as run_playlist_tracks
 from backend.search.engine import search as run_search
 from backend.search.engine import similar as run_similar
 from backend.search.engine import versions as run_versions
+from backend.stats import most_played, most_skipped, never_played
 from backend.tagging.cloud_tagger import suggest_tags
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -42,9 +60,9 @@ with connection() as _conn:
 
 
 @app.get("/search")
-def search_endpoint(q: str, limit: int = 25):
+def search_endpoint(q: str, limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": run_search(conn, q, limit=limit)}
+        return {"results": run_search(conn, q, limit=limit, offset=offset)}
 
 
 @app.get("/track/{track_id}/similar")
@@ -63,12 +81,131 @@ def album_endpoint(track_id: int):
         return {"results": run_album_tracks(conn, track_id)}
 
 
+@app.get("/artist/discography")
+def discography_endpoint(artist: str):
+    with connection() as conn:
+        return {"albums": run_discography(conn, artist)}
+
+
+@app.get("/artist/album")
+def artist_album_endpoint(artist: str, album: str):
+    with connection() as conn:
+        return {"results": run_album_tracks_by_name(conn, artist, album)}
+
+
 @app.get("/track/{track_id}/versions")
 def versions_endpoint(track_id: int):
     with connection() as conn:
         if get_track(conn, track_id) is None:
             raise HTTPException(status_code=404, detail="Track not found")
         return {"results": run_versions(conn, track_id)}
+
+
+class PlaylistCreate(BaseModel):
+    name: str
+    track_ids: list[int]
+
+
+class PlaylistRename(BaseModel):
+    name: str
+
+
+@app.get("/playlists")
+def list_playlists_endpoint():
+    with connection() as conn:
+        rows = list_playlists(conn)
+        return {"playlists": [dict(row) for row in rows]}
+
+
+@app.post("/playlists")
+def create_playlist_endpoint(body: PlaylistCreate):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Playlist name is required")
+    with connection() as conn:
+        playlist_id = create_playlist(conn, name, body.track_ids)
+        conn.commit()
+    return {"id": playlist_id, "name": name}
+
+
+class PlaylistAddTrack(BaseModel):
+    track_id: int
+
+
+@app.post("/playlists/{playlist_id}/tracks")
+def add_track_to_playlist_endpoint(playlist_id: int, body: PlaylistAddTrack):
+    with connection() as conn:
+        if get_playlist(conn, playlist_id) is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        if get_track(conn, body.track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        add_track_to_playlist(conn, playlist_id, body.track_id)
+        conn.commit()
+    return {"status": "ok"}
+
+
+@app.get("/playlists/{playlist_id}")
+def get_playlist_endpoint(playlist_id: int):
+    with connection() as conn:
+        playlist = get_playlist(conn, playlist_id)
+        if playlist is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        return {"id": playlist["id"], "name": playlist["name"], "results": run_playlist_tracks(conn, playlist_id)}
+
+
+@app.patch("/playlists/{playlist_id}")
+def rename_playlist_endpoint(playlist_id: int, body: PlaylistRename):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Playlist name is required")
+    with connection() as conn:
+        if get_playlist(conn, playlist_id) is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        rename_playlist(conn, playlist_id, name)
+        conn.commit()
+    return {"id": playlist_id, "name": name}
+
+
+@app.delete("/playlists/{playlist_id}")
+def delete_playlist_endpoint(playlist_id: int):
+    with connection() as conn:
+        if get_playlist(conn, playlist_id) is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        delete_playlist(conn, playlist_id)
+        conn.commit()
+    return {"status": "deleted"}
+
+
+class PlayEvent(BaseModel):
+    percent_listened: float
+
+
+@app.post("/track/{track_id}/play-event")
+def play_event_endpoint(track_id: int, event: PlayEvent):
+    with connection() as conn:
+        if get_track(conn, track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        record_play_event(conn, track_id, event.percent_listened)
+        conn.commit()
+    return {"status": "ok"}
+
+
+@app.get("/stats/most-played")
+def most_played_endpoint(limit: int = 25):
+    with connection() as conn:
+        return {"results": most_played(conn, limit)}
+
+
+@app.get("/stats/never-played")
+def never_played_endpoint(limit: int = 25):
+    with connection() as conn:
+        return {"results": never_played(conn, limit)}
+
+
+@app.get("/stats/most-skipped")
+def most_skipped_endpoint(limit: int = 25):
+    with connection() as conn:
+        return {"results": most_skipped(conn, limit)}
 
 
 @app.post("/admin/reindex")
@@ -110,8 +247,9 @@ def stream(track_id: int):
         row = get_track(conn, track_id)
     if row is None or not row["file_path"]:
         raise HTTPException(status_code=404, detail="No playable file for this track")
-    media_type = MEDIA_TYPE_OVERRIDES.get(Path(row["file_path"]).suffix.lower())
-    return FileResponse(row["file_path"], media_type=media_type)
+    path = resolve_file_path(row["file_path"])
+    media_type = MEDIA_TYPE_OVERRIDES.get(path.suffix.lower())
+    return FileResponse(path, media_type=media_type)
 
 
 class TagUpdate(BaseModel):
@@ -138,7 +276,7 @@ def track_detail(track_id: int):
     file_size = None
     file_format = None
     if row["file_path"]:
-        path = Path(row["file_path"])
+        path = resolve_file_path(row["file_path"])
         file_format = path.suffix.lstrip(".").upper() or None
         try:
             file_size = path.stat().st_size
@@ -170,7 +308,14 @@ def track_about(track_id: int):
         row = get_track(conn, track_id)
         if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
-        return {"text": get_track_background(row)}
+        if row["ai_background"]:
+            return {"text": row["ai_background"], "cached": True}
+
+        text = get_track_background(row)
+        if text:
+            set_ai_background(conn, track_id, text)
+            conn.commit()
+        return {"text": text, "cached": False}
 
 
 @app.patch("/track/{track_id}/tags")
