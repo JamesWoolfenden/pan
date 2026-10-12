@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>pan</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>pan</h1>
+    <button id="reindex-btn">Reindex library</button>
+    <span id="reindex-status"></span>
+  </header>
+
+  <main>
+    <section id="queue-panel">
+      <div id="queue-header">
+        <strong>Queue</strong>
+        <span id="queue-now-playing"></span>
+        <div id="queue-controls">
+          <button id="queue-prev" disabled>&#9664;&#9664;</button>
+          <button id="queue-playpause" disabled>&#9654;</button>
+          <button id="queue-next" disabled>&#9654;&#9654;</button>
+          <button id="queue-clear" disabled>Clear</button>
+        </div>
+      </div>
+      <audio id="queue-player" controls></audio>
+      <ol id="queue-list"></ol>
+    </section>
+
+    <form id="search-form">
+      <input id="query" type="text" placeholder='Try: "upbeat 90s tracks but not metal"' autofocus />
+      <button type="submit">Search</button>
+    </form>
+    <div id="search-history"></div>
+    <div id="results-header" hidden>
+      <button id="play-all-btn">Play all</button>
+    </div>
+    <div id="context-banner" hidden></div>
+    <ul id="results"></ul>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
