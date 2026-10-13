@@ -22,6 +22,8 @@ from backend.db import (
     rename_playlist,
     set_ai_background,
     set_tags,
+    set_tags_list,
+    tags_list,
 )
 from backend.info import get_track_background
 from backend.paths import resolve as resolve_file_path
@@ -255,6 +257,7 @@ def stream(track_id: int):
 class TagUpdate(BaseModel):
     genre: str | None = None
     mood: str | None = None
+    tags: list[str] | None = None
 
 
 @app.get("/track/{track_id}/suggest-tags")
@@ -291,6 +294,7 @@ def track_detail(track_id: int):
         "year": row["year"],
         "genre": row["genre"],
         "mood": row["mood"],
+        "tags": tags_list(row),
         "tag_source": row["tag_source"],
         "tempo": row["tempo"],
         "energy": row["energy"],
@@ -330,10 +334,12 @@ def update_tags(track_id: int, update: TagUpdate):
         genre = update.genre if update.genre is not None else row["genre"]
         mood = update.mood if update.mood is not None else row["mood"]
         set_tags(conn, track_id, genre, mood, "manual")
+        if update.tags is not None:
+            set_tags_list(conn, track_id, update.tags)
         conn.commit()
         updated = get_track(conn, track_id)
         reindex_embeddings(conn, [updated])
-    return {"id": track_id, "genre": updated["genre"], "mood": updated["mood"]}
+    return {"id": track_id, "genre": updated["genre"], "mood": updated["mood"], "tags": tags_list(updated)}
 
 
 app.mount("/static", StaticFiles(directory="ui"), name="static")

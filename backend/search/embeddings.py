@@ -24,7 +24,8 @@ def track_text(row: sqlite3.Row) -> str:
     uses the real numeric values directly for those, as explicit weighted factors alongside this
     text embedding's distance, which is more precise than hoping a text model captures them."""
     genre = row["genre"]
-    parts = [row["artist"], row["album"], genre, genre, row["mood"]]
+    tags = (row["tags"] or "").replace(",", " ")
+    parts = [row["artist"], row["album"], genre, genre, row["mood"], tags]
     return " ".join(p for p in parts if p)
 
 

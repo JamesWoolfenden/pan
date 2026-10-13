@@ -1,0 +1,2782 @@
+[
+  {
+    "id": 9,
+    "title": "P.U.N.K. Girl",
+    "artist": "Various Artists",
+    "file_path": "P.U.N.K. Girl.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\P.U.N.K. Girl.m4a",
+    "size": 2827043,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\P.U.N.K. Girl.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 10,
+    "title": "I Just Threw Out The Love Of My Dreams",
+    "artist": "Reach",
+    "file_path": "I Just Threw Out The Love Of My Dreams.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\I Just Threw Out The Love Of My Dreams.m4a",
+    "size": 2555987,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\I Just Threw Out The Love Of My Dreams.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11,
+    "title": "The Runaways - Cherry Bomb",
+    "artist": "The Runaways",
+    "file_path": "The Runaways - Cherry Bomb.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Runaways - Cherry Bomb.m4a",
+    "size": 2268309,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Runaways - Cherry Bomb.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 12,
+    "title": "Sorority Girls",
+    "artist": "Various Artists",
+    "file_path": "Sorority Girls.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sorority Girls.m4a",
+    "size": 2409411,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sorority Girls.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 163,
+    "title": "Fathoms Below",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/01 Fathoms Below.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\01 Fathoms Below.m4a",
+    "size": 3918950,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\01 Fathoms Below.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 164,
+    "title": "Main Titles - The Little Mermaid",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/02 Main Titles - The Little Mermaid.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\02 Main Titles - The Little Mermaid.m4a",
+    "size": 3520571,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\02 Main Titles - The Little Mermaid.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 165,
+    "title": "Fanfare",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/03 Fanfare.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\03 Fanfare.m4a",
+    "size": 1498125,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\03 Fanfare.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 166,
+    "title": "Daughters of Triton",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/04 Daughters of Triton.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\04 Daughters of Triton.m4a",
+    "size": 1824955,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\04 Daughters of Triton.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 167,
+    "title": "Part of Your World",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/05 Part of Your World.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\05 Part of Your World.m4a",
+    "size": 6937553,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\05 Part of Your World.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 185,
+        "file_path": "Alan Menken and VA/23 Part of Your World.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 168,
+    "title": "Under the Sea",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/06 Under the Sea.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\06 Under the Sea.m4a",
+    "size": 6907865,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\06 Under the Sea.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 186,
+        "file_path": "Alan Menken and VA/24 Under the Sea.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 169,
+    "title": "Part of Your World (Reprise)",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/07 Part of Your World (Reprise).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\07 Part of Your World (Reprise).m4a",
+    "size": 5036414,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\07 Part of Your World (Reprise).m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 170,
+    "title": "Poor Unfortunate Souls",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/08 Poor Unfortunate Souls.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\08 Poor Unfortunate Souls.m4a",
+    "size": 10170264,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\08 Poor Unfortunate Souls.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 184,
+        "file_path": "Alan Menken and VA/22 Poor Unfortunate Souls.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 171,
+    "title": "Les Poissons",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/09 Les Poissons.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\09 Les Poissons.m4a",
+    "size": 3626616,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\09 Les Poissons.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 172,
+    "title": "Kiss the Girl",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/10 Kiss the Girl.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\10 Kiss the Girl.m4a",
+    "size": 5850483,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\10 Kiss the Girl.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 183,
+        "file_path": "Alan Menken and VA/21 Kiss the Girl.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 173,
+    "title": "Fireworks",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/11 Fireworks.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\11 Fireworks.m4a",
+    "size": 1822190,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\11 Fireworks.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 174,
+    "title": "Jig",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/12 Jig.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\12 Jig.m4a",
+    "size": 3621665,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\12 Jig.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 175,
+    "title": "The Storm",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/13 The Storm.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\13 The Storm.m4a",
+    "size": 7141016,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\13 The Storm.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 176,
+    "title": "Destruction of the Grotto",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/14 Destruction of the Grotto.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\14 Destruction of the Grotto.m4a",
+    "size": 4317684,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\14 Destruction of the Grotto.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 177,
+    "title": "Flotsam and Jetsam",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/15 Flotsam and Jetsam.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\15 Flotsam and Jetsam.m4a",
+    "size": 3306391,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\15 Flotsam and Jetsam.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 178,
+    "title": "Tour of the Kingdom",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/16 Tour of the Kingdom.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\16 Tour of the Kingdom.m4a",
+    "size": 3412584,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\16 Tour of the Kingdom.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 179,
+    "title": "Bedtime",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/17 Bedtime.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\17 Bedtime.m4a",
+    "size": 3363741,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\17 Bedtime.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 180,
+    "title": "Wedding Announcement",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/18 Wedding Announcement.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\18 Wedding Announcement.m4a",
+    "size": 5165244,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\18 Wedding Announcement.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 181,
+    "title": "Eric to the Rescue",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/19 Eric to the Rescue.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\19 Eric to the Rescue.m4a",
+    "size": 7897922,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\19 Eric to the Rescue.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 182,
+    "title": "Happy Ending",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/20 Happy Ending.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\20 Happy Ending.m4a",
+    "size": 7019501,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\20 Happy Ending.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 183,
+    "title": "Kiss the Girl",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/21 Kiss the Girl.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\21 Kiss the Girl.m4a",
+    "size": 7223160,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\21 Kiss the Girl.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 172,
+        "file_path": "Alan Menken and VA/10 Kiss the Girl.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 184,
+    "title": "Poor Unfortunate Souls",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/22 Poor Unfortunate Souls.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\22 Poor Unfortunate Souls.m4a",
+    "size": 5667744,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\22 Poor Unfortunate Souls.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 170,
+        "file_path": "Alan Menken and VA/08 Poor Unfortunate Souls.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 185,
+    "title": "Part of Your World",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/23 Part of Your World.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\23 Part of Your World.m4a",
+    "size": 7403430,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\23 Part of Your World.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 167,
+        "file_path": "Alan Menken and VA/05 Part of Your World.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 186,
+    "title": "Under the Sea",
+    "artist": "Alan Menken",
+    "file_path": "Alan Menken and VA/24 Under the Sea.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Alan Menken and VA\\24 Under the Sea.m4a",
+    "size": 6959722,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Alan Menken and VA\\\\24 Under the Sea.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 168,
+        "file_path": "Alan Menken and VA/06 Under the Sea.m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 792,
+    "title": "Idina Menzel - Ring in the Season (Reprise) (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Idina Menzel",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/Idina Menzel - Ring in the Season (Reprise) (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\Idina Menzel - Ring in the Season (Reprise) (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 1324240,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\Idina Menzel - Ring in the Season (Reprise) (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 793,
+    "title": "Jonathan Groff - The Ballad of Flemmingrad (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Jonathan Groff",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/Jonathan Groff - The Ballad of Flemmingrad (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\Jonathan Groff - The Ballad of Flemmingrad (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 736077,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\Jonathan Groff - The Ballad of Flemmingrad (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 794,
+    "title": "Josh Gad - That Time of Year (Reprise) (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Josh Gad",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/Josh Gad - That Time of Year (Reprise) (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\Josh Gad - That Time of Year (Reprise) (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 929953,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\Josh Gad - That Time of Year (Reprise) (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 795,
+    "title": "Olaf's Frozen Adventure Score Suite (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Christophe Beck",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/Olaf's Frozen Adventure Score Suite (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\Olaf's Frozen Adventure Score Suite (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 4598198,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\Olaf's Frozen Adventure Score Suite (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 796,
+    "title": "Ring in the Season ( From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Disney",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/Ring in the Season ( From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\Ring in the Season ( From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 1990556,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\Ring in the Season ( From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 797,
+    "title": "Ring in the Season (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Disney",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/Ring in the Season (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\Ring in the Season (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 1973704,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\Ring in the Season (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 798,
+    "title": "That Time of Year (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Edgy",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/That Time of Year (From  Olaf's Frozen Adventure Audio Only) (1).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\That Time of Year (From  Olaf's Frozen Adventure Audio Only) (1).m4a",
+    "size": 2928877,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\That Time of Year (From  Olaf's Frozen Adventure Audio Only) (1).m4a\": Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 799,
+        "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/That Time of Year (From  Olaf's Frozen Adventure Audio Only).m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 799,
+    "title": "That Time of Year (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Edgy",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/That Time of Year (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\That Time of Year (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 3030666,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\That Time of Year (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 798,
+        "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/That Time of Year (From  Olaf's Frozen Adventure Audio Only) (1).m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 800,
+    "title": "The Ballad of Flemmingrad (Traditional Version) (From \"Olaf's Frozen Adventure\"/Audio O...",
+    "artist": "Various Artists",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/The Ballad of Flemmingrad (Traditional Version) (From  Olaf's Frozen Adventure Audio O....m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\The Ballad of Flemmingrad (Traditional Version) (From  Olaf's Frozen Adventure Audio O....m4a",
+    "size": 3335986,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\The Ballad of Flemmingrad (Traditional Version) (From  Olaf's Frozen Adventure Audio O....m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 801,
+    "title": "When We're Together (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Iris",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/When We're Together (From  Olaf's Frozen Adventure Audio Only) (1).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\When We're Together (From  Olaf's Frozen Adventure Audio Only) (1).m4a",
+    "size": 2989838,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\When We're Together (From  Olaf's Frozen Adventure Audio Only) (1).m4a\": Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 802,
+        "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/When We're Together (From  Olaf's Frozen Adventure Audio Only).m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 802,
+    "title": "When We're Together (From \"Olaf's Frozen Adventure\"/Audio Only)",
+    "artist": "Iris",
+    "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/When We're Together (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\When We're Together (From  Olaf's Frozen Adventure Audio Only).m4a",
+    "size": 2732458,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Olaf's Frozen Adventure (Disney) - Official soundtrack\\\\When We're Together (From  Olaf's Frozen Adventure Audio Only).m4a\": Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 801,
+        "file_path": "Olaf's Frozen Adventure (Disney) - Official soundtrack/When We're Together (From  Olaf's Frozen Adventure Audio Only) (1).m4a",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3033,
+    "title": "Selecta",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/01 Selecta.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\01 Selecta.m4a",
+    "size": 6104388,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\01 Selecta.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3032,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/01 Selecta.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3035,
+    "title": "Liquour & Cigarettes",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/02 Liquour & Cigarettes.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\02 Liquour & Cigarettes.m4a",
+    "size": 6113991,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\02 Liquour & Cigarettes.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3034,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/02 Liquour & Cigarettes.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3037,
+    "title": "Baddadan",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/03 Baddadan.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\03 Baddadan.m4a",
+    "size": 7830696,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\03 Baddadan.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3036,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/03 Baddadan.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3039,
+    "title": "Massive & Crew",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/04 Massive & Crew.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\04 Massive & Crew.m4a",
+    "size": 5747168,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\04 Massive & Crew.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3038,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/04 Massive & Crew.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3041,
+    "title": "Say The Word",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/05 Say The Word.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\05 Say The Word.m4a",
+    "size": 7630596,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\05 Say The Word.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3040,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/05 Say The Word.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3043,
+    "title": "On The Block",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/06 On The Block.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\06 On The Block.m4a",
+    "size": 6768523,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\06 On The Block.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3042,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/06 On The Block.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3045,
+    "title": "2ruff",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/07 2ruff.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\07 2ruff.m4a",
+    "size": 6492844,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\07 2ruff.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3044,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/07 2ruff.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3047,
+    "title": "Get Got",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/08 Get Got.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\08 Get Got.m4a",
+    "size": 6456963,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\08 Get Got.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3046,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/08 Get Got.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3049,
+    "title": "Tough Talk",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/09 Tough Talk.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\09 Tough Talk.m4a",
+    "size": 6436815,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\09 Tough Talk.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3048,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/09 Tough Talk.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 3051,
+    "title": "20 Man Down",
+    "artist": "Chase & Status",
+    "file_path": "Chase & Status/2 RUFF, Vol. 1/10 20 Man Down.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Chase & Status\\2 RUFF, Vol. 1\\10 20 Man Down.m4a",
+    "size": 6513011,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Chase & Status\\\\2 RUFF, Vol. 1\\\\10 20 Man Down.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 3050,
+        "file_path": "Chase & Status/2 RUFF, Vol. 1/10 20 Man Down.flac",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 4423,
+    "title": "Rainbow Rocks",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/01 Rainbow Rocks.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\01 Rainbow Rocks.m4a",
+    "size": 4038191,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\01 Rainbow Rocks.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4424,
+    "title": "Better Than Ever",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/02 Better Than Ever.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\02 Better Than Ever.m4a",
+    "size": 3777626,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\02 Better Than Ever.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4425,
+    "title": "Under Our Spell",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/03 Under Our Spell.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\03 Under Our Spell.m4a",
+    "size": 4299251,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\03 Under Our Spell.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4426,
+    "title": "Tricks up My Sleeve",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/04 Tricks up My Sleeve.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\04 Tricks up My Sleeve.m4a",
+    "size": 4717769,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\04 Tricks up My Sleeve.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4427,
+    "title": "Shake Your Tail",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/05 Shake Your Tail.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\05 Shake Your Tail.m4a",
+    "size": 4606875,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\05 Shake Your Tail.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4428,
+    "title": "Welcome to the Show",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/06 Welcome to the Show.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\06 Welcome to the Show.m4a",
+    "size": 9975353,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\06 Welcome to the Show.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4429,
+    "title": "Awesome as I Want to Be",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/07 Awesome as I Want to Be.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\07 Awesome as I Want to Be.m4a",
+    "size": 3146226,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\07 Awesome as I Want to Be.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4430,
+    "title": "Let's Have a Battle (Of the Bands)",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/08 Let's Have a Battle (Of the Bands.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\08 Let's Have a Battle (Of the Bands.m4a",
+    "size": 6390479,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\08 Let's Have a Battle (Of the Bands.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4431,
+    "title": "Shine Like Rainbows",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/09 Shine Like Rainbows.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\09 Shine Like Rainbows.m4a",
+    "size": 5891834,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\09 Shine Like Rainbows.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 4432,
+    "title": "Music to My Ears (Bonus Track)",
+    "artist": "Daniel Ingram",
+    "file_path": "Equestia Girls/Rainbow Rocks/10 Music to My Ears (Bonus Track).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Equestia Girls\\Rainbow Rocks\\10 Music to My Ears (Bonus Track).m4a",
+    "size": 4397425,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Equestia Girls\\\\Rainbow Rocks\\\\10 Music to My Ears (Bonus Track).m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 6632,
+    "title": "Black sand",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/01 Black sand.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\01 Black sand.m4a",
+    "size": 2773660,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\01 Black sand.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6633,
+        "file_path": "Jenny Lewis/Acid Tongue/01-01- Black Sand.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6644,
+    "title": "Pretty bird",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/02 Pretty bird.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\02 Pretty bird.m4a",
+    "size": 3747652,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\02 Pretty bird.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6634,
+        "file_path": "Jenny Lewis/Acid Tongue/01-02- Pretty Bird.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6645,
+    "title": "The next messiah",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/03 The next messiah.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\03 The next messiah.m4a",
+    "size": 8586991,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\03 The next messiah.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6635,
+        "file_path": "Jenny Lewis/Acid Tongue/01-03- The Next Messiah.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6646,
+    "title": "Bad Man's World",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/04 Bad Man's World.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\04 Bad Man's World.m4a",
+    "size": 3527182,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\04 Bad Man's World.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 6647,
+    "title": "Acid Tongue",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/05 Acid Tongue.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\05 Acid Tongue.m4a",
+    "size": 3689970,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\05 Acid Tongue.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6637,
+        "file_path": "Jenny Lewis/Acid Tongue/01-05- Acid Tongue.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6648,
+    "title": "See Fernando",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/06 See Fernando.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\06 See Fernando.m4a",
+    "size": 3406091,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\06 See Fernando.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6638,
+        "file_path": "Jenny Lewis/Acid Tongue/01-06- See Fernando.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6649,
+    "title": "Godspeed",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/07 Godspeed.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\07 Godspeed.m4a",
+    "size": 4414897,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\07 Godspeed.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6639,
+        "file_path": "Jenny Lewis/Acid Tongue/01-07- Godspeed.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6650,
+    "title": "Carpetbaggers",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/08 Carpetbaggers.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\08 Carpetbaggers.m4a",
+    "size": 3407091,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\08 Carpetbaggers.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6640,
+        "file_path": "Jenny Lewis/Acid Tongue/01-08- Carpetbaggers.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6651,
+    "title": "Trying my best to love you",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/09 Trying my best to love you.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\09 Trying my best to love you.m4a",
+    "size": 2976573,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\09 Trying my best to love you.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 6652,
+    "title": "Jack Killed Mom",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/10 Jack Killed Mom.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\10 Jack Killed Mom.m4a",
+    "size": 5200458,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\10 Jack Killed Mom.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 6642,
+        "file_path": "Jenny Lewis/Acid Tongue/01-10- Jack Killed Mom.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 6653,
+    "title": "The highs and lows of being number one",
+    "artist": "Jenny Lewis",
+    "file_path": "Jenny Lewis/Acid Tongue/11 The highs and lows of being number one.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Jenny Lewis\\Acid Tongue\\11 The highs and lows of being number one.m4a",
+    "size": 3933308,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Jenny Lewis\\\\Acid Tongue\\\\11 The highs and lows of being number one.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7677,
+    "title": "Tuesday's Gone",
+    "artist": "Lynyrd Skynyrd",
+    "file_path": "Lynyrd Skynyrd/Lynyrd Skynyrd/13 Tuesday's Gone.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Lynyrd Skynyrd\\Lynyrd Skynyrd\\13 Tuesday's Gone.m4a",
+    "size": 7332722,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Lynyrd Skynyrd\\\\Lynyrd Skynyrd\\\\13 Tuesday's Gone.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7833,
+    "title": "Far Away",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/01 Far Away.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\01 Far Away.m4a",
+    "size": 2814868,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\01 Far Away.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7834,
+    "title": "G.P.T.",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/02 G.P.T.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\02 G.P.T.m4a",
+    "size": 2598823,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\02 G.P.T.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7835,
+    "title": "Factory",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/03 Factory.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\03 Factory.m4a",
+    "size": 3386161,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\03 Factory.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7836,
+    "title": "These Flowers",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/04 These Flowers.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\04 These Flowers.m4a",
+    "size": 3970462,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\04 These Flowers.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7837,
+    "title": "Ball & Chain",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/05 Ball & Chain.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\05 Ball & Chain.m4a",
+    "size": 3142004,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\05 Ball & Chain.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7838,
+    "title": "Don't Forget",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/06 Don't Forget.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\06 Don't Forget.m4a",
+    "size": 3964351,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\06 Don't Forget.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7839,
+    "title": "This Life",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/07 This Life.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\07 This Life.m4a",
+    "size": 5703725,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\07 This Life.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7840,
+    "title": "When The Day Is Short",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/08 When The Day Is Short.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\08 When The Day Is Short.m4a",
+    "size": 3708724,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\08 When The Day Is Short.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7841,
+    "title": "Bloody Mother Fucking Asshole",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/09 Bloody Mother Fucking Asshole.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\09 Bloody Mother Fucking Asshole.m4a",
+    "size": 3067073,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\09 Bloody Mother Fucking Asshole.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7842,
+    "title": "TV Show",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/10 TV Show.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\10 TV Show.m4a",
+    "size": 3985286,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\10 TV Show.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7843,
+    "title": "The Maker",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/11 The Maker.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\11 The Maker.m4a",
+    "size": 4025511,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\11 The Maker.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7844,
+    "title": "Who Was I Kidding?",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/12 Who Was I Kidding-.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\12 Who Was I Kidding-.m4a",
+    "size": 3942172,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\12 Who Was I Kidding-.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7845,
+    "title": "Whither Must I Wander",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/13 Whither Must I Wander.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\13 Whither Must I Wander.m4a",
+    "size": 2636582,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\13 Whither Must I Wander.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7846,
+    "title": "Bring Back My Heart",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/14 Bring Back My Heart.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\14 Bring Back My Heart.m4a",
+    "size": 3114626,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\14 Bring Back My Heart.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7847,
+    "title": "Baby",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/15 Baby.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\15 Baby.m4a",
+    "size": 3740184,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\15 Baby.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 7848,
+    "title": "Dis, Quand Reviendras-Tu?",
+    "artist": "Martha Wainwright",
+    "file_path": "Martha Wainwright/Martha Wainwright/16 Dis, Quand Reviendras-Tu-.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Martha Wainwright\\Martha Wainwright\\16 Dis, Quand Reviendras-Tu-.m4a",
+    "size": 3981511,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Martha Wainwright\\\\Martha Wainwright\\\\16 Dis, Quand Reviendras-Tu-.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8251,
+    "title": "Punk Rock:",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/01 Punk Rock-.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\01 Punk Rock-.m4a",
+    "size": 2602518,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\01 Punk Rock-.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8252,
+    "title": "Cody",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/02 cody.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\02 cody.m4a",
+    "size": 7938863,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\02 cody.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8253,
+    "title": "Helps Both Ways",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/03 helps both ways.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\03 helps both ways.m4a",
+    "size": 5924220,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\03 helps both ways.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8254,
+    "title": "Year 2000 Non-Compliant Cardia",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/04 Year 2000 Non-Compliant Cardia.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\04 Year 2000 Non-Compliant Cardia.m4a",
+    "size": 4164208,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\04 Year 2000 Non-Compliant Cardia.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8255,
+    "title": "Kappa",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/05 kappa.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\05 kappa.m4a",
+    "size": 5909872,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\05 kappa.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8256,
+    "title": "Waltz For Aidan",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/06 waltz for aidan.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\06 waltz for aidan.m4a",
+    "size": 4532476,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\06 waltz for aidan.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8257,
+    "title": "May Nothing But Happiness Come Through Your Door",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/07 May Nothing But Happiness Come Through Your Door.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\07 May Nothing But Happiness Come Through Your Door.m4a",
+    "size": 10290738,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\07 May Nothing But Happiness Come Through Your Door.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8258,
+    "title": "Oh! How The Dogs Stack Up",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/08 oh! how the dogs stack up.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\08 oh! how the dogs stack up.m4a",
+    "size": 2530567,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\08 oh! how the dogs stack up.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8259,
+    "title": "Ex-Cowboy",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/09 ex-cowboy.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\09 ex-cowboy.m4a",
+    "size": 11091015,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\09 ex-cowboy.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8261,
+    "title": "Christmas Steps",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/11 christmas steps.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\11 christmas steps.m4a",
+    "size": 12901237,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\11 christmas steps.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8262,
+    "title": "Punk Rock/Puff Daddy/Antichrist",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/come on die young/12 Punk Rock-Puff Daddy-Antichrist.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\come on die young\\12 Punk Rock-Puff Daddy-Antichrist.m4a",
+    "size": 2738967,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\come on die young\\\\12 Punk Rock-Puff Daddy-Antichrist.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8263,
+    "title": "Stanley Kubrick",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/EP+2/01 stanley kubrick.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\EP+2\\01 stanley kubrick.m4a",
+    "size": 5192387,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\EP+2\\\\01 stanley kubrick.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8264,
+    "title": "Christmas Song",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/EP+2/02 christmas song.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\EP+2\\02 christmas song.m4a",
+    "size": 4148418,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\EP+2\\\\02 christmas song.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8265,
+    "title": "Burn Girl Prom Queen",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/EP+2/03 burn girl prom queen.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\EP+2\\03 burn girl prom queen.m4a",
+    "size": 10332876,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\EP+2\\\\03 burn girl prom queen.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8266,
+    "title": "Rage: Man",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/EP+2/04 Rage- Man.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\EP+2\\04 Rage- Man.m4a",
+    "size": 6225679,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\EP+2\\\\04 Rage- Man.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8267,
+    "title": "Rollerball",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/EP+2/05 rollerball.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\EP+2\\05 rollerball.m4a",
+    "size": 4566842,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\EP+2\\\\05 rollerball.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8268,
+    "title": "Small Children In The Background",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/EP+2/06 small children in the background.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\EP+2\\06 small children in the background.m4a",
+    "size": 8274848,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\EP+2\\\\06 small children in the background.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8279,
+    "title": "Sine Wave",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/01 sine wave.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\01 sine wave.m4a",
+    "size": 5958254,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\01 sine wave.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8280,
+    "title": "Take Me Somewhere Nice",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/02 take me somewhere nice.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\02 take me somewhere nice.m4a",
+    "size": 8423892,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\02 take me somewhere nice.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8281,
+    "title": "O I Sleep",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/03 o i sleep.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\03 o i sleep.m4a",
+    "size": 1168834,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\03 o i sleep.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8282,
+    "title": "Dial: Revenge",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/04 Dial- Revenge.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\04 Dial- Revenge.m4a",
+    "size": 4220865,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\04 Dial- Revenge.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8283,
+    "title": "You Don't Know Jesus",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/05 you don't know jesus.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\05 you don't know jesus.m4a",
+    "size": 9744636,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Mogwai\\\\rock action\\\\05 you don't know jesus.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8284,
+    "title": "Robot Chant",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/06 robot chant.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\06 robot chant.m4a",
+    "size": 1325072,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\06 robot chant.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8285,
+    "title": "2 Rights Make 1 Wrong",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/07 2 rights make 1 wrong.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\07 2 rights make 1 wrong.m4a",
+    "size": 11531893,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\07 2 rights make 1 wrong.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8286,
+    "title": "Secret Pint",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/rock action/08 secret pint.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\rock action\\08 secret pint.m4a",
+    "size": 4398265,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\rock action\\\\08 secret pint.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8287,
+    "title": "Yes! I Am A Long Way From Home",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/01 yes! i am a long way from home.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\01 yes! i am a long way from home.m4a",
+    "size": 7247700,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\01 yes! i am a long way from home.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8288,
+    "title": "Like Herod",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/02 like herod.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\02 like herod.m4a",
+    "size": 14224511,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\02 like herod.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8289,
+    "title": "Katrien",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/03 katrien.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\03 katrien.m4a",
+    "size": 6603833,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\03 katrien.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8290,
+    "title": "Radar Marker",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/04 Radar Marker.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\04 Radar Marker.m4a",
+    "size": 2025650,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\04 Radar Marker.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8291,
+    "title": "Tracy",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/05 tracy.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\05 tracy.m4a",
+    "size": 8924756,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\05 tracy.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8292,
+    "title": "Summer [Priority Version]",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/06 Summer [Priority Version].m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\06 Summer [Priority Version].m4a",
+    "size": 4283094,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\06 Summer [Priority Version].m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8293,
+    "title": "With Portfolio",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/07 with portfolio.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\07 with portfolio.m4a",
+    "size": 3930615,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\07 with portfolio.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8294,
+    "title": "R U Still In 2 It",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/08 r u still in 2 it.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\08 r u still in 2 it.m4a",
+    "size": 8960382,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\08 r u still in 2 it.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8295,
+    "title": "A Cheery Wave From Stranded Youngsters",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/09 A Cheery Wave From Stranded Youngsters.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\09 A Cheery Wave From Stranded Youngsters.m4a",
+    "size": 2880609,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\09 A Cheery Wave From Stranded Youngsters.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8296,
+    "title": "Mogwai Fear Satan",
+    "artist": "Mogwai",
+    "file_path": "Mogwai/Young Team/10 mogwai fear satan.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Mogwai\\Young Team\\10 mogwai fear satan.m4a",
+    "size": 19754343,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Mogwai\\\\Young Team\\\\10 mogwai fear satan.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 8566,
+    "title": "It",
+    "artist": "Prince",
+    "file_path": "Music/Prince - Sign O' The Times/Prince - Sign O' The Times (Disc 1)/05 - It.mp3",
+    "status": "decode_error",
+    "path": "Z:\\music\\Music\\Prince - Sign O' The Times\\Prince - Sign O' The Times (Disc 1)\\05 - It.mp3",
+    "size": 2176,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Music\\\\Prince - Sign O' The Times\\\\Prince - Sign O' The Times (Disc 1)\\\\05 - It.mp3\": File does not exist or is not a regular file (possibly a pipe?).",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 9410,
+    "title": "Hey Ya!",
+    "artist": "OutKast",
+    "file_path": "Outkast/Happy Songs/04 Hey Ya!.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Outkast\\Happy Songs\\04 Hey Ya!.m4a",
+    "size": 3777693,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Outkast\\\\Happy Songs\\\\04 Hey Ya!.m4a': Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 9453,
+        "file_path": "Outkast/Speakerboxxx, The Love Below/09 Hey Ya!.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 10090,
+    "title": "Don't stop me now",
+    "artist": "Queen",
+    "file_path": "Queen/Happy Songs/01 Don't stop me now.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Queen\\Happy Songs\\01 Don't stop me now.m4a",
+    "size": 3423216,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Queen\\\\Happy Songs\\\\01 Don't stop me now.m4a\": Format not recognised.",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 10013,
+        "file_path": "Queen/Greatest Hits/07 Don't Stop Me Now.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 11832,
+    "title": "8 Days of Hannukah",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/01 8 Days of Hannukah.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\01 8 Days of Hannukah.m4a",
+    "size": 7908101,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\01 8 Days of Hannukah.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11833,
+    "title": "Ain't No Chimneys in the Projects",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/02 Ain't No Chimneys in the Projects.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\02 Ain't No Chimneys in the Projects.m4a",
+    "size": 5635765,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\02 Ain't No Chimneys in the Projects.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11834,
+    "title": "White Christmas",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/03 White Christmas.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\03 White Christmas.m4a",
+    "size": 5048683,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\03 White Christmas.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11835,
+    "title": "Just Another Christmas Song",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/04 Just Another Christmas Song.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\04 Just Another Christmas Song.m4a",
+    "size": 6678636,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\04 Just Another Christmas Song.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11836,
+    "title": "Silent Night",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/05 Silent Night.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\05 Silent Night.m4a",
+    "size": 8986424,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\05 Silent Night.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11837,
+    "title": "Big Bulbs",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/06 Big Bulbs.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\06 Big Bulbs.m4a",
+    "size": 6483920,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\06 Big Bulbs.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11838,
+    "title": "Please Come Home for Christmas",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/07 Please Come Home for Christmas.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\07 Please Come Home for Christmas.m4a",
+    "size": 7168427,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\07 Please Come Home for Christmas.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11839,
+    "title": "Funky Little Drummer Boy",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/08 Funky Little Drummer Boy.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\08 Funky Little Drummer Boy.m4a",
+    "size": 7113203,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\08 Funky Little Drummer Boy.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11840,
+    "title": "Silver Bells",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/09 Silver Bells.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\09 Silver Bells.m4a",
+    "size": 7650289,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\09 Silver Bells.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11841,
+    "title": "World of Love",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/10 World of Love.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\10 World of Love.m4a",
+    "size": 8029491,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\10 World of Love.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 11842,
+    "title": "God Rest Ye Merry Gents",
+    "artist": "Sharon Jones & The Dap-Kings",
+    "file_path": "Sharon Jones and the Dap-Kings/Its a holiday/11 God Rest Ye Merry Gents.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Sharon Jones and the Dap-Kings\\Its a holiday\\11 God Rest Ye Merry Gents.m4a",
+    "size": 5068319,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Sharon Jones and the Dap-Kings\\\\Its a holiday\\\\11 God Rest Ye Merry Gents.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 12374,
+    "title": "Hotel California",
+    "artist": "Soundtrack",
+    "file_path": "Soundtrack/Misfits/25 Hotel California.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Soundtrack\\Misfits\\25 Hotel California.m4a",
+    "size": 8018099,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Soundtrack\\\\Misfits\\\\25 Hotel California.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 12633,
+    "title": "Make me smile",
+    "artist": "Steve Harley",
+    "file_path": "Steve Harley/Happy Songs/11 Make me smile.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Steve Harley\\Happy Songs\\11 Make me smile.m4a",
+    "size": 3793760,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Steve Harley\\\\Happy Songs\\\\11 Make me smile.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 13268,
+    "title": "You Never Give Me Your Money",
+    "artist": "Beatles, The",
+    "file_path": "The Beatles/Abbey Road/09 You Never Give Me Your Money.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Beatles\\Abbey Road\\09 You Never Give Me Your Money.m4a",
+    "size": 3935310,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Beatles\\\\Abbey Road\\\\09 You Never Give Me Your Money.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 13269,
+    "title": "Sun King",
+    "artist": "Beatles, The",
+    "file_path": "The Beatles/Abbey Road/10 Sun King.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Beatles\\Abbey Road\\10 Sun King.m4a",
+    "size": 2396166,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Beatles\\\\Abbey Road\\\\10 Sun King.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 13936,
+    "title": "All The Lights",
+    "artist": "The Cinema",
+    "file_path": "The Cinema/My Blood Is Full Of Airplanes/09 All The Lights.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Cinema\\My Blood Is Full Of Airplanes\\09 All The Lights.m4a",
+    "size": 7663705,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Cinema\\\\My Blood Is Full Of Airplanes\\\\09 All The Lights.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 14689,
+    "title": "Night",
+    "artist": "The Gossip",
+    "file_path": "The Gossip/Movement/01 Night.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Gossip\\Movement\\01 Night.m4a",
+    "size": 2390336,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Gossip\\\\Movement\\\\01 Night.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 14690,
+    "title": "Jason's Basement",
+    "artist": "The Gossip",
+    "file_path": "The Gossip/Movement/02 Jason's Basement.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Gossip\\Movement\\02 Jason's Basement.m4a",
+    "size": 1959270,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\The Gossip\\\\Movement\\\\02 Jason's Basement.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 14691,
+    "title": "No No No",
+    "artist": "The Gossip",
+    "file_path": "The Gossip/Movement/03 No No No.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Gossip\\Movement\\03 No No No.m4a",
+    "size": 2006152,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Gossip\\\\Movement\\\\03 No No No.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 14692,
+    "title": "Don't Make Waves",
+    "artist": "The Gossip",
+    "file_path": "The Gossip/Movement/04 Don't Make Waves.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Gossip\\Movement\\04 Don't Make Waves.m4a",
+    "size": 2600180,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\The Gossip\\\\Movement\\\\04 Don't Make Waves.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 14734,
+    "title": "02 Generator",
+    "artist": "The Holloways",
+    "file_path": "The Holloways/So This Is Great Britain/02 Generator.mp3",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Holloways\\So This Is Great Britain\\02 Generator.mp3",
+    "size": 2701568,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Holloways\\\\So This Is Great Britain\\\\02 Generator.mp3': File does not exist or is not a regular file (possibly a pipe?).",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18195,
+    "title": null,
+    "artist": "Violent Femmes",
+    "file_path": "Violent Femmes/The Very Best of Violent Femmes/01 Gimme the Car.mp3",
+    "status": "decode_error",
+    "path": "Z:\\music\\Violent Femmes\\The Very Best of Violent Femmes\\01 Gimme the Car.mp3",
+    "size": 12341772,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Violent Femmes\\\\The Very Best of Violent Femmes\\\\01 Gimme the Car.mp3': File does not exist or is not a regular file (possibly a pipe?).",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18196,
+    "title": "Blister in the Sun",
+    "artist": "Violent Femmes",
+    "file_path": "Violent Femmes/The Very Best of Violent Femmes/02 Blister in the Sun.mp3",
+    "status": "decode_error",
+    "path": "Z:\\music\\Violent Femmes\\The Very Best of Violent Femmes\\02 Blister in the Sun.mp3",
+    "size": 5796848,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Violent Femmes\\\\The Very Best of Violent Femmes\\\\02 Blister in the Sun.mp3': File does not exist or is not a regular file (possibly a pipe?).",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 18098,
+        "file_path": "Violent Femmes/add it up (1981-1993)/03 blister in the sun.mp3",
+        "readable": true
+      },
+      {
+        "id": 18199,
+        "file_path": "Violent Femmes/Violent Femmes/01 Blister in the Sun.mp3",
+        "readable": true
+      },
+      {
+        "id": 18225,
+        "file_path": "Violent Femmes/Viva Wisconson/04 Blister In The Sun.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 18197,
+    "title": "Black Girls",
+    "artist": "Violent Femmes",
+    "file_path": "Violent Femmes/The Very Best of Violent Femmes/06 Black Girls.mp3",
+    "status": "decode_error",
+    "path": "Z:\\music\\Violent Femmes\\The Very Best of Violent Femmes\\06 Black Girls.mp3",
+    "size": 13713628,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Violent Femmes\\\\The Very Best of Violent Femmes\\\\06 Black Girls.mp3': File does not exist or is not a regular file (possibly a pipe?).",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 18102,
+        "file_path": "Violent Femmes/add it up (1981-1993)/08 black girls.mp3",
+        "readable": true
+      },
+      {
+        "id": 18152,
+        "file_path": "Violent Femmes/Hallowed Ground/08 Black Girls.mp3",
+        "readable": true
+      },
+      {
+        "id": 18238,
+        "file_path": "Violent Femmes/Viva Wisconson/17 Black Girls.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 18198,
+    "title": "Good Feeling [Live]",
+    "artist": "Violent Femmes",
+    "file_path": "Violent Femmes/The Very Best of Violent Femmes/20 Good Feeling [Live].mp3",
+    "status": "decode_error",
+    "path": "Z:\\music\\Violent Femmes\\The Very Best of Violent Femmes\\20 Good Feeling [Live].mp3",
+    "size": 11115909,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Violent Femmes\\\\The Very Best of Violent Femmes\\\\20 Good Feeling [Live].mp3': File does not exist or is not a regular file (possibly a pipe?).",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18939,
+    "title": "02 - Masterpiece",
+    "artist": "",
+    "file_path": "Big Thief/Big Thief - Masterpiece (2016) [16.44 FLAC]/02 - Masterpiece.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\Big Thief\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\02 - Masterpiece.flac",
+    "size": 3625586,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Big Thief\\\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\\\02 - Masterpiece.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18940,
+    "title": "04 - Real Love",
+    "artist": "",
+    "file_path": "Big Thief/Big Thief - Masterpiece (2016) [16.44 FLAC]/04 - Real Love.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\Big Thief\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\04 - Real Love.flac",
+    "size": 24820369,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Big Thief\\\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\\\04 - Real Love.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18941,
+    "title": "05 - Innerstate",
+    "artist": "",
+    "file_path": "Big Thief/Big Thief - Masterpiece (2016) [16.44 FLAC]/05 - Innerstate.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\Big Thief\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\05 - Innerstate.flac",
+    "size": 10813134,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Big Thief\\\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\\\05 - Innerstate.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18942,
+    "title": "09 - Velvet Ring",
+    "artist": "",
+    "file_path": "Big Thief/Big Thief - Masterpiece (2016) [16.44 FLAC]/09 - Velvet Ring.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\Big Thief\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\09 - Velvet Ring.flac",
+    "size": 8454985,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Big Thief\\\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\\\09 - Velvet Ring.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18943,
+    "title": "10 - Animals",
+    "artist": "",
+    "file_path": "Big Thief/Big Thief - Masterpiece (2016) [16.44 FLAC]/10 - Animals.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\Big Thief\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\10 - Animals.flac",
+    "size": 17794631,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Big Thief\\\\Big Thief - Masterpiece (2016) [16.44 FLAC]\\\\10 - Animals.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18977,
+    "title": "Clairo - Alewife",
+    "artist": "Clairo",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Alewife.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Alewife.m4a",
+    "size": 3446766,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Alewife.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18978,
+    "title": "Clairo - Bags",
+    "artist": "Clairo",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Bags.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Bags.m4a",
+    "size": 4215266,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Bags.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18979,
+    "title": "Clairo - Closer To You",
+    "artist": "Aurora",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Closer To You.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Closer To You.m4a",
+    "size": 2982161,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Closer To You.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18980,
+    "title": "Clairo - Feel Something",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Feel Something.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Feel Something.m4a",
+    "size": 2861203,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Feel Something.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18981,
+    "title": "Clairo - I Wouldn't Ask You",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - I Wouldn't Ask You.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - I Wouldn't Ask You.m4a",
+    "size": 6735843,
+    "error": "LibsndfileError: Error opening \"Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - I Wouldn't Ask You.m4a\": Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18982,
+    "title": "Clairo - Impossible",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Impossible.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Impossible.m4a",
+    "size": 3727467,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Impossible.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18983,
+    "title": "Clairo - North",
+    "artist": "lieu",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - North.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - North.m4a",
+    "size": 3451179,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - North.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18984,
+    "title": "Clairo - Sinking",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Sinking.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Sinking.m4a",
+    "size": 3074878,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Sinking.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18985,
+    "title": "Clairo - Sofia",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Sofia.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Sofia.m4a",
+    "size": 3048965,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Sofia.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18986,
+    "title": "Clairo - Softly",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - Softly.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - Softly.m4a",
+    "size": 2999022,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - Softly.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 18987,
+    "title": "Clairo - White Flag",
+    "artist": "Various Artists",
+    "file_path": "Clairo/Clairo - Immunity (Full Album)/Clairo - White Flag.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Clairo\\Clairo - Immunity (Full Album)\\Clairo - White Flag.m4a",
+    "size": 2932935,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Clairo\\\\Clairo - Immunity (Full Album)\\\\Clairo - White Flag.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19013,
+    "title": "Come to Atlanta",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Come to Atlanta.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Come to Atlanta.m4a",
+    "size": 2474899,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Come to Atlanta.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19014,
+    "title": "Flowers",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Flowers.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Flowers.m4a",
+    "size": 4261871,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Flowers.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19015,
+    "title": "Hurts Me Too",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Hurts Me Too.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Hurts Me Too.m4a",
+    "size": 3254007,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Hurts Me Too.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19016,
+    "title": "Jonny (Reprise)",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Jonny (Reprise).m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Jonny (Reprise).m4a",
+    "size": 1943822,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Jonny (Reprise).m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19017,
+    "title": "Jonny",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Jonny.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Jonny.m4a",
+    "size": 3664450,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Jonny.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19018,
+    "title": "Pigeon",
+    "artist": "[KRTM]",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Pigeon.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Pigeon.m4a",
+    "size": 2572656,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Pigeon.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19019,
+    "title": "Right Side of My Neck",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Right Side of My Neck.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Right Side of My Neck.m4a",
+    "size": 2480851,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Right Side of My Neck.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19020,
+    "title": "Room Temperature",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/Room Temperature.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\Room Temperature.m4a",
+    "size": 3952412,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\Room Temperature.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19021,
+    "title": "What Used To Be Mine",
+    "artist": "Various Artists",
+    "file_path": "Faye Webster/atlanta millionaires club - faye webster!/What Used To Be Mine.m4a",
+    "status": "decode_error",
+    "path": "Z:\\music\\Faye Webster\\atlanta millionaires club - faye webster!\\What Used To Be Mine.m4a",
+    "size": 3055363,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\Faye Webster\\\\atlanta millionaires club - faye webster!\\\\What Used To Be Mine.m4a': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19439,
+    "title": "A Message To You Rudy",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/01 - A Message To You Rudy.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\01 - A Message To You Rudy.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19454,
+        "file_path": "The Specials/The Specials/01 - A Message To You Rudy.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19440,
+    "title": "Do The Dog",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/02 - Do The Dog.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\02 - Do The Dog.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19455,
+        "file_path": "The Specials/The Specials/02 - Do The Dog.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19441,
+    "title": "Gangsters",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/03 - Gangsters.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\03 - Gangsters.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19456,
+        "file_path": "The Specials/The Specials/03 - Gangsters.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19442,
+    "title": "It's Up To You",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/04 - It's Up To You.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\04 - It's Up To You.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19457,
+        "file_path": "The Specials/The Specials/04 - It's Up To You.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19443,
+    "title": "Nite Klub",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/05 - Nite Klub.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\05 - Nite Klub.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19458,
+        "file_path": "The Specials/The Specials/05 - Nite Klub.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19444,
+    "title": "Doesn't Make It Alright",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/06 - Doesn't Make It Alright.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\06 - Doesn't Make It Alright.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19459,
+        "file_path": "The Specials/The Specials/06 - Doesn't Make It Alright.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19445,
+    "title": "Concrete Jungle",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/07 - Concrete Jungle.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\07 - Concrete Jungle.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19460,
+        "file_path": "The Specials/The Specials/07 - Concrete Jungle.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19446,
+    "title": "Too Hot",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/08 - Too Hot.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\08 - Too Hot.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19461,
+        "file_path": "The Specials/The Specials/08 - Too Hot.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19447,
+    "title": "Monkey Man",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/09 - Monkey Man.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\09 - Monkey Man.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19462,
+        "file_path": "The Specials/The Specials/09 - Monkey Man.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19448,
+    "title": "(Dawning Of A) New Era",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/10 - (Dawning Of A) New Era.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\10 - (Dawning Of A) New Era.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19463,
+        "file_path": "The Specials/The Specials/10 - (Dawning Of A) New Era.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19449,
+    "title": "Blank Expression",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/11 - Blank Expression.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\11 - Blank Expression.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19464,
+        "file_path": "The Specials/The Specials/11 - Blank Expression.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19450,
+    "title": "Stupid Marriage",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/12 - Stupid Marriage.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\12 - Stupid Marriage.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19465,
+        "file_path": "The Specials/The Specials/12 - Stupid Marriage.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19451,
+    "title": "Too Much Too Young",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/13 - Too Much Too Young.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\13 - Too Much Too Young.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19466,
+        "file_path": "The Specials/The Specials/13 - Too Much Too Young.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19452,
+    "title": "Little Bitch",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/14 - Little Bitch.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\14 - Little Bitch.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19467,
+        "file_path": "The Specials/The Specials/14 - Little Bitch.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19453,
+    "title": "You're Wondering Now",
+    "artist": "Specials, The",
+    "file_path": "The Specials - The Specials/15 - You're Wondering Now.mp3",
+    "status": "missing_file",
+    "path": "Z:\\music\\The Specials - The Specials\\15 - You're Wondering Now.mp3",
+    "duplicate_exists": true,
+    "duplicate_candidates": [
+      {
+        "id": 19468,
+        "file_path": "The Specials/The Specials/15 - You're Wondering Now.mp3",
+        "readable": true
+      }
+    ],
+    "recommendation": "safe to delete - readable duplicate exists"
+  },
+  {
+    "id": 19469,
+    "title": "07.-Too Hot",
+    "artist": "",
+    "file_path": "The Specials/The Specials (1979)/07.-Too Hot.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Specials\\The Specials (1979)\\07.-Too Hot.flac",
+    "size": 1089775,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Specials\\\\The Specials (1979)\\\\07.-Too Hot.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  },
+  {
+    "id": 19470,
+    "title": "11.-Stupid Marriage",
+    "artist": "",
+    "file_path": "The Specials/The Specials (1979)/11.-Stupid Marriage.flac",
+    "status": "decode_error",
+    "path": "Z:\\music\\The Specials\\The Specials (1979)\\11.-Stupid Marriage.flac",
+    "size": 62802352,
+    "error": "LibsndfileError: Error opening 'Z:\\\\music\\\\The Specials\\\\The Specials (1979)\\\\11.-Stupid Marriage.flac': Format not recognised.",
+    "duplicate_exists": false,
+    "duplicate_candidates": [],
+    "recommendation": "only copy - replace (re-rip/re-download) rather than delete, or the song is lost"
+  }
+]

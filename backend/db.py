@@ -30,7 +30,9 @@ CREATE TABLE IF NOT EXISTS tracks (
     energy REAL,
     musical_key TEXT,
     tag_source TEXT NOT NULL DEFAULT 'none',  -- 'none' | 'metadata' | 'local' | 'cloud' | 'manual'
-    ai_background TEXT  -- cached AI-generated "tell me more" writeup, so it's only generated once
+    ai_background TEXT,  -- cached AI-generated "tell me more" writeup, so it's only generated once
+    tags TEXT  -- comma-separated freeform tags, manually added - separate from genre/mood, which
+               -- are single-value fields filled by the local/cloud tagger
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre);
@@ -118,6 +120,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()}
     if "ai_background" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN ai_background TEXT")
+    if "tags" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN tags TEXT")
 
 
 def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
@@ -185,6 +189,19 @@ def set_tags(conn: sqlite3.Connection, track_id: int, genre: str | None, mood: s
         "UPDATE tracks SET genre=?, mood=?, tag_source=? WHERE id=?",
         (genre, mood, tag_source, track_id),
     )
+
+
+def tags_list(row: sqlite3.Row) -> list[str]:
+    """Freeform tags are stored as a single comma-separated column rather than a join table -
+    the library's not big enough to need relational tag queries, and this keeps storage/editing
+    as simple as genre/mood already are. This is the one place that format is parsed."""
+    raw = row["tags"]
+    return [t for t in (raw or "").split(",") if t]
+
+
+def set_tags_list(conn: sqlite3.Connection, track_id: int, tags: list[str]) -> None:
+    normalized = sorted({t.strip().lower() for t in tags if t.strip()})
+    conn.execute("UPDATE tracks SET tags=? WHERE id=?", (",".join(normalized) or None, track_id))
 
 
 def set_audio_features(conn: sqlite3.Connection, track_id: int, tempo: float, energy: float, musical_key: str) -> None:

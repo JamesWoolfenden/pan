@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pan</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
@@ -21,6 +22,7 @@
           <button id="queue-prev" disabled>&#9664;&#9664;</button>
           <button id="queue-playpause" disabled>&#9654;</button>
           <button id="queue-next" disabled>&#9654;&#9654;</button>
+          <google-cast-launcher id="cast-button"></google-cast-launcher>
           <button id="queue-save" disabled>Save as playlist</button>
           <button id="queue-clear" disabled>Clear</button>
         </div>
@@ -58,6 +60,7 @@
     <button id="load-more-btn" hidden>Load more</button>
   </main>
 
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

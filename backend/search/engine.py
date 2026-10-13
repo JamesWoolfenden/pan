@@ -10,6 +10,7 @@ from backend.db import (
     get_tracks_by_ids,
     rank_by_embedding,
     search_embeddings,
+    tags_list,
 )
 from backend.paths import resolve as resolve_file_path
 from backend.search.cloud_query_parser import parse_query
@@ -59,12 +60,20 @@ def _filtered_candidate_ids(conn: sqlite3.Connection, filt: dict) -> set[int] | 
     for artist in filt.get("artist_exclude") or []:
         clauses.append("(artist IS NULL OR artist NOT LIKE ?)")
         params.append(f"%{artist}%")
+    # tags is stored comma-joined (see db.tags_list) - wrapping both sides in commas and matching
+    # ",tag," rather than a plain substring avoids "rock" matching a stored tag like "baroque".
+    for tag in filt.get("tag_include") or []:
+        clauses.append("(',' || COALESCE(tags, '') || ',') LIKE ?")
+        params.append(f"%,{tag},%")
+    for tag in filt.get("tag_exclude") or []:
+        clauses.append("(',' || COALESCE(tags, '') || ',') NOT LIKE ?")
+        params.append(f"%,{tag},%")
     # A plain `year >= ? AND year <= ?` clause always evaluates false for year IS NULL rows,
     # silently dropping genuine matches with missing year metadata (e.g. Ghosttown by The
     # Specials has no year tagged). That's an acceptable risk for a decade-only query, but
-    # once genre/mood has already done real narrowing, letting undated tracks through the
+    # once genre/mood/tags has already done real narrowing, letting undated tracks through the
     # year clause too catches far more than it lets through wrongly.
-    has_content_filter = bool(filt.get("genre_include") or filt.get("mood_include"))
+    has_content_filter = bool(filt.get("genre_include") or filt.get("mood_include") or filt.get("tag_include"))
     if filt.get("year_min"):
         clause = "year >= ?"
         if has_content_filter:
@@ -355,6 +364,7 @@ def _to_result(row: sqlite3.Row, distance: float) -> dict:
         "album": row["album"],
         "genre": row["genre"],
         "mood": row["mood"],
+        "tags": tags_list(row),
         "year": row["year"],
         "source": row["source"],
         "file_path": row["file_path"],

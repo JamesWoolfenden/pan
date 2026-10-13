@@ -92,6 +92,26 @@ def test_apply_genre_aliases_maps_two_tone_to_ska():
         assert filt["genre_include"] == ["ska"]
 
 
+def test_filtered_candidate_ids_tag_include_matches_exact_token_not_substring():
+    # "rock" should not match a track tagged "baroque" - tags are comma-joined and matched as
+    # whole tokens, not a plain substring.
+    conn = connect(":memory:")
+    init_db(conn)
+    from backend.db import set_tags_list
+
+    rock_id = upsert_track(conn, Track(external_id="a", source="local", title="A"))
+    baroque_id = upsert_track(conn, Track(external_id="b", source="local", title="B"))
+    conn.commit()
+    set_tags_list(conn, rock_id, ["rock", "road trip"])
+    set_tags_list(conn, baroque_id, ["baroque"])
+    conn.commit()
+
+    ids = _filtered_candidate_ids(conn, {"tag_include": ["rock"]})
+
+    assert rock_id in ids
+    assert baroque_id not in ids
+
+
 def test_apply_genre_aliases_leaves_unrelated_queries_untouched():
     filt = _apply_genre_aliases("chill study music", {"semantic_query": "chill study music"})
     assert "genre_include" not in filt

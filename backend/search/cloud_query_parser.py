@@ -21,6 +21,8 @@ captured as a hard filter). Schema (omit fields that don't apply, use null/empty
   "genre_exclude": [string, ...],
   "mood_include": [string, ...],
   "mood_exclude": [string, ...],
+  "tag_include": [string, ...],
+  "tag_exclude": [string, ...],
   "artist_exclude": [string, ...],
   "year_min": int or null,
   "year_max": int or null,
@@ -31,6 +33,10 @@ A decade like "1990s" or "90s" means year_min=1990, year_max=1999 (and "00s"/"20
 2000-2009, etc.) - always convert a decade mention to a year_min/year_max range rather than
 leaving it in semantic_query, since embedding similarity alone can't reliably enforce a
 release-year constraint.
+
+tag_include/tag_exclude are for freeform, user-assigned descriptors that aren't a genre or mood
+(e.g. "road trip", "live recording", "guilty pleasure") - only use these for a query term that's
+clearly that kind of personal/occasion label, not a genre or mood synonym.
 
 Respond with ONLY the JSON object, no other text.
 

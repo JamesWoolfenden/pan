@@ -446,7 +446,65 @@ function formatBytes(bytes) {
 }
 
 function setTagsText(tagsEl, r) {
-  tagsEl.textContent = `${r.genre || ""}${r.mood ? ` · ${r.mood}` : ""}`;
+  const core = `${r.genre || ""}${r.mood ? ` · ${r.mood}` : ""}`;
+  const freeform = (r.tags || []).map((t) => `#${t}`).join(" ");
+  tagsEl.textContent = [core, freeform].filter(Boolean).join("  ");
+}
+
+// A small add/remove chip editor for the freeform tags list (separate from genre/mood, which
+// are single-value fields). Returns the element plus getters/setters so buildEditPanel can read
+// the current list on Save and refresh it after.
+function buildTagChipsEditor(initialTags) {
+  let tags = [...(initialTags || [])];
+
+  const wrap = document.createElement("div");
+  wrap.className = "tag-chips-editor";
+
+  const chipsEl = document.createElement("div");
+  chipsEl.className = "tag-chips";
+
+  function render() {
+    chipsEl.innerHTML = "";
+    for (const tag of tags) {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.textContent = tag;
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "×";
+      removeBtn.title = `Remove "${tag}"`;
+      removeBtn.addEventListener("click", () => {
+        tags = tags.filter((t) => t !== tag);
+        render();
+      });
+      chip.appendChild(removeBtn);
+      chipsEl.appendChild(chip);
+    }
+  }
+  render();
+
+  const input = document.createElement("input");
+  input.placeholder = "Add tag, Enter to add";
+  input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const value = input.value.trim().toLowerCase();
+    if (value && !tags.includes(value)) {
+      tags.push(value);
+      render();
+    }
+    input.value = "";
+  });
+
+  wrap.append(chipsEl, input);
+  return {
+    el: wrap,
+    getTags: () => tags,
+    setTags: (next) => {
+      tags = [...next];
+      render();
+    },
+  };
 }
 
 // Shared by search result rows and the queue panel's "now playing" track, so both get the
@@ -545,6 +603,8 @@ function buildEditPanel(r, tagsEl, editBtn) {
   moodInput.placeholder = "Mood";
   moodInput.value = r.mood || "";
 
+  const tagsEditor = buildTagChipsEditor(r.tags || []);
+
   const suggestBtn = document.createElement("button");
   suggestBtn.textContent = "Suggest";
   const suggestionsEl = document.createElement("div");
@@ -576,13 +636,19 @@ function buildEditPanel(r, tagsEl, editBtn) {
     const res = await fetch(`/track/${r.id}/tags`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ genre: genreInput.value.trim() || null, mood: moodInput.value.trim() || null }),
+      body: JSON.stringify({
+        genre: genreInput.value.trim() || null,
+        mood: moodInput.value.trim() || null,
+        tags: tagsEditor.getTags(),
+      }),
     });
     saveBtn.disabled = false;
     if (!res.ok) return;
     const updated = await res.json();
     r.genre = updated.genre;
     r.mood = updated.mood;
+    r.tags = updated.tags;
+    tagsEditor.setTags(updated.tags);
     setTagsText(tagsEl, r);
     panel.hidden = true;
     editBtn.textContent = "Edit tags";
@@ -592,7 +658,7 @@ function buildEditPanel(r, tagsEl, editBtn) {
   row1.className = "edit-row";
   row1.append(genreInput, moodInput, suggestBtn, saveBtn);
 
-  panel.append(row1, suggestionsEl);
+  panel.append(row1, tagsEditor.el, suggestionsEl);
   return panel;
 }
 
@@ -726,11 +792,94 @@ function recordCurrentPlayProgress() {
   }).catch(() => {});
 }
 
+// Chromecast. The receiver fetches /stream/{id} directly over the network itself (not through
+// this browser tab), so it only works when the Chromecast can reach this server - same LAN today,
+// or wherever Tailscale/the eventual deployment makes reachable. Google's <google-cast-launcher>
+// custom element (in index.html) renders its own icon/button and handles the device-picker UI;
+// we just react to connect/disconnect and route playback through the cast session while one's
+// active, via the SDK's RemotePlayer/RemotePlayerController rather than hand-rolling state sync.
+let castPlayer = null;
+let castController = null;
+
+const CAST_CONTENT_TYPES = {
+  flac: "audio/flac", wma: "audio/x-ms-wma", aac: "audio/aac", mp3: "audio/mpeg",
+  m4a: "audio/mp4", ogg: "audio/ogg", wav: "audio/wav",
+};
+
+function guessCastContentType(track) {
+  const ext = (track.file_path || "").split(".").pop().toLowerCase();
+  return CAST_CONTENT_TYPES[ext] || "audio/mpeg";
+}
+
+function isCasting() {
+  return !!(castPlayer && castPlayer.isConnected);
+}
+
+function castCurrentTrack() {
+  if (!isCasting() || currentIndex === -1) return;
+  const session = cast.framework.CastContext.getInstance().getCurrentSession();
+  if (!session) return;
+  const track = queue[currentIndex];
+  const mediaInfo = new chrome.cast.media.MediaInfo(`${location.origin}/stream/${track.id}`, guessCastContentType(track));
+  mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
+  mediaInfo.metadata.title = track.title || "Untitled";
+  mediaInfo.metadata.artist = track.artist || "";
+  session.loadMedia(new chrome.cast.media.LoadRequest(mediaInfo)).then(() => queuePlayer.pause());
+}
+
+function initializeCastApi() {
+  cast.framework.CastContext.getInstance().setOptions({
+    receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+    autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+  });
+  castPlayer = new cast.framework.RemotePlayer();
+  castController = new cast.framework.RemotePlayerController(castPlayer);
+
+  castController.addEventListener(cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED, () => {
+    // Starting a cast session hands playback to the receiver; local <audio> would otherwise
+    // keep playing too (both audible at once). Disconnecting doesn't resume local playback
+    // automatically - press play again to continue here.
+    if (isCasting()) castCurrentTrack();
+  });
+  castController.addEventListener(cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED, () => {
+    playPauseBtn.innerHTML = castPlayer.isPaused ? "&#9654;" : "&#10074;&#10074;";
+  });
+  castController.addEventListener(cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED, () => {
+    const finished = castPlayer.playerState === chrome.cast.media.PlayerState.IDLE &&
+      castPlayer.idleReason === chrome.cast.media.IdleReason.FINISHED;
+    if (finished && currentIndex + 1 < queue.length) playAt(currentIndex + 1);
+  });
+}
+
+window["__onGCastApiAvailable"] = (isAvailable) => {
+  if (!isAvailable) return;
+  // chrome.cast fires this callback as soon as the base SDK is ready, but the cast.framework
+  // bundle (loaded via the ?loadCastFramework=1 query param) can finish a tick later - poll
+  // briefly rather than assuming "cast" is already defined, which throws a ReferenceError.
+  const tryInit = () => {
+    if (typeof cast === "undefined" || !cast.framework) {
+      setTimeout(tryInit, 100);
+      return;
+    }
+    initializeCastApi();
+  };
+  tryInit();
+};
+
 async function playAt(i) {
   if (i < 0 || i >= queue.length) return;
   recordCurrentPlayProgress();
   currentIndex = i;
   const track = queue[i];
+
+  if (isCasting()) {
+    castCurrentTrack();
+    nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"}`;
+    renderNowPlayingActions(track);
+    renderQueue();
+    updateMediaSessionMetadata(track);
+    return;
+  }
 
   let src = `/stream/${track.id}`;
   if (nextPrefetch && nextPrefetch.id === track.id) {
@@ -757,16 +906,38 @@ async function playAt(i) {
   nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"}`;
   renderNowPlayingActions(track);
   renderQueue();
+  updateMediaSessionMetadata(track);
 
   schedulePrefetch(queue[i + 1]);
+}
+
+// Lock-screen/notification playback controls on phones - without this, backgrounding the
+// browser tab during playback gives you no way to pause/skip without switching back to it.
+// Action handlers are wired once; metadata/playbackState update per track and per play/pause.
+function updateMediaSessionMetadata(track) {
+  if (!("mediaSession" in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title || "Untitled",
+    artist: track.artist || "Unknown artist",
+    album: track.album || "",
+  });
+}
+
+if ("mediaSession" in navigator) {
+  navigator.mediaSession.setActionHandler("play", () => (isCasting() ? castController.playOrPause() : queuePlayer.play()));
+  navigator.mediaSession.setActionHandler("pause", () => (isCasting() ? castController.playOrPause() : queuePlayer.pause()));
+  navigator.mediaSession.setActionHandler("previoustrack", () => playAt(currentIndex - 1));
+  navigator.mediaSession.setActionHandler("nexttrack", () => playAt(currentIndex + 1));
 }
 
 queuePlayer.addEventListener("play", () => {
   playPauseBtn.innerHTML = "&#10074;&#10074;";
   pauseOtherPlayers(queuePlayer);
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 });
 queuePlayer.addEventListener("pause", () => {
   playPauseBtn.innerHTML = "&#9654;";
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
 });
 queuePlayer.addEventListener("ended", () => {
   if (currentIndex + 1 < queue.length) playAt(currentIndex + 1);
@@ -775,6 +946,8 @@ queuePlayer.addEventListener("ended", () => {
 playPauseBtn.addEventListener("click", () => {
   if (currentIndex === -1 && queue.length) {
     playAt(0);
+  } else if (isCasting()) {
+    castController.playOrPause();
   } else if (queuePlayer.paused) {
     queuePlayer.play();
   } else {
@@ -807,6 +980,10 @@ clearBtn.addEventListener("click", () => {
   nowPlayingEl.textContent = "";
   renderNowPlayingActions(null);
   renderQueue();
+  if ("mediaSession" in navigator) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = "none";
+  }
 });
 
 async function loadPlaylists() {

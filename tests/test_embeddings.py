@@ -46,6 +46,23 @@ def test_track_text_does_not_include_tempo_as_text():
     assert "tempo" not in text
 
 
+def test_track_text_includes_tags():
+    from backend.db import set_tags_list
+
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="a", source="local", title="X", artist="Artist"))
+    conn.commit()
+    set_tags_list(conn, track_id, ["road trip", "live"])
+    conn.commit()
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+
+    text = track_text(row)
+
+    assert "road trip" in text
+    assert "live" in text
+
+
 def test_track_text_handles_missing_fields_gracefully():
     conn = connect(":memory:")
     init_db(conn)
