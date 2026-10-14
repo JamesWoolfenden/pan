@@ -1,4 +1,14 @@
-from backend.db import EMBEDDING_DIM, Track, connect, find_similar_embeddings, init_db, upsert_embedding, upsert_track
+from backend.db import (
+    EMBEDDING_DIM,
+    Track,
+    connect,
+    create_playlist,
+    find_similar_embeddings,
+    init_db,
+    set_tags_list,
+    upsert_embedding,
+    upsert_track,
+)
 from backend.search.cloud_query_parser import parse_query
 from backend.search.engine import (
     _apply_genre_aliases,
@@ -10,7 +20,9 @@ from backend.search.engine import (
     album_tracks,
     discography,
     search,
+    search_by_tag,
     similar,
+    suggest_for_playlist,
     versions,
 )
 from backend.search.query_router import is_complex_query
@@ -263,6 +275,69 @@ def test_similar_excludes_other_copies_of_the_anchor_song():
     assert other_song in ids
 
 
+def test_suggest_for_playlist_finds_a_nearby_track_and_excludes_playlist_members():
+    conn = connect(":memory:")
+    init_db(conn)
+    member_a = upsert_track(conn, Track(external_id="a", source="local", title="A", artist="X", tempo=120, energy=0.5))
+    member_b = upsert_track(conn, Track(external_id="b", source="local", title="B", artist="X", tempo=120, energy=0.5))
+    near = upsert_track(conn, Track(external_id="near", source="local", title="Near", artist="Y", tempo=120, energy=0.5))
+    far = upsert_track(conn, Track(external_id="far", source="local", title="Far", artist="Z", tempo=120, energy=0.5))
+    conn.commit()
+
+    near_vec = [0.0] * EMBEDDING_DIM
+    near_vec[0] = 1.0
+    far_vec = [0.0] * EMBEDDING_DIM
+    far_vec[-1] = 1.0
+    for tid in (member_a, member_b, near):
+        upsert_embedding(conn, tid, list(near_vec))
+    upsert_embedding(conn, far, list(far_vec))
+    conn.commit()
+
+    playlist_id = create_playlist(conn, "Mix", [member_a, member_b])
+    conn.commit()
+
+    results = suggest_for_playlist(conn, playlist_id)
+
+    ids = [r["id"] for r in results]
+    assert member_a not in ids
+    assert member_b not in ids
+    assert near in ids
+    assert ids.index(near) < (ids.index(far) if far in ids else len(ids))
+
+
+def test_suggest_for_playlist_excludes_a_duplicate_copy_of_a_member_song():
+    conn = connect(":memory:")
+    init_db(conn)
+    member = upsert_track(conn, Track(external_id="a", source="local", title="Song", artist="Artist"))
+    duplicate_copy = upsert_track(conn, Track(external_id="b", source="local", title="song", artist="artist"))
+    other = upsert_track(conn, Track(external_id="c", source="local", title="Other", artist="Y"))
+    conn.commit()
+
+    vec = [0.0] * EMBEDDING_DIM
+    vec[0] = 1.0
+    for tid in (member, duplicate_copy, other):
+        upsert_embedding(conn, tid, list(vec))
+    conn.commit()
+
+    playlist_id = create_playlist(conn, "Mix", [member])
+    conn.commit()
+
+    results = suggest_for_playlist(conn, playlist_id)
+
+    ids = {r["id"] for r in results}
+    assert duplicate_copy not in ids
+    assert other in ids
+
+
+def test_suggest_for_playlist_returns_empty_for_an_empty_playlist():
+    conn = connect(":memory:")
+    init_db(conn)
+    playlist_id = create_playlist(conn, "Empty", [])
+    conn.commit()
+
+    assert suggest_for_playlist(conn, playlist_id) == []
+
+
 def test_album_tracks_orders_by_leading_track_number_in_filename():
     conn = connect(":memory:")
     init_db(conn)
@@ -428,6 +503,48 @@ def test_search_does_not_drop_a_filtered_match_that_ranks_poorly_on_leftover_sem
     results = search(conn, "1990s house classics", limit=1)
 
     assert match_id in [r["id"] for r in results]
+
+
+def test_search_by_tag_genre_is_an_exact_filter_not_a_fuzzy_match(monkeypatch):
+    conn = connect(":memory:")
+    init_db(conn)
+
+    ska_id = upsert_track(conn, Track(external_id="ska", source="local", title="A", artist="X", genre="Ska"))
+    rock_id = upsert_track(conn, Track(external_id="rock", source="local", title="B", artist="Y", genre="Rock"))
+    conn.commit()
+
+    vec = [0.0] * EMBEDDING_DIM
+    vec[0] = 1.0
+    upsert_embedding(conn, ska_id, list(vec))
+    upsert_embedding(conn, rock_id, list(vec))
+    conn.commit()
+
+    monkeypatch.setattr("backend.search.engine.embed_text", lambda q: vec)
+
+    results = search_by_tag(conn, "genre", "Ska")
+
+    ids = [r["id"] for r in results]
+    assert ids == [ska_id]
+
+
+def test_search_by_tag_freeform_tag_matches_exact_token(monkeypatch):
+    conn = connect(":memory:")
+    init_db(conn)
+
+    track_id = upsert_track(conn, Track(external_id="a", source="local", title="A", artist="X"))
+    conn.commit()
+    set_tags_list(conn, track_id, ["road trip", "live"])
+    conn.commit()
+
+    vec = [0.0] * EMBEDDING_DIM
+    vec[0] = 1.0
+    upsert_embedding(conn, track_id, list(vec))
+    conn.commit()
+
+    monkeypatch.setattr("backend.search.engine.embed_text", lambda q: vec)
+
+    assert [r["id"] for r in search_by_tag(conn, "tag", "road trip")] == [track_id]
+    assert search_by_tag(conn, "tag", "road") == []
 
 
 def test_numeric_distance_is_neutral_when_either_value_unknown():

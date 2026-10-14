@@ -9,6 +9,7 @@ from backend.db import (
     init_db,
     list_playlists,
     rename_playlist,
+    set_playlist_tracks,
     upsert_track,
 )
 from backend.search.engine import playlist_tracks
@@ -114,3 +115,31 @@ def test_add_track_to_playlist_works_on_an_initially_empty_playlist():
     conn.commit()
 
     assert get_playlist_track_ids(conn, playlist_id) == ids
+
+
+def test_set_playlist_tracks_replaces_the_full_list_and_order():
+    conn = connect(":memory:")
+    init_db(conn)
+    ids = _make_tracks(conn, 4)
+    conn.commit()
+    playlist_id = create_playlist(conn, "Mix", ids[:2])
+    conn.commit()
+
+    set_playlist_tracks(conn, playlist_id, [ids[3], ids[1]])
+    conn.commit()
+
+    assert get_playlist_track_ids(conn, playlist_id) == [ids[3], ids[1]]
+
+
+def test_set_playlist_tracks_can_empty_a_playlist():
+    conn = connect(":memory:")
+    init_db(conn)
+    ids = _make_tracks(conn, 2)
+    conn.commit()
+    playlist_id = create_playlist(conn, "Mix", ids)
+    conn.commit()
+
+    set_playlist_tracks(conn, playlist_id, [])
+    conn.commit()
+
+    assert get_playlist_track_ids(conn, playlist_id) == []

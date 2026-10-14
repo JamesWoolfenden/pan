@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import struct
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -283,6 +284,23 @@ def get_tracks_by_ids(conn: sqlite3.Connection, ids: list[int]) -> list[sqlite3.
     return [by_id[i] for i in ids if i in by_id]
 
 
+def get_embeddings(conn: sqlite3.Connection, track_ids: list[int]) -> dict[int, list[float]]:
+    """Raw stored vectors for a specific set of tracks - used to build an aggregate (e.g. a
+    playlist's mean embedding), as opposed to search_embeddings/rank_by_embedding which compare
+    *against* a vector rather than returning the vectors themselves. sqlite_vec's Python package
+    doesn't expose a deserializer, so unpack the stored float32 blob by hand."""
+    if not track_ids:
+        return {}
+    placeholders = ",".join("?" for _ in track_ids)
+    rows = conn.execute(f"SELECT rowid, embedding FROM track_vectors WHERE rowid IN ({placeholders})", track_ids).fetchall()
+    result = {}
+    for row in rows:
+        blob = row["embedding"]
+        count = len(blob) // 4
+        result[row["rowid"]] = list(struct.unpack(f"<{count}f", blob))
+    return result
+
+
 def upsert_embedding(conn: sqlite3.Connection, track_id: int, embedding: list[float]) -> None:
     conn.execute("DELETE FROM track_vectors WHERE rowid = ?", (track_id,))
     conn.execute(
@@ -351,6 +369,17 @@ def create_playlist(conn: sqlite3.Connection, name: str, track_ids: list[int]) -
         [(playlist_id, track_id, i) for i, track_id in enumerate(track_ids)],
     )
     return playlist_id
+
+
+def set_playlist_tracks(conn: sqlite3.Connection, playlist_id: int, track_ids: list[int]) -> None:
+    """Replace a playlist's full track list (order included) - used when a queue that was loaded
+    from this playlist gets edited and saved back, unlike add_track_to_playlist's single-track
+    append."""
+    conn.execute("DELETE FROM playlist_tracks WHERE playlist_id = ?", (playlist_id,))
+    conn.executemany(
+        "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)",
+        [(playlist_id, track_id, i) for i, track_id in enumerate(track_ids)],
+    )
 
 
 def add_track_to_playlist(conn: sqlite3.Connection, playlist_id: int, track_id: int) -> None:

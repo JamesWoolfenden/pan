@@ -1,3 +1,9 @@
+// Only registers over HTTPS/localhost - browsers refuse service workers elsewhere, so this is
+// a silent no-op when the app happens to be opened over plain HTTP.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
+
 const form = document.getElementById("search-form");
 const input = document.getElementById("query");
 const historyEl = document.getElementById("search-history");
@@ -8,8 +14,16 @@ const playAllBtn = document.getElementById("play-all-btn");
 const playlistAllBtn = document.getElementById("playlist-all-btn");
 const reindexBtn = document.getElementById("reindex-btn");
 const reindexStatusEl = document.getElementById("reindex-status");
+const adminToggleBtn = document.getElementById("admin-toggle");
+const adminPanelEl = document.getElementById("admin-panel");
+
+adminToggleBtn.addEventListener("click", () => {
+  adminPanelEl.hidden = !adminPanelEl.hidden;
+  adminToggleBtn.setAttribute("aria-expanded", String(!adminPanelEl.hidden));
+});
 
 const queuePlayer = document.getElementById("queue-player");
+const castStatusEl = document.getElementById("cast-status");
 const queueListEl = document.getElementById("queue-list");
 const nowPlayingEl = document.getElementById("queue-now-playing");
 const shuffleBtn = document.getElementById("queue-shuffle");
@@ -18,13 +32,31 @@ const playPauseBtn = document.getElementById("queue-playpause");
 const nextBtn = document.getElementById("queue-next");
 const repeatBtn = document.getElementById("queue-repeat");
 const saveBtn = document.getElementById("queue-save");
+const cloneBtn = document.getElementById("queue-clone");
 const clearBtn = document.getElementById("queue-clear");
+const queueListToggleBtn = document.getElementById("queue-list-toggle");
 const playlistsListEl = document.getElementById("playlists-list");
+const playlistsToggleBtn = document.getElementById("playlists-toggle");
 const loadMoreBtn = document.getElementById("load-more-btn");
 const nowPlayingActionsEl = document.getElementById("queue-now-playing-actions");
 
+// Shared by every collapsible section that uses a chevron toggle (queue list, playlists) -
+// always visible, on every screen size. Defaults open (.collapsed absent), same as before this
+// toggle existed.
+function wireCollapseToggle(toggleBtn, targetEl) {
+  toggleBtn.addEventListener("click", () => {
+    const collapsed = targetEl.classList.toggle("collapsed");
+    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    toggleBtn.innerHTML = collapsed ? "&#9662;" : "&#9652;";
+  });
+}
+wireCollapseToggle(queueListToggleBtn, queueListEl);
+wireCollapseToggle(playlistsToggleBtn, playlistsListEl);
+
 let queue = []; // [{id, title, artist, file_path}]
 let currentIndex = -1;
+let currentPlaylistId = null; // set when the queue was loaded from a saved playlist (see playTrackList)
+let currentPlaylistName = null;
 let lastResults = [];
 let previousResults = null;
 
@@ -285,8 +317,9 @@ function renderResults(results) {
       playArea.appendChild(audio);
 
       const queueBtn = document.createElement("button");
-      queueBtn.textContent = "+ Queue";
-      queueBtn.title = "Add to queue";
+      queueBtn.className = "queue-btn";
+      queueBtn.dataset.trackId = String(r.id);
+      updateQueueButton(queueBtn, r.id);
       queueBtn.addEventListener("click", () => addToQueue(r));
       playArea.appendChild(queueBtn);
     } else {
@@ -338,12 +371,14 @@ function buildPlaylistPickerPanel(trackIdsSource) {
     panel.hidden = true;
   });
 
-  let loaded = false;
+  // Always re-fetches on open (no "only load once" cache) - a playlist created from this same
+  // panel, another row's panel, or the main Playlists sidebar should show up next time this
+  // opens, not whatever list happened to exist the first time it was clicked.
   panel.load = async () => {
-    if (loaded) return;
-    loaded = true;
+    listEl.textContent = "Loading...";
     const res = await fetch("/playlists");
     const data = await res.json();
+    listEl.innerHTML = "";
     if (!data.playlists.length) {
       listEl.textContent = "No playlists yet.";
     } else {
@@ -387,13 +422,20 @@ async function playArtistAlbum(artist, album) {
 // Used by both "play this album" paths. Keeps the tracks visible in the main results list (with
 // their full set of controls - Info, Edit tags, Similar, etc.) rather than only in the compact
 // queue list, which has none of that.
-function playTrackList(results, bannerText) {
+function playTrackList(results, bannerText, sourcePlaylist = null) {
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
   loadMoreBtn.hidden = true;
   lastResults = results;
   renderResults(lastResults);
   queue = results.filter((r) => r.file_path).map(toQueueEntry);
+  // Only set when loaded via playPlaylist (below) - lets "Save as playlist" offer to update
+  // this same playlist instead of always creating a new one. Stays set across queue edits
+  // (add/remove) within this session, so tweaking a playlist and saving updates it in place;
+  // loading anything else (an album, a fresh search's "Play all") clears it, same as this
+  // default null does when called without a third argument.
+  currentPlaylistId = sourcePlaylist ? sourcePlaylist.id : null;
+  currentPlaylistName = sourcePlaylist ? sourcePlaylist.name : null;
   renderQueue();
   playAt(0);
   setContextBanner(bannerText, restorePreviousResults);
@@ -413,19 +455,25 @@ function buildInfoPanel(r) {
   const aboutEl = document.createElement("div");
   aboutEl.className = "info-about";
 
+  // Stays visible (not hidden after first use) and re-labels to "Regenerate" so a stale cached
+  // writeup - e.g. generated before a mislabeled artist/title got corrected - can be refreshed
+  // rather than stuck forever (the backend caches ai_background indefinitely to save API calls).
   aboutBtn.addEventListener("click", async () => {
+    const refreshing = aboutBtn.textContent === "Regenerate";
     aboutBtn.disabled = true;
     aboutBtn.textContent = "Thinking...";
-    const res = await fetch(`/track/${r.id}/about`);
+    const res = await fetch(`/track/${r.id}/about${refreshing ? "?refresh=true" : ""}`);
     const data = await res.json();
     aboutEl.textContent = data.text || "No background available (is ANTHROPIC_API_KEY configured?).";
-    aboutBtn.hidden = true;
+    aboutBtn.textContent = "Regenerate";
+    aboutBtn.disabled = false;
   });
 
-  let loaded = false;
+  // Always re-fetches on open (no "only load once" cache) - tag/title/artist edits change the
+  // source data (e.g. tag_source flips to "manual") and this panel should never show a stale
+  // snapshot from before the edit.
   panel.load = async () => {
-    if (loaded) return;
-    loaded = true;
+    factsEl.textContent = "Loading...";
     const res = await fetch(`/track/${r.id}`);
     const d = await res.json();
     factsEl.innerHTML = "";
@@ -465,10 +513,36 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Genre/mood/tags as clickable chips - same "find more like this" idea as the artist/album
+// links elsewhere, routed through an exact hard-filter search (see search_by_tag) rather than
+// the fuzzy/semantic search box, so clicking "Ska" reliably returns everything tagged Ska.
 function setTagsText(tagsEl, r) {
-  const core = `${r.genre || ""}${r.mood ? ` · ${r.mood}` : ""}`;
-  const freeform = (r.tags || []).map((t) => `#${t}`).join(" ");
-  tagsEl.textContent = [core, freeform].filter(Boolean).join("  ");
+  tagsEl.innerHTML = "";
+  if (r.genre) tagsEl.appendChild(buildTagLink(r.genre, "genre", r.genre));
+  if (r.mood) tagsEl.appendChild(buildTagLink(r.mood, "mood", r.mood));
+  for (const t of r.tags || []) {
+    tagsEl.appendChild(buildTagLink(`#${t}`, "tag", t));
+  }
+}
+
+function buildTagLink(label, field, value) {
+  const btn = document.createElement("button");
+  btn.className = "tag-link";
+  btn.textContent = label;
+  btn.title = `Find more tagged "${value}"`;
+  btn.addEventListener("click", () => showByTag(field, value));
+  return btn;
+}
+
+async function showByTag(field, value) {
+  const res = await fetch(`/search/by-tag?field=${encodeURIComponent(field)}&value=${encodeURIComponent(value)}`);
+  const data = await res.json();
+  previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
+  lastResults = data.results;
+  renderResults(lastResults);
+  setContextBanner(`Tagged: ${field === "tag" ? "#" : ""}${value}`, restorePreviousResults);
 }
 
 // A small add/remove chip editor for the freeform tags list (separate from genre/mood, which
@@ -765,6 +839,8 @@ function pauseOtherPlayers(current) {
 playAllBtn.addEventListener("click", () => {
   const playable = lastResults.filter((r) => r.file_path);
   queue = playable.map(toQueueEntry);
+  currentPlaylistId = null;
+  currentPlaylistName = null;
   renderQueue();
   playAt(0);
 });
@@ -782,6 +858,33 @@ function addToQueue(track) {
   queue.push(toQueueEntry(track));
   renderQueue();
   if (currentIndex === -1) playAt(0);
+}
+
+function isQueued(trackId) {
+  return queue.some((t) => t.id === trackId);
+}
+
+// A track can get queued/removed from several places (this button, the queue panel's own ×,
+// Clear) - rather than tracking all of them, every queue mutation funnels through renderQueue(),
+// so refreshing every visible +Queue button there keeps them all in sync regardless of source.
+function updateQueueButton(btn, trackId) {
+  const queued = isQueued(trackId);
+  btn.textContent = queued ? "✓ Queued" : "+ Queue";
+  btn.classList.toggle("is-queued", queued);
+  btn.title = queued ? "Already in the queue - click to add another copy" : "Add to queue";
+}
+
+function refreshQueueButtons() {
+  for (const btn of document.querySelectorAll(".queue-btn")) {
+    updateQueueButton(btn, Number(btn.dataset.trackId));
+  }
+}
+
+function updateSaveControls() {
+  saveBtn.title = currentPlaylistId ? `Update "${currentPlaylistName}"` : "Save as playlist";
+  // Only meaningful once a playlist is actually loaded - saving a fresh queue already creates
+  // a new playlist via the Save button itself, so a separate clone action would be redundant.
+  cloneBtn.hidden = !currentPlaylistId;
 }
 
 function toQueueEntry(r) {
@@ -838,7 +941,10 @@ function updateShuffleRepeatButtons() {
   const repeatTitles = { none: "Repeat off", all: "Repeat all", one: "Repeat one" };
   repeatBtn.title = repeatTitles[repeatMode];
   repeatBtn.classList.toggle("is-active", repeatMode !== "none");
-  repeatBtn.textContent = repeatMode === "one" ? "\u{1F501}" : "\u{1F502}";
+  // Plain Unicode glyph (not an emoji) so .is-active's color actually applies to it, same as
+  // the other transport buttons - color emoji ignore CSS `color` entirely, which is why shuffle
+  // and repeat used to look like they didn't match the rest of the row's active-state styling.
+  repeatBtn.textContent = repeatMode === "one" ? "↻¹" : "↻";
 }
 
 shuffleBtn.addEventListener("click", () => {
@@ -866,6 +972,8 @@ function persistQueueState() {
         currentIndex,
         shuffle,
         repeatMode,
+        currentPlaylistId,
+        currentPlaylistName,
         currentTime: queuePlayer.currentTime || 0,
       })
     );
@@ -887,6 +995,8 @@ function restoreQueueState() {
   currentIndex = typeof saved.currentIndex === "number" && saved.currentIndex < queue.length ? saved.currentIndex : -1;
   shuffle = !!saved.shuffle;
   repeatMode = ["all", "one"].includes(saved.repeatMode) ? saved.repeatMode : "none";
+  currentPlaylistId = typeof saved.currentPlaylistId === "number" ? saved.currentPlaylistId : null;
+  currentPlaylistName = currentPlaylistId ? saved.currentPlaylistName || null : null;
   if (shuffle) rebuildShuffleOrder();
   updateShuffleRepeatButtons();
   renderQueue();
@@ -939,8 +1049,11 @@ function renderQueue() {
   nextBtn.disabled = !hasQueue;
   repeatBtn.disabled = !hasQueue;
   saveBtn.disabled = !hasQueue;
+  cloneBtn.disabled = !hasQueue;
   clearBtn.disabled = !hasQueue;
   persistQueueState();
+  refreshQueueButtons();
+  updateSaveControls();
 }
 
 function removeFromQueue(i) {
@@ -1009,8 +1122,29 @@ function guessCastContentType(track) {
   return CAST_CONTENT_TYPES[ext] || "audio/mpeg";
 }
 
+// Chromecast's receiver hardware fetches this URL itself, directly over the LAN, and does real
+// TLS certificate validation - unlike a browser, it has no way to click through a warning for
+// our self-signed cert. The app itself stays on HTTPS (needed for PWA install), but casting
+// specifically needs a plain-HTTP path, served in parallel on :8080 (see Makefile).
+const CAST_STREAM_ORIGIN = `http://${location.hostname}:8080`;
+
 function isCasting() {
   return !!(castPlayer && castPlayer.isConnected);
+}
+
+// The native <audio controls> bar's own play/scrubber UI isn't wired to the Chromecast session
+// at all - while casting it just sits there looking broken (stuck, unresponsive to clicks) since
+// actual playback is happening on the receiver, not locally. Swap it for a plain status line;
+// the real transport buttons (prev/play/next) already branch on isCasting() and work correctly.
+function updateCastUi() {
+  const casting = isCasting();
+  queuePlayer.hidden = casting;
+  castStatusEl.hidden = !casting;
+  if (casting) {
+    const session = cast.framework.CastContext.getInstance().getCurrentSession();
+    const deviceName = session?.getCastDevice()?.friendlyName || "Chromecast";
+    castStatusEl.textContent = `Casting to ${deviceName} - use the controls above to play/pause/skip.`;
+  }
 }
 
 function castCurrentTrack() {
@@ -1018,7 +1152,7 @@ function castCurrentTrack() {
   const session = cast.framework.CastContext.getInstance().getCurrentSession();
   if (!session) return;
   const track = queue[currentIndex];
-  const mediaInfo = new chrome.cast.media.MediaInfo(`${location.origin}/stream/${track.id}`, guessCastContentType(track));
+  const mediaInfo = new chrome.cast.media.MediaInfo(`${CAST_STREAM_ORIGIN}/stream/${track.id}`, guessCastContentType(track));
   mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
   mediaInfo.metadata.title = track.title || "Untitled";
   mediaInfo.metadata.artist = track.artist || "";
@@ -1038,6 +1172,7 @@ function initializeCastApi() {
     // keep playing too (both audible at once). Disconnecting doesn't resume local playback
     // automatically - press play again to continue here.
     if (isCasting()) castCurrentTrack();
+    updateCastUi();
   });
   castController.addEventListener(cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED, () => {
     playPauseBtn.innerHTML = castPlayer.isPaused ? "&#9654;" : "&#10074;&#10074;";
@@ -1175,7 +1310,10 @@ playPauseBtn.addEventListener("click", () => {
 });
 prevBtn.addEventListener("click", () => playAt(prevQueueIndex(currentIndex)));
 nextBtn.addEventListener("click", () => playAt(nextQueueIndex(currentIndex)));
-saveBtn.addEventListener("click", async () => {
+// Saving when the queue came from a playlist (currentPlaylistId set) updates that playlist
+// directly, no confirmation - that's the common case and the whole point of tracking it.
+// Starting a genuinely new playlist from scratch still prompts for a name either way.
+async function saveAsNewPlaylist() {
   const name = prompt("Playlist name?");
   if (!name || !name.trim()) return;
   await fetch("/playlists", {
@@ -1184,7 +1322,25 @@ saveBtn.addEventListener("click", async () => {
     body: JSON.stringify({ name: name.trim(), track_ids: queue.map((t) => t.id) }),
   });
   loadPlaylists();
+}
+
+saveBtn.addEventListener("click", async () => {
+  if (currentPlaylistId) {
+    await fetch(`/playlists/${currentPlaylistId}/tracks`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track_ids: queue.map((t) => t.id) }),
+    });
+    loadPlaylists();
+    return;
+  }
+  await saveAsNewPlaylist();
 });
+
+// Clone: fork the currently-loaded playlist's queue into a new one instead of updating it -
+// only shown when a playlist is actually loaded (see updateSaveControls).
+cloneBtn.addEventListener("click", saveAsNewPlaylist);
+
 clearBtn.addEventListener("click", () => {
   recordCurrentPlayProgress();
   queuePlayer.pause();
@@ -1196,6 +1352,8 @@ clearBtn.addEventListener("click", () => {
   }
   queue = [];
   currentIndex = -1;
+  currentPlaylistId = null;
+  currentPlaylistName = null;
   nowPlayingEl.textContent = "";
   renderNowPlayingActions(null);
   renderQueue();
@@ -1225,6 +1383,16 @@ function renderPlaylists(playlists) {
     label.addEventListener("click", () => playPlaylist(p.id, p.name));
     li.appendChild(label);
 
+    const actions = document.createElement("span");
+    actions.className = "playlist-actions";
+
+    const suggestBtn = document.createElement("button");
+    suggestBtn.className = "suggest-btn";
+    suggestBtn.textContent = "+ Suggest";
+    suggestBtn.title = `Find more tracks like "${p.name}"`;
+    suggestBtn.addEventListener("click", () => showPlaylistSuggestions(p.id, p.name));
+    actions.appendChild(suggestBtn);
+
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "×";
     deleteBtn.title = "Delete playlist";
@@ -1233,7 +1401,9 @@ function renderPlaylists(playlists) {
       await fetch(`/playlists/${p.id}`, { method: "DELETE" });
       loadPlaylists();
     });
-    li.appendChild(deleteBtn);
+    actions.appendChild(deleteBtn);
+
+    li.appendChild(actions);
 
     playlistsListEl.appendChild(li);
   }
@@ -1242,7 +1412,21 @@ function renderPlaylists(playlists) {
 async function playPlaylist(id, name) {
   const res = await fetch(`/playlists/${id}`);
   const data = await res.json();
-  playTrackList(data.results, `Playlist: "${name}"`);
+  playTrackList(data.results, `Playlist: "${name}"`, { id, name });
+}
+
+// "More like this playlist" - same results-list/context-banner pattern as showStats/
+// showDiscography, so the suggestions get the full set of row actions (favorite, +Queue,
+// +Playlist, etc.) rather than only living in the compact queue list.
+async function showPlaylistSuggestions(id, name) {
+  const res = await fetch(`/playlists/${id}/suggest`);
+  const data = await res.json();
+  previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
+  lastResults = data.results;
+  renderResults(lastResults);
+  setContextBanner(`Suggested for "${name}"`, restorePreviousResults);
 }
 
 loadPlaylists();

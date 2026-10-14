@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections import Counter
 from pathlib import Path
 
 from backend.db import (
     find_similar_embeddings,
+    get_embeddings,
     get_playlist_track_ids,
     get_tracks_by_ids,
     rank_by_embedding,
@@ -153,12 +155,8 @@ def _dedupe_by_song(rows: list[sqlite3.Row], limit: int) -> list[sqlite3.Row]:
     ]
 
 
-def search(conn: sqlite3.Connection, query: str, limit: int = 25, offset: int = 0) -> list[dict]:
-    filt = parse_query(query) if is_complex_query(query) else {"semantic_query": query}
-    filt = _apply_genre_aliases(query, filt)
-
+def _search_with_filter(conn: sqlite3.Connection, filt: dict, semantic_query: str, limit: int, offset: int) -> list[dict]:
     candidate_ids = _filtered_candidate_ids(conn, filt)
-    semantic_query = filt.get("semantic_query") or query
     query_embedding = embed_text(semantic_query)
 
     if candidate_ids is not None:
@@ -179,6 +177,25 @@ def search(conn: sqlite3.Connection, query: str, limit: int = 25, offset: int = 
     rows = get_tracks_by_ids(conn, ids_in_order)
     rows = _dedupe_by_song(rows, offset + limit)[offset:]
     return [_to_result(row, distance_by_id[row["id"]]) for row in rows]
+
+
+def search(conn: sqlite3.Connection, query: str, limit: int = 25, offset: int = 0) -> list[dict]:
+    filt = parse_query(query) if is_complex_query(query) else {"semantic_query": query}
+    filt = _apply_genre_aliases(query, filt)
+    semantic_query = filt.get("semantic_query") or query
+    return _search_with_filter(conn, filt, semantic_query, limit, offset)
+
+
+_TAG_FILTER_FIELDS = {"genre": "genre_include", "mood": "mood_include", "tag": "tag_include"}
+
+
+def search_by_tag(conn: sqlite3.Connection, field: str, value: str, limit: int = 25, offset: int = 0) -> list[dict]:
+    """Exact hard-filter search for a genre/mood/freeform-tag chip click - same idea as
+    album_tracks_by_name's exact (artist, album) match, rather than routing the tag's text
+    through the fuzzy/semantic search path a typed query would take."""
+    filter_key = _TAG_FILTER_FIELDS[field]
+    filt = {filter_key: [value]}
+    return _search_with_filter(conn, filt, value, limit, offset)
 
 
 # Pure text-embedding similarity has a real ceiling: it can only approximate numeric audio
@@ -206,7 +223,7 @@ def _key_distance(a: str | None, b: str | None) -> float:
     return 0.0 if a == b else 1.0
 
 
-def _combined_distance(anchor: sqlite3.Row, candidate: sqlite3.Row, text_distance: float) -> float:
+def _combined_distance(anchor: sqlite3.Row | dict, candidate: sqlite3.Row, text_distance: float) -> float:
     w = SIMILARITY_WEIGHTS
     return (
         w["text"] * text_distance
@@ -244,6 +261,57 @@ def similar(conn: sqlite3.Connection, track_id: int, limit: int = 25) -> list[di
 
     rows = _dedupe_by_song(rows, limit)
     return [_to_result(row, combined_distance_by_id[row["id"]]) for row in rows]
+
+
+def suggest_for_playlist(conn: sqlite3.Connection, playlist_id: int, limit: int = 25) -> list[dict]:
+    """"More like this playlist" - the simplest version of this idea: average the playlist's own
+    track embeddings into a single centroid vector and a mean tempo/energy/year plus its most
+    common key, then rank the rest of the library against that combined profile exactly the way
+    similar() ranks against one anchor track's own values.
+
+    A plain mean is a deliberately simple first cut - it can produce a "mushy middle" that doesn't
+    closely resemble any single track for a genuinely eclectic playlist (e.g. one mixing ska and
+    soul). If that turns out to matter in practice, the fix is ranking by each candidate's best
+    match to any one playlist track rather than the average, or clustering into sub-groups first -
+    building that now would be solving a problem not yet confirmed to exist."""
+    track_ids = get_playlist_track_ids(conn, playlist_id)
+    if not track_ids:
+        return []
+    track_id_set = set(track_ids)
+
+    embeddings = get_embeddings(conn, track_ids)
+    vectors = list(embeddings.values())
+    if not vectors:
+        return []
+    centroid = [sum(dim) / len(vectors) for dim in zip(*vectors)]
+
+    rows = get_tracks_by_ids(conn, track_ids)
+    playlist_song_keys = {_song_key(row) for row in rows}
+    tempos = [row["tempo"] for row in rows if row["tempo"] is not None]
+    energies = [row["energy"] for row in rows if row["energy"] is not None]
+    years = [row["year"] for row in rows if row["year"] is not None]
+    keys = [row["musical_key"] for row in rows if row["musical_key"]]
+    profile = {
+        "tempo": sum(tempos) / len(tempos) if tempos else None,
+        "energy": sum(energies) / len(energies) if energies else None,
+        "year": sum(years) / len(years) if years else None,
+        "musical_key": Counter(keys).most_common(1)[0][0] if keys else None,
+    }
+
+    hits = search_embeddings(conn, centroid, limit=(limit + len(track_ids)) * VECTOR_CANDIDATE_MULTIPLIER)
+    text_distance_by_id = dict(hits)
+    candidates = get_tracks_by_ids(conn, [tid for tid, _ in hits])
+    # Exclude the playlist's own tracks - both by id and by song identity, so a duplicate copy
+    # of an already-included song under a different file doesn't get "suggested" right back.
+    candidates = [row for row in candidates if row["id"] not in track_id_set and _song_key(row) not in playlist_song_keys]
+
+    combined_distance_by_id = {
+        row["id"]: _combined_distance(profile, row, text_distance_by_id[row["id"]]) for row in candidates
+    }
+    candidates.sort(key=lambda row: combined_distance_by_id[row["id"]])
+
+    candidates = _dedupe_by_song(candidates, limit)
+    return [_to_result(row, combined_distance_by_id[row["id"]]) for row in candidates]
 
 
 _TRACK_NUMBER_RE = re.compile(r"^\s*(\d+)")

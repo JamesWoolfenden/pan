@@ -24,6 +24,7 @@ from backend.db import (
     set_ai_background,
     set_artist,
     set_favorite,
+    set_playlist_tracks,
     set_tags,
     set_tags_list,
     set_title,
@@ -37,7 +38,9 @@ from backend.search.engine import album_tracks_by_name as run_album_tracks_by_na
 from backend.search.engine import discography as run_discography
 from backend.search.engine import playlist_tracks as run_playlist_tracks
 from backend.search.engine import search as run_search
+from backend.search.engine import search_by_tag as run_search_by_tag
 from backend.search.engine import similar as run_similar
+from backend.search.engine import suggest_for_playlist as run_suggest_for_playlist
 from backend.search.engine import versions as run_versions
 from backend.stats import favorites, most_played, most_skipped, never_played, recently_played
 from backend.tagging.cloud_tagger import suggest_tags
@@ -69,6 +72,14 @@ with connection() as _conn:
 def search_endpoint(q: str, limit: int = 25, offset: int = 0):
     with connection() as conn:
         return {"results": run_search(conn, q, limit=limit, offset=offset)}
+
+
+@app.get("/search/by-tag")
+def search_by_tag_endpoint(field: str, value: str, limit: int = 25, offset: int = 0):
+    if field not in ("genre", "mood", "tag"):
+        raise HTTPException(status_code=400, detail="field must be one of: genre, mood, tag")
+    with connection() as conn:
+        return {"results": run_search_by_tag(conn, field, value, limit=limit, offset=offset)}
 
 
 @app.get("/track/{track_id}/similar")
@@ -150,6 +161,23 @@ def add_track_to_playlist_endpoint(playlist_id: int, body: PlaylistAddTrack):
     return {"status": "ok"}
 
 
+class PlaylistTracksUpdate(BaseModel):
+    track_ids: list[int]
+
+
+@app.put("/playlists/{playlist_id}/tracks")
+def update_playlist_tracks_endpoint(playlist_id: int, body: PlaylistTracksUpdate):
+    """Replaces the playlist's full track list - used by "Save as playlist" when the current
+    queue was loaded from this same playlist, to update it in place rather than always creating
+    a new one."""
+    with connection() as conn:
+        if get_playlist(conn, playlist_id) is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        set_playlist_tracks(conn, playlist_id, body.track_ids)
+        conn.commit()
+    return {"id": playlist_id, "track_count": len(body.track_ids)}
+
+
 @app.get("/playlists/{playlist_id}")
 def get_playlist_endpoint(playlist_id: int):
     with connection() as conn:
@@ -157,6 +185,14 @@ def get_playlist_endpoint(playlist_id: int):
         if playlist is None:
             raise HTTPException(status_code=404, detail="Playlist not found")
         return {"id": playlist["id"], "name": playlist["name"], "results": run_playlist_tracks(conn, playlist_id)}
+
+
+@app.get("/playlists/{playlist_id}/suggest")
+def suggest_for_playlist_endpoint(playlist_id: int, limit: int = 25):
+    with connection() as conn:
+        if get_playlist(conn, playlist_id) is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        return {"results": run_suggest_for_playlist(conn, playlist_id, limit=limit)}
 
 
 @app.patch("/playlists/{playlist_id}")
@@ -356,12 +392,15 @@ def track_detail(track_id: int):
 
 
 @app.get("/track/{track_id}/about")
-def track_about(track_id: int):
+def track_about(track_id: int, refresh: bool = False):
+    """Cached indefinitely once generated (ai_background), since it costs an API call - refresh
+    bypasses that cache and overwrites it, for when the cached text is stale (e.g. it was
+    generated before a mislabeled artist/title got corrected) or just wasn't a good writeup."""
     with connection() as conn:
         row = get_track(conn, track_id)
         if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
-        if row["ai_background"]:
+        if row["ai_background"] and not refresh:
             return {"text": row["ai_background"], "cached": True}
 
         text = get_track_background(row)
@@ -426,3 +465,24 @@ def index():
     version = str(int(Path("ui/app.js").stat().st_mtime))
     html = html.replace('src="/static/app.js"', f'src="/static/app.js?v={version}"')
     return HTMLResponse(html)
+
+
+@app.get("/cert.pem")
+def download_cert():
+    """Serves the self-signed TLS cert's PUBLIC half only (never the private key) so a phone on
+    the LAN can grab it over the same connection it's already using, instead of emailing/AirDropping
+    a file around. Installing this as a trusted CA (not just clicking through the browser warning)
+    is what PWA installability actually requires - see the conversation for why."""
+    pem = Path("certs/cert.pem").read_text(encoding="utf-8")
+    return Response(content=pem, media_type="application/x-pem-file",
+                     headers={"Content-Disposition": "attachment; filename=pan-cert.pem"})
+
+
+@app.get("/sw.js")
+def service_worker():
+    """Served from the root path (not /static/) so its default scope covers the whole app, not
+    just /static/* - otherwise it would never see fetches made by the "/" page itself. Browsers
+    are supposed to always revalidate a service worker script, but Cache-Control: no-cache makes
+    that explicit rather than relying on that behavior being consistent across browsers."""
+    js = Path("ui/sw.js").read_text(encoding="utf-8")
+    return Response(content=js, media_type="application/javascript", headers={"Cache-Control": "no-cache"})

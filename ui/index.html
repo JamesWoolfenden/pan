@@ -3,40 +3,51 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1f8a6f" />
   <title>pan</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="icon" href="/static/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <header>
     <h1>pan</h1>
-    <button id="reindex-btn">Reindex library</button>
-    <span id="reindex-status"></span>
+    <button id="admin-toggle" title="Admin" aria-expanded="false">&#9881;</button>
+    <div id="admin-panel" hidden>
+      <button id="reindex-btn">Reindex library</button>
+      <span id="reindex-status"></span>
+    </div>
   </header>
 
   <main>
     <section id="queue-panel">
       <div id="queue-header">
         <strong>Queue</strong>
+        <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
         <span id="queue-now-playing"></span>
         <div id="queue-controls">
-          <button id="queue-shuffle" disabled title="Shuffle">&#128256;</button>
+          <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
           <button id="queue-prev" disabled>&#9664;&#9664;</button>
           <button id="queue-playpause" disabled>&#9654;</button>
           <button id="queue-next" disabled>&#9654;&#9654;</button>
           <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
           <google-cast-launcher id="cast-button"></google-cast-launcher>
-          <button id="queue-save" disabled>Save as playlist</button>
-          <button id="queue-clear" disabled>Clear</button>
+          <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
+          <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
+          <button id="queue-clear" disabled title="Clear">&#128465;</button>
         </div>
       </div>
       <div id="queue-now-playing-actions" hidden></div>
       <audio id="queue-player" controls></audio>
+      <div id="cast-status" hidden></div>
       <ol id="queue-list"></ol>
     </section>
 
     <section id="playlists-panel">
       <div id="playlists-header">
         <strong>Playlists</strong>
+        <button id="playlists-toggle" class="chevron-toggle" title="Show/hide playlists" aria-expanded="true">&#9652;</button>
       </div>
       <ul id="playlists-list"></ul>
     </section>
