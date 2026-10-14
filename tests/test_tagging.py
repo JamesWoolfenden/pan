@@ -1,4 +1,4 @@
-from backend.db import Track, connect, init_db, set_tags_list, tags_list, upsert_track
+from backend.db import Track, connect, init_db, set_artist, set_tags_list, set_title, tags_list, upsert_track
 from backend.tagging.cloud_tagger import suggest_tags
 from backend.tagging.local_tagger import apply_local_tags, infer_mood
 
@@ -63,6 +63,32 @@ def test_set_tags_list_empty_clears_tags():
 
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
     assert tags_list(row) == []
+
+
+def test_set_artist_corrects_a_mislabeled_artist():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="Various Artists"))
+    conn.commit()
+
+    set_artist(conn, track_id, "The Specials")
+    conn.commit()
+
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert row["artist"] == "The Specials"
+
+
+def test_set_title_corrects_a_mislabeled_title():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="01 track", artist="Artist"))
+    conn.commit()
+
+    set_title(conn, track_id, "Ghost Town")
+    conn.commit()
+
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert row["title"] == "Ghost Town"
 
 
 def test_suggest_tags_falls_back_without_api_key(monkeypatch):

@@ -22,9 +22,11 @@ from backend.db import (
     record_play_event,
     rename_playlist,
     set_ai_background,
+    set_artist,
     set_favorite,
     set_tags,
     set_tags_list,
+    set_title,
     tags_list,
 )
 from backend.info import get_track_background
@@ -299,6 +301,8 @@ class TagUpdate(BaseModel):
     genre: str | None = None
     mood: str | None = None
     tags: list[str] | None = None
+    artist: str | None = None
+    title: str | None = None
 
 
 @app.get("/track/{track_id}/suggest-tags")
@@ -319,9 +323,11 @@ def track_detail(track_id: int):
 
     file_size = None
     file_format = None
+    resolved_path = None
     if row["file_path"]:
         path = resolve_file_path(row["file_path"])
         file_format = path.suffix.lstrip(".").upper() or None
+        resolved_path = str(path)
         try:
             file_size = path.stat().st_size
         except OSError:
@@ -345,6 +351,7 @@ def track_detail(track_id: int):
         "source": row["source"],
         "file_format": file_format,
         "file_size_bytes": file_size,
+        "file_path": resolved_path,
     }
 
 
@@ -378,10 +385,25 @@ def update_tags(track_id: int, update: TagUpdate):
         set_tags(conn, track_id, genre, mood, "manual")
         if update.tags is not None:
             set_tags_list(conn, track_id, update.tags)
+        # Blank/whitespace means "didn't type a correction", not "clear the field" - a
+        # mislabeled/missing artist or title (e.g. a compilation track credited to "Various
+        # Artists", or named only from a messy filename) is worth fixing by hand, but there's
+        # no reason to ever want either wiped to empty.
+        if update.artist and update.artist.strip():
+            set_artist(conn, track_id, update.artist.strip())
+        if update.title and update.title.strip():
+            set_title(conn, track_id, update.title.strip())
         conn.commit()
         updated = get_track(conn, track_id)
         reindex_embeddings(conn, [updated])
-    return {"id": track_id, "genre": updated["genre"], "mood": updated["mood"], "tags": tags_list(updated)}
+    return {
+        "id": track_id,
+        "genre": updated["genre"],
+        "mood": updated["mood"],
+        "tags": tags_list(updated),
+        "artist": updated["artist"],
+        "title": updated["title"],
+    }
 
 
 app.mount("/static", StaticFiles(directory="ui"), name="static")

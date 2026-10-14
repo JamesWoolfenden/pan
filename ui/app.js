@@ -437,10 +437,12 @@ function buildInfoPanel(r) {
       ["Format", d.file_format],
       ["File size", d.file_size_bytes ? formatBytes(d.file_size_bytes) : null],
       ["Tag source", d.tag_source],
+      ["Path", d.file_path],
     ];
     for (const [label, value] of rows) {
       if (!value) continue;
       const row = document.createElement("div");
+      if (label === "Path") row.className = "info-path";
       row.innerHTML = `<span class="info-label">${label}:</span> ${escapeHtml(String(value))}`;
       factsEl.appendChild(row);
     }
@@ -644,6 +646,14 @@ function buildEditPanel(r, tagsEl, editBtn) {
   panel.className = "edit-panel";
   panel.hidden = true;
 
+  const titleInput = document.createElement("input");
+  titleInput.placeholder = "Title";
+  titleInput.value = r.title || "";
+
+  const artistInput = document.createElement("input");
+  artistInput.placeholder = "Artist";
+  artistInput.value = r.artist || "";
+
   const genreInput = document.createElement("input");
   genreInput.placeholder = "Genre";
   genreInput.value = r.genre || "";
@@ -686,6 +696,8 @@ function buildEditPanel(r, tagsEl, editBtn) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        title: titleInput.value.trim() || null,
+        artist: artistInput.value.trim() || null,
         genre: genreInput.value.trim() || null,
         mood: moodInput.value.trim() || null,
         tags: tagsEditor.getTags(),
@@ -694,6 +706,9 @@ function buildEditPanel(r, tagsEl, editBtn) {
     saveBtn.disabled = false;
     if (!res.ok) return;
     const updated = await res.json();
+    const identityChanged = r.artist !== updated.artist || r.title !== updated.title;
+    r.title = updated.title;
+    r.artist = updated.artist;
     r.genre = updated.genre;
     r.mood = updated.mood;
     r.tags = updated.tags;
@@ -701,11 +716,21 @@ function buildEditPanel(r, tagsEl, editBtn) {
     setTagsText(tagsEl, r);
     panel.hidden = true;
     editBtn.textContent = "Edit tags";
+    // The title/artist are shown in several places built from this same track object (the
+    // results list, the queue list, the now-playing bar) - re-render whichever of those
+    // currently hold it rather than patching each one's DOM by hand.
+    if (identityChanged) {
+      if (lastResults.includes(r)) renderResults(lastResults);
+      if (queue.includes(r)) renderQueue();
+      if (queue[currentIndex] === r) {
+        nowPlayingEl.textContent = `${r.title || "Untitled"} — ${r.artist || "Unknown artist"}`;
+      }
+    }
   });
 
   const row1 = document.createElement("div");
   row1.className = "edit-row";
-  row1.append(genreInput, moodInput, suggestBtn, saveBtn);
+  row1.append(titleInput, artistInput, genreInput, moodInput, suggestBtn, saveBtn);
 
   panel.append(row1, tagsEditor.el, suggestionsEl);
   return panel;

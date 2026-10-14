@@ -209,6 +209,14 @@ def set_tags_list(conn: sqlite3.Connection, track_id: int, tags: list[str]) -> N
     conn.execute("UPDATE tracks SET tags=? WHERE id=?", (",".join(normalized) or None, track_id))
 
 
+def set_artist(conn: sqlite3.Connection, track_id: int, artist: str) -> None:
+    conn.execute("UPDATE tracks SET artist=? WHERE id=?", (artist, track_id))
+
+
+def set_title(conn: sqlite3.Connection, track_id: int, title: str) -> None:
+    conn.execute("UPDATE tracks SET title=? WHERE id=?", (title, track_id))
+
+
 def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> None:
     conn.execute(
         "UPDATE tracks SET favorited_at = ? WHERE id = ?",

@@ -565,6 +565,11 @@ header h1 {
   color: var(--text-faint);
 }
 
+.info-path {
+  flex-basis: 100%;
+  word-break: break-all;
+}
+
 .info-about {
   font-size: 0.85rem;
   color: var(--text);
