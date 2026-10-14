@@ -1,5 +1,5 @@
-from backend.db import Track, connect, init_db, record_play_event, upsert_track
-from backend.stats import most_played, most_skipped, never_played
+from backend.db import Track, connect, init_db, record_play_event, set_favorite, upsert_track
+from backend.stats import favorites, most_played, most_skipped, never_played, recently_played
 
 
 def _track(conn, title, file_path="Z:\\music\\x.mp3"):
@@ -80,3 +80,53 @@ def test_most_skipped_orders_by_lowest_average_percent_listened():
 
     assert [r["id"] for r in results] == [skipped, loved]
     assert results[0]["avg_percent_listened"] < results[1]["avg_percent_listened"]
+
+
+def test_recently_played_orders_by_most_recent_play_and_dedupes_tracks():
+    conn = connect(":memory:")
+    init_db(conn)
+    older = _track(conn, "Older")
+    newer = _track(conn, "Newer")
+    conn.commit()
+    record_play_event(conn, older, 1.0)
+    record_play_event(conn, newer, 1.0)
+    record_play_event(conn, newer, 0.5)
+    conn.commit()
+
+    results = recently_played(conn)
+
+    assert [r["id"] for r in results] == [newer, older]
+    assert results[0]["play_count"] == 2
+
+
+def test_favorites_lists_only_favorited_tracks_most_recent_first():
+    conn = connect(":memory:")
+    init_db(conn)
+    liked_first = _track(conn, "Liked First")
+    liked_second = _track(conn, "Liked Second")
+    unliked = _track(conn, "Unliked")
+    conn.commit()
+    set_favorite(conn, liked_first, True)
+    conn.commit()
+    set_favorite(conn, liked_second, True)
+    conn.commit()
+
+    results = favorites(conn)
+
+    ids = [r["id"] for r in results]
+    assert ids == [liked_second, liked_first]
+    assert unliked not in ids
+    assert all(r["favorite"] for r in results)
+
+
+def test_set_favorite_can_be_toggled_off():
+    conn = connect(":memory:")
+    init_db(conn)
+    track = _track(conn, "Track")
+    conn.commit()
+    set_favorite(conn, track, True)
+    conn.commit()
+    set_favorite(conn, track, False)
+    conn.commit()
+
+    assert favorites(conn) == []

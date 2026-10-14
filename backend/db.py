@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -31,8 +32,10 @@ CREATE TABLE IF NOT EXISTS tracks (
     musical_key TEXT,
     tag_source TEXT NOT NULL DEFAULT 'none',  -- 'none' | 'metadata' | 'local' | 'cloud' | 'manual'
     ai_background TEXT,  -- cached AI-generated "tell me more" writeup, so it's only generated once
-    tags TEXT  -- comma-separated freeform tags, manually added - separate from genre/mood, which
-               -- are single-value fields filled by the local/cloud tagger
+    tags TEXT,  -- comma-separated freeform tags, manually added - separate from genre/mood, which
+                -- are single-value fields filled by the local/cloud tagger
+    favorited_at TEXT  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
+                       -- can be listed most-recently-favorited first
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre);
@@ -122,6 +125,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN ai_background TEXT")
     if "tags" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN tags TEXT")
+    if "favorited_at" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN favorited_at TEXT")
 
 
 def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
@@ -202,6 +207,13 @@ def tags_list(row: sqlite3.Row) -> list[str]:
 def set_tags_list(conn: sqlite3.Connection, track_id: int, tags: list[str]) -> None:
     normalized = sorted({t.strip().lower() for t in tags if t.strip()})
     conn.execute("UPDATE tracks SET tags=? WHERE id=?", (",".join(normalized) or None, track_id))
+
+
+def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> None:
+    conn.execute(
+        "UPDATE tracks SET favorited_at = ? WHERE id = ?",
+        (datetime.now(timezone.utc).isoformat() if favorite else None, track_id),
+    )
 
 
 def set_audio_features(conn: sqlite3.Connection, track_id: int, tempo: float, energy: float, musical_key: str) -> None:

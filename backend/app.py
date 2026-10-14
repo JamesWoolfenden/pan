@@ -6,9 +6,10 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
+from backend.art import extract_album_art
 from backend.db import (
     add_track_to_playlist,
     connection,
@@ -21,6 +22,7 @@ from backend.db import (
     record_play_event,
     rename_playlist,
     set_ai_background,
+    set_favorite,
     set_tags,
     set_tags_list,
     tags_list,
@@ -35,7 +37,7 @@ from backend.search.engine import playlist_tracks as run_playlist_tracks
 from backend.search.engine import search as run_search
 from backend.search.engine import similar as run_similar
 from backend.search.engine import versions as run_versions
-from backend.stats import most_played, most_skipped, never_played
+from backend.stats import favorites, most_played, most_skipped, never_played, recently_played
 from backend.tagging.cloud_tagger import suggest_tags
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -210,6 +212,18 @@ def most_skipped_endpoint(limit: int = 25):
         return {"results": most_skipped(conn, limit)}
 
 
+@app.get("/stats/recently-played")
+def recently_played_endpoint(limit: int = 25):
+    with connection() as conn:
+        return {"results": recently_played(conn, limit)}
+
+
+@app.get("/stats/favorites")
+def favorites_endpoint(limit: int = 200):
+    with connection() as conn:
+        return {"results": favorites(conn, limit)}
+
+
 @app.post("/admin/reindex")
 def trigger_reindex():
     if _reindex_lock.locked():
@@ -254,6 +268,33 @@ def stream(track_id: int):
     return FileResponse(path, media_type=media_type)
 
 
+class FavoriteUpdate(BaseModel):
+    favorite: bool
+
+
+@app.patch("/track/{track_id}/favorite")
+def update_favorite(track_id: int, update: FavoriteUpdate):
+    with connection() as conn:
+        if get_track(conn, track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        set_favorite(conn, track_id, update.favorite)
+        conn.commit()
+    return {"id": track_id, "favorite": update.favorite}
+
+
+@app.get("/track/{track_id}/art")
+def track_art(track_id: int):
+    with connection() as conn:
+        row = get_track(conn, track_id)
+    if row is None or not row["file_path"]:
+        raise HTTPException(status_code=404, detail="No art available")
+    art = extract_album_art(row["file_path"])
+    if art is None:
+        raise HTTPException(status_code=404, detail="No embedded art")
+    data, mime = art
+    return Response(content=data, media_type=mime, headers={"Cache-Control": "public, max-age=86400"})
+
+
 class TagUpdate(BaseModel):
     genre: str | None = None
     mood: str | None = None
@@ -295,6 +336,7 @@ def track_detail(track_id: int):
         "genre": row["genre"],
         "mood": row["mood"],
         "tags": tags_list(row),
+        "favorite": bool(row["favorited_at"]),
         "tag_source": row["tag_source"],
         "tempo": row["tempo"],
         "energy": row["energy"],

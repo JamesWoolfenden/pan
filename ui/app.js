@@ -12,9 +12,11 @@ const reindexStatusEl = document.getElementById("reindex-status");
 const queuePlayer = document.getElementById("queue-player");
 const queueListEl = document.getElementById("queue-list");
 const nowPlayingEl = document.getElementById("queue-now-playing");
+const shuffleBtn = document.getElementById("queue-shuffle");
 const prevBtn = document.getElementById("queue-prev");
 const playPauseBtn = document.getElementById("queue-playpause");
 const nextBtn = document.getElementById("queue-next");
+const repeatBtn = document.getElementById("queue-repeat");
 const saveBtn = document.getElementById("queue-save");
 const clearBtn = document.getElementById("queue-clear");
 const playlistsListEl = document.getElementById("playlists-list");
@@ -25,6 +27,10 @@ let queue = []; // [{id, title, artist, file_path}]
 let currentIndex = -1;
 let lastResults = [];
 let previousResults = null;
+
+let shuffle = false;
+let shuffledOrder = []; // indices into queue, in shuffled playback order (only meaningful when shuffle is true)
+let repeatMode = "none"; // "none" -> "all" -> "one" -> "none"
 
 const SEARCH_PAGE_SIZE = 25;
 let lastQuery = "";
@@ -185,6 +191,7 @@ function renderAlbums(albums, artist) {
     const li = document.createElement("li");
 
     const info = document.createElement("div");
+    info.className = "track-info";
     const titleStrong = document.createElement("strong");
     titleStrong.textContent = a.album;
     info.appendChild(titleStrong);
@@ -215,7 +222,18 @@ function renderResults(results) {
   for (const r of results) {
     const li = document.createElement("li");
 
+    if (r.file_path) {
+      const art = document.createElement("img");
+      art.className = "album-art";
+      art.src = `/track/${r.id}/art`;
+      art.alt = "";
+      art.loading = "lazy";
+      art.addEventListener("error", () => art.remove(), { once: true });
+      li.appendChild(art);
+    }
+
     const info = document.createElement("div");
+    info.className = "track-info";
 
     const titleEl = document.createElement("div");
     const titleStrong = document.createElement("strong");
@@ -511,6 +529,28 @@ function buildTagChipsEditor(initialTags) {
 // same Similar/Versions/Info/Edit tags/+Playlist actions instead of search results being the
 // only place you can do anything with a track.
 function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
+  const favoriteBtn = document.createElement("button");
+  favoriteBtn.className = "favorite-btn";
+  favoriteBtn.title = r.favorite ? "Remove from favorites" : "Add to favorites";
+  favoriteBtn.textContent = r.favorite ? "♥" : "♡";
+  favoriteBtn.classList.toggle("is-favorite", !!r.favorite);
+  favoriteBtn.addEventListener("click", async () => {
+    const next = !r.favorite;
+    favoriteBtn.disabled = true;
+    const res = await fetch(`/track/${r.id}/favorite`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite: next }),
+    });
+    favoriteBtn.disabled = false;
+    if (!res.ok) return;
+    r.favorite = next;
+    favoriteBtn.title = r.favorite ? "Remove from favorites" : "Add to favorites";
+    favoriteBtn.textContent = r.favorite ? "♥" : "♡";
+    favoriteBtn.classList.toggle("is-favorite", r.favorite);
+  });
+  buttonHost.appendChild(favoriteBtn);
+
   const similarBtn = document.createElement("button");
   similarBtn.textContent = "Similar";
   similarBtn.title = "Find tracks like this one";
@@ -567,6 +607,15 @@ function renderNowPlayingActions(track) {
     return;
   }
   nowPlayingActionsEl.hidden = false;
+
+  if (track.file_path) {
+    const art = document.createElement("img");
+    art.className = "album-art now-playing-art";
+    art.src = `/track/${track.id}/art`;
+    art.alt = "";
+    art.addEventListener("error", () => art.remove(), { once: true });
+    nowPlayingActionsEl.appendChild(art);
+  }
 
   const tagsEl = document.createElement("span");
   tagsEl.className = "track-tags";
@@ -717,6 +766,127 @@ function toQueueEntry(r) {
   return r;
 }
 
+// Shuffle doesn't reorder the visible queue list - it only changes which track next/prev
+// moves to, via a separate permutation of queue indices. Rebuilding is keyed off the queue's
+// length changing, which covers add/remove without needing an explicit dirty flag; the
+// current track is always pinned first so toggling shuffle on mid-playback doesn't jump away
+// from what's currently playing.
+function rebuildShuffleOrder() {
+  const indices = queue.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  if (currentIndex !== -1) {
+    const pos = indices.indexOf(currentIndex);
+    if (pos > 0) {
+      indices.splice(pos, 1);
+      indices.unshift(currentIndex);
+    }
+  }
+  shuffledOrder = indices;
+}
+
+function nextQueueIndex(i) {
+  if (shuffle) {
+    if (shuffledOrder.length !== queue.length) rebuildShuffleOrder();
+    const pos = shuffledOrder.indexOf(i);
+    if (pos === -1 || pos + 1 >= shuffledOrder.length) return repeatMode === "all" ? shuffledOrder[0] ?? -1 : -1;
+    return shuffledOrder[pos + 1];
+  }
+  if (i + 1 < queue.length) return i + 1;
+  return repeatMode === "all" && queue.length ? 0 : -1;
+}
+
+function prevQueueIndex(i) {
+  if (shuffle) {
+    if (shuffledOrder.length !== queue.length) rebuildShuffleOrder();
+    const pos = shuffledOrder.indexOf(i);
+    return pos > 0 ? shuffledOrder[pos - 1] : -1;
+  }
+  return i - 1 >= 0 ? i - 1 : -1;
+}
+
+function updateShuffleRepeatButtons() {
+  shuffleBtn.classList.toggle("is-active", shuffle);
+  shuffleBtn.title = shuffle ? "Shuffle on" : "Shuffle";
+  const repeatTitles = { none: "Repeat off", all: "Repeat all", one: "Repeat one" };
+  repeatBtn.title = repeatTitles[repeatMode];
+  repeatBtn.classList.toggle("is-active", repeatMode !== "none");
+  repeatBtn.textContent = repeatMode === "one" ? "\u{1F501}" : "\u{1F502}";
+}
+
+shuffleBtn.addEventListener("click", () => {
+  shuffle = !shuffle;
+  if (shuffle) rebuildShuffleOrder();
+  updateShuffleRepeatButtons();
+  persistQueueState();
+});
+
+repeatBtn.addEventListener("click", () => {
+  repeatMode = { none: "all", all: "one", one: "none" }[repeatMode];
+  updateShuffleRepeatButtons();
+  persistQueueState();
+});
+
+const QUEUE_STATE_KEY = "pan_queue_state";
+let lastPersistedTime = 0;
+
+function persistQueueState() {
+  try {
+    localStorage.setItem(
+      QUEUE_STATE_KEY,
+      JSON.stringify({
+        queue,
+        currentIndex,
+        shuffle,
+        repeatMode,
+        currentTime: queuePlayer.currentTime || 0,
+      })
+    );
+  } catch {
+    // localStorage unavailable (private browsing etc) - the queue just won't survive a refresh
+  }
+}
+
+function restoreQueueState() {
+  let saved;
+  try {
+    saved = JSON.parse(localStorage.getItem(QUEUE_STATE_KEY));
+  } catch {
+    return;
+  }
+  if (!saved || !Array.isArray(saved.queue) || !saved.queue.length) return;
+
+  queue = saved.queue;
+  currentIndex = typeof saved.currentIndex === "number" && saved.currentIndex < queue.length ? saved.currentIndex : -1;
+  shuffle = !!saved.shuffle;
+  repeatMode = ["all", "one"].includes(saved.repeatMode) ? saved.repeatMode : "none";
+  if (shuffle) rebuildShuffleOrder();
+  updateShuffleRepeatButtons();
+  renderQueue();
+
+  const track = currentIndex !== -1 ? queue[currentIndex] : null;
+  if (track) {
+    nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"} (paused — press play to resume)`;
+    renderNowPlayingActions(track);
+    updateMediaSessionMetadata(track);
+    if (track.file_path) {
+      queuePlayer.src = `/stream/${track.id}`;
+      if (saved.currentTime) {
+        queuePlayer.addEventListener(
+          "loadedmetadata",
+          () => {
+            queuePlayer.currentTime = saved.currentTime;
+          },
+          { once: true }
+        );
+      }
+      schedulePrefetch(queue[nextQueueIndex(currentIndex)]);
+    }
+  }
+}
+
 function renderQueue() {
   queueListEl.innerHTML = "";
   queue.forEach((track, i) => {
@@ -738,11 +908,14 @@ function renderQueue() {
   });
 
   const hasQueue = queue.length > 0;
+  shuffleBtn.disabled = !hasQueue;
   prevBtn.disabled = !hasQueue;
   playPauseBtn.disabled = !hasQueue;
   nextBtn.disabled = !hasQueue;
+  repeatBtn.disabled = !hasQueue;
   saveBtn.disabled = !hasQueue;
   clearBtn.disabled = !hasQueue;
+  persistQueueState();
 }
 
 function removeFromQueue(i) {
@@ -847,7 +1020,7 @@ function initializeCastApi() {
   castController.addEventListener(cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED, () => {
     const finished = castPlayer.playerState === chrome.cast.media.PlayerState.IDLE &&
       castPlayer.idleReason === chrome.cast.media.IdleReason.FINISHED;
-    if (finished && currentIndex + 1 < queue.length) playAt(currentIndex + 1);
+    if (finished) advanceOnEnded();
   });
 }
 
@@ -908,7 +1081,18 @@ async function playAt(i) {
   renderQueue();
   updateMediaSessionMetadata(track);
 
-  schedulePrefetch(queue[i + 1]);
+  schedulePrefetch(queue[nextQueueIndex(i)]);
+}
+
+// Shared by the local <audio> "ended" event and the Chromecast receiver's IDLE/FINISHED state,
+// so repeat-one/repeat-all/shuffle behave the same regardless of where playback is happening.
+function advanceOnEnded() {
+  if (repeatMode === "one") {
+    playAt(currentIndex);
+    return;
+  }
+  const next = nextQueueIndex(currentIndex);
+  if (next !== -1) playAt(next);
 }
 
 // Lock-screen/notification playback controls on phones - without this, backgrounding the
@@ -926,8 +1110,8 @@ function updateMediaSessionMetadata(track) {
 if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("play", () => (isCasting() ? castController.playOrPause() : queuePlayer.play()));
   navigator.mediaSession.setActionHandler("pause", () => (isCasting() ? castController.playOrPause() : queuePlayer.pause()));
-  navigator.mediaSession.setActionHandler("previoustrack", () => playAt(currentIndex - 1));
-  navigator.mediaSession.setActionHandler("nexttrack", () => playAt(currentIndex + 1));
+  navigator.mediaSession.setActionHandler("previoustrack", () => playAt(prevQueueIndex(currentIndex)));
+  navigator.mediaSession.setActionHandler("nexttrack", () => playAt(nextQueueIndex(currentIndex)));
 }
 
 queuePlayer.addEventListener("play", () => {
@@ -938,10 +1122,20 @@ queuePlayer.addEventListener("play", () => {
 queuePlayer.addEventListener("pause", () => {
   playPauseBtn.innerHTML = "&#9654;";
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  persistQueueState();
 });
-queuePlayer.addEventListener("ended", () => {
-  if (currentIndex + 1 < queue.length) playAt(currentIndex + 1);
+queuePlayer.addEventListener("ended", advanceOnEnded);
+
+// Keep the resumable playback position fresh without writing to localStorage on every
+// timeupdate tick (which fires several times a second) - once every ~5s is plenty for
+// "resume roughly where I left off" after a refresh or browser restart.
+queuePlayer.addEventListener("timeupdate", () => {
+  if (queuePlayer.currentTime - lastPersistedTime >= 5) {
+    lastPersistedTime = queuePlayer.currentTime;
+    persistQueueState();
+  }
 });
+window.addEventListener("beforeunload", persistQueueState);
 
 playPauseBtn.addEventListener("click", () => {
   if (currentIndex === -1 && queue.length) {
@@ -954,8 +1148,8 @@ playPauseBtn.addEventListener("click", () => {
     queuePlayer.pause();
   }
 });
-prevBtn.addEventListener("click", () => playAt(currentIndex - 1));
-nextBtn.addEventListener("click", () => playAt(currentIndex + 1));
+prevBtn.addEventListener("click", () => playAt(prevQueueIndex(currentIndex)));
+nextBtn.addEventListener("click", () => playAt(nextQueueIndex(currentIndex)));
 saveBtn.addEventListener("click", async () => {
   const name = prompt("Playlist name?");
   if (!name || !name.trim()) return;
@@ -1027,6 +1221,8 @@ async function playPlaylist(id, name) {
 }
 
 loadPlaylists();
+updateShuffleRepeatButtons();
+restoreQueueState();
 
 async function showStats(endpointPath, label) {
   const res = await fetch(`/stats/${endpointPath}`);
@@ -1039,6 +1235,8 @@ async function showStats(endpointPath, label) {
   setContextBanner(label, restorePreviousResults);
 }
 
+document.getElementById("stats-recently-played").addEventListener("click", () => showStats("recently-played", "Recently played"));
+document.getElementById("stats-favorites").addEventListener("click", () => showStats("favorites", "Favorites"));
 document.getElementById("stats-most-played").addEventListener("click", () => showStats("most-played", "Most played"));
 document.getElementById("stats-most-skipped").addEventListener("click", () => showStats("most-skipped", "Most skipped"));
 document.getElementById("stats-never-played").addEventListener("click", () => showStats("never-played", "Never played"));

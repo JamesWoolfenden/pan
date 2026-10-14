@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from backend.db import tags_list
+
 
 def _to_stat_result(row: sqlite3.Row) -> dict:
     keys = row.keys()
@@ -19,6 +21,8 @@ def _to_stat_result(row: sqlite3.Row) -> dict:
         "play_count": row["play_count"] if "play_count" in keys else 0,
         "avg_percent_listened": row["avg_percent"] if "avg_percent" in keys else None,
         "last_played_at": row["last_played_at"] if "last_played_at" in keys else None,
+        "favorite": bool(row["favorited_at"]) if "favorited_at" in keys else False,
+        "tags": tags_list(row) if "tags" in keys else [],
     }
 
 
@@ -49,6 +53,37 @@ def never_played(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
         ORDER BY t.artist, t.title
         LIMIT ?
         """,
+        (limit,),
+    ).fetchall()
+    return [_to_stat_result(row) for row in rows]
+
+
+def recently_played(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
+    """Distinct tracks ordered by their most recent play, newest first - "recently played",
+    not a raw play-event log (a track heard 3 times today would otherwise show 3 times).
+    played_at only has 1-second resolution, so two plays in the same second (e.g. in tests, or
+    a user rapid-skipping) tie - break ties by the later event's id, the actual insertion order."""
+    rows = conn.execute(
+        """
+        SELECT t.*, COUNT(pe.id) AS play_count, AVG(pe.percent_listened) AS avg_percent,
+               MAX(pe.played_at) AS last_played_at, MAX(pe.id) AS last_played_event_id
+        FROM tracks t
+        JOIN play_events pe ON pe.track_id = t.id
+        GROUP BY t.id
+        ORDER BY last_played_at DESC, last_played_event_id DESC
+        LIMIT ?
+        """,
+        (limit,),
+    ).fetchall()
+    return [_to_stat_result(row) for row in rows]
+
+
+def favorites(conn: sqlite3.Connection, limit: int = 200) -> list[dict]:
+    """Favorited tracks, most recently favorited first. favorited_at ties (possible since it
+    comes from Python's clock, which can be coarser than a microsecond on some systems) break
+    by id descending, the actual order favorites were set in."""
+    rows = conn.execute(
+        "SELECT * FROM tracks WHERE favorited_at IS NOT NULL ORDER BY favorited_at DESC, id DESC LIMIT ?",
         (limit,),
     ).fetchall()
     return [_to_stat_result(row) for row in rows]

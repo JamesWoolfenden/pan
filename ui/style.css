@@ -223,6 +223,21 @@ header h1 {
   --disconnected-color: var(--text-muted);
 }
 
+#queue-shuffle.is-active,
+#queue-repeat.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+#queue-now-playing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 #queue-playpause {
   background: var(--accent);
   color: var(--accent-contrast);
@@ -448,13 +463,38 @@ header h1 {
   border-color: var(--accent);
 }
 
-#results li > div:first-child {
+#results li > .track-info {
   flex: 1 1 200px;
   min-width: 0;
 }
 
 #results li strong {
   color: var(--text);
+}
+
+.album-art {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--surface-alt);
+}
+
+.now-playing-art {
+  width: 2rem;
+  height: 2rem;
+}
+
+.favorite-btn {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.55rem;
+  color: var(--text-faint);
+}
+
+.favorite-btn.is-favorite {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .track-meta {
