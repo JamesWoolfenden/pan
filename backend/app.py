@@ -425,8 +425,9 @@ def track_lyrics(track_id: int, refresh: bool = False):
             return {"text": row["lyrics"] or None, "cached": True}
 
         text, source = get_lyrics(row)
-        set_lyrics(conn, track_id, text or "")
-        conn.commit()
+        if source != "error":
+            set_lyrics(conn, track_id, text or "")
+            conn.commit()
         return {"text": text, "cached": False, "source": source}
 
 

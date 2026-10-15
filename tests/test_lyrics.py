@@ -29,21 +29,43 @@ def test_extract_embedded_lyrics_handles_flac_with_no_lyrics_tag(tmp_path, monke
 
 
 def test_fetch_online_lyrics_returns_none_without_artist_or_title():
-    assert fetch_online_lyrics("", "Some Title") is None
-    assert fetch_online_lyrics("Some Artist", "") is None
+    assert fetch_online_lyrics("", "Some Title") == (None, False)
+    assert fetch_online_lyrics("Some Artist", "") == (None, False)
 
 
-def test_fetch_online_lyrics_returns_none_on_network_failure(monkeypatch):
+def test_fetch_online_lyrics_reports_transient_error_on_network_failure(monkeypatch):
     def boom(*args, **kwargs):
         raise OSError("network unreachable")
 
     monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
 
-    assert fetch_online_lyrics("Some Artist", "Some Title") is None
+    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, True)
+
+
+def test_fetch_online_lyrics_reports_transient_error_on_rate_limit(monkeypatch):
+    import urllib.error
+
+    def boom(*args, **kwargs):
+        raise urllib.error.HTTPError("url", 429, "Too Many Requests", {}, None)
+
+    monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
+
+    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, True)
+
+
+def test_fetch_online_lyrics_404_is_not_a_transient_error(monkeypatch):
+    import urllib.error
+
+    def boom(*args, **kwargs):
+        raise urllib.error.HTTPError("url", 404, "Not Found", {}, None)
+
+    monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
+
+    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, False)
 
 
 def test_get_lyrics_falls_back_to_online_when_no_file_path(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: "la la la")
+    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: ("la la la", False))
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
@@ -57,7 +79,7 @@ def test_get_lyrics_falls_back_to_online_when_no_file_path(monkeypatch):
 
 
 def test_get_lyrics_reports_none_when_nothing_found(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: None)
+    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, False))
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
@@ -68,6 +90,20 @@ def test_get_lyrics_reports_none_when_nothing_found(monkeypatch):
 
     assert text is None
     assert source == "none"
+
+
+def test_get_lyrics_reports_error_on_transient_failure_rather_than_none(monkeypatch):
+    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, True))
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
+    conn.commit()
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+
+    text, source = get_lyrics(row)
+
+    assert text is None
+    assert source == "error"
 
 
 def test_set_lyrics_caches_empty_string_for_not_found():

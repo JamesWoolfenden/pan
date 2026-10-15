@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -58,12 +59,14 @@ def extract_embedded_lyrics(file_path: str) -> str | None:
 
 def fetch_online_lyrics(
     artist: str, title: str, album: str | None = None, duration_ms: int | None = None
-) -> str | None:
+) -> tuple[str | None, bool]:
     """Looks up plain (unsynced) lyrics from lrclib.net's free, keyless API - used when the file
-    itself has none embedded. Returns None on any failure (not found, network error, etc.) rather
-    than raising, since lyrics are a nice-to-have that shouldn't break the track detail view."""
+    itself has none embedded. Returns (text, transient_error): transient_error is True for a
+    retry-able failure (rate limited, network/timeout, 5xx) as opposed to lrclib's own 404 "no
+    such track" - callers need that distinction so a rate limit doesn't get cached forever as
+    "no lyrics found"."""
     if not artist or not title:
-        return None
+        return None, False
 
     params = {"artist_name": artist, "track_name": title}
     if album:
@@ -76,23 +79,33 @@ def fetch_online_lyrics(
         req = urllib.request.Request(url, headers={"User-Agent": "pan (personal music library)"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.load(resp)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None, False
+        log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
+        return None, True
     except Exception:
         log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
-        return None
+        return None, True
 
-    return data.get("plainLyrics") or None
+    return data.get("plainLyrics") or None, False
 
 
 def get_lyrics(row) -> tuple[str | None, str]:
     """Embedded tags first, then lrclib as a fallback. Returns (text, source) where source is
-    "embedded", "online", or "none" (no lyrics found anywhere)."""
+    "embedded", "online", "none" (no lyrics found anywhere), or "error" (the online lookup
+    failed transiently - callers should not treat this the same as a confirmed "none")."""
     if row["file_path"]:
         embedded = extract_embedded_lyrics(row["file_path"])
         if embedded:
             return embedded, "embedded"
 
-    online = fetch_online_lyrics(row["artist"], row["title"], row["album"], row["duration_ms"])
+    online, transient_error = fetch_online_lyrics(
+        row["artist"], row["title"], row["album"], row["duration_ms"]
+    )
     if online:
         return online, "online"
+    if transient_error:
+        return None, "error"
 
     return None, "none"

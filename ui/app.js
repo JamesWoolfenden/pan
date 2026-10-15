@@ -471,7 +471,9 @@ function buildInfoPanel(r) {
       const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      lyricsEl.textContent = data.text || "No lyrics found.";
+      // "error" (e.g. lrclib rate-limited) isn't cached server-side, unlike a confirmed "none" -
+      // say so distinctly so a transient failure doesn't read as "definitely no lyrics exist".
+      lyricsEl.textContent = data.text || (data.source === "error" ? "Lookup failed - try again." : "No lyrics found.");
     } catch (err) {
       lyricsEl.textContent = "Lyrics lookup failed.";
     } finally {
