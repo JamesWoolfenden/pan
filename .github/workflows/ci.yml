@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+
+      # librosa/audioread need libsndfile at runtime for most audio decoding, same as the Dockerfile.
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsndfile1
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t pan:ci .
+
+      # Catches import-time failures (e.g. a bad DB migration) that only show up once the
+      # container actually starts, not just from the build succeeding.
+      - name: Smoke test container
+        run: |
+          docker run -d --name pan-smoke -p 8000:8000 pan:ci
+          ok=
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8000/ -o /dev/null; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          docker logs pan-smoke
+          docker stop pan-smoke
+          [ -n "$ok" ] || { echo "Container never became healthy"; exit 1; }
