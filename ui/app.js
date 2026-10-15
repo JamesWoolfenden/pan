@@ -580,15 +580,29 @@ function buildInfoPanel(r) {
       const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      // "error" (e.g. lrclib rate-limited) isn't cached server-side, unlike a confirmed "none" -
-      // say so distinctly so a transient failure doesn't read as "definitely no lyrics exist".
-      const fallback = data.source === "error" ? "Lookup failed - try again." : "No lyrics found.";
-      renderLyrics(data.text, data.synced, fallback);
+      if (data.source === "error" && refreshing) {
+        // A failed refresh (e.g. lrclib rate-limited) isn't cached server-side, unlike a
+        // confirmed "none" - and must not blow away lyrics already shown from the last
+        // successful lookup. Report the failure without touching what's displayed.
+        lyricsBtn.textContent = "⚠ Retry failed";
+        setTimeout(() => {
+          lyricsBtn.textContent = "🔄 Refresh";
+        }, 2500);
+      } else {
+        const fallback = data.source === "error" ? "Lookup failed - try again." : "No lyrics found.";
+        renderLyrics(data.text, data.synced, fallback);
+        lyricsBtn.textContent = "🔄 Refresh";
+      }
     } catch (err) {
-      teardownSyncedLyrics();
-      lyricsEl.textContent = "Lyrics lookup failed.";
+      // Same rule as the "error" source above: a hard failure (network error, 500, etc.) on a
+      // refresh shouldn't erase lyrics already on screen from the last successful lookup.
+      if (!refreshing) {
+        teardownSyncedLyrics();
+        lyricsEl.textContent = "Lyrics lookup failed.";
+      }
+      lyricsBtn.textContent = refreshing ? "⚠ Retry failed" : "🔄 Refresh";
+      if (refreshing) setTimeout(() => { lyricsBtn.textContent = "🔄 Refresh"; }, 2500);
     } finally {
-      lyricsBtn.textContent = "🔄 Refresh";
       lyricsBtn.dataset.loaded = "true";
       lyricsBtn.disabled = false;
     }
