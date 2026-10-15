@@ -412,6 +412,23 @@ def track_about(track_id: int, refresh: bool = False):
         return {"text": text, "cached": False}
 
 
+class AboutUpdate(BaseModel):
+    text: str
+
+
+@app.patch("/track/{track_id}/about")
+def update_track_about(track_id: int, update: AboutUpdate):
+    """Lets a user hand-write or correct the "tell me more" writeup directly, same as a manual
+    tag correction - useful when there's no ANTHROPIC_API_KEY configured, or the AI's answer was
+    close but not quite right."""
+    with connection() as conn:
+        if get_track(conn, track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        set_ai_background(conn, track_id, update.text)
+        conn.commit()
+    return {"text": update.text}
+
+
 @app.get("/track/{track_id}/lyrics")
 def track_lyrics(track_id: int, refresh: bool = False):
     """Cached indefinitely once looked up (lyrics column: NULL = not yet looked up, '' = looked
@@ -422,13 +439,13 @@ def track_lyrics(track_id: int, refresh: bool = False):
         if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
         if row["lyrics"] is not None and not refresh:
-            return {"text": row["lyrics"] or None, "cached": True}
+            return {"text": row["lyrics"] or None, "cached": True, "synced": row["synced_lyrics"]}
 
-        text, source = get_lyrics(row)
+        text, source, synced = get_lyrics(row)
         if source != "error":
-            set_lyrics(conn, track_id, text or "")
+            set_lyrics(conn, track_id, text or "", synced)
             conn.commit()
-        return {"text": text, "cached": False, "source": source}
+        return {"text": text, "cached": False, "source": source, "synced": synced}
 
 
 @app.patch("/track/{track_id}/tags")

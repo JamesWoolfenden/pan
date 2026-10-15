@@ -59,14 +59,15 @@ def extract_embedded_lyrics(file_path: str) -> str | None:
 
 def fetch_online_lyrics(
     artist: str, title: str, album: str | None = None, duration_ms: int | None = None
-) -> tuple[str | None, bool]:
-    """Looks up plain (unsynced) lyrics from lrclib.net's free, keyless API - used when the file
-    itself has none embedded. Returns (text, transient_error): transient_error is True for a
-    retry-able failure (rate limited, network/timeout, 5xx) as opposed to lrclib's own 404 "no
-    such track" - callers need that distinction so a rate limit doesn't get cached forever as
-    "no lyrics found"."""
+) -> tuple[str | None, str | None, bool]:
+    """Looks up lyrics from lrclib.net's free, keyless API - used when the file itself has none
+    embedded. Returns (plain_text, synced_lrc, transient_error): synced_lrc is lrclib's own
+    timestamped "[mm:ss.xx] line" format when it has one (not every track does), for a karaoke-
+    style display; transient_error is True for a retry-able failure (rate limited, network/
+    timeout, 5xx) as opposed to lrclib's own 404 "no such track" - callers need that distinction
+    so a rate limit doesn't get cached forever as "no lyrics found"."""
     if not artist or not title:
-        return None, False
+        return None, None, False
 
     params = {"artist_name": artist, "track_name": title}
     if album:
@@ -81,31 +82,32 @@ def fetch_online_lyrics(
             data = json.load(resp)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            return None, False
+            return None, None, False
         log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
-        return None, True
+        return None, None, True
     except Exception:
         log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
-        return None, True
+        return None, None, True
 
-    return data.get("plainLyrics") or None, False
+    return data.get("plainLyrics") or None, data.get("syncedLyrics") or None, False
 
 
-def get_lyrics(row) -> tuple[str | None, str]:
-    """Embedded tags first, then lrclib as a fallback. Returns (text, source) where source is
-    "embedded", "online", "none" (no lyrics found anywhere), or "error" (the online lookup
-    failed transiently - callers should not treat this the same as a confirmed "none")."""
+def get_lyrics(row) -> tuple[str | None, str, str | None]:
+    """Embedded tags first, then lrclib as a fallback. Returns (text, source, synced) where
+    source is "embedded", "online", "none" (no lyrics found anywhere), or "error" (the online
+    lookup failed transiently - callers should not treat this the same as a confirmed "none").
+    synced is only ever set alongside source="online" - embedded tags don't carry timestamps."""
     if row["file_path"]:
         embedded = extract_embedded_lyrics(row["file_path"])
         if embedded:
-            return embedded, "embedded"
+            return embedded, "embedded", None
 
-    online, transient_error = fetch_online_lyrics(
+    online, synced, transient_error = fetch_online_lyrics(
         row["artist"], row["title"], row["album"], row["duration_ms"]
     )
     if online:
-        return online, "online"
+        return online, "online", synced
     if transient_error:
-        return None, "error"
+        return None, "error", None
 
-    return None, "none"
+    return None, "none", None

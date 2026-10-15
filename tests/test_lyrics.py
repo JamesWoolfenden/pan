@@ -29,8 +29,8 @@ def test_extract_embedded_lyrics_handles_flac_with_no_lyrics_tag(tmp_path, monke
 
 
 def test_fetch_online_lyrics_returns_none_without_artist_or_title():
-    assert fetch_online_lyrics("", "Some Title") == (None, False)
-    assert fetch_online_lyrics("Some Artist", "") == (None, False)
+    assert fetch_online_lyrics("", "Some Title") == (None, None, False)
+    assert fetch_online_lyrics("Some Artist", "") == (None, None, False)
 
 
 def test_fetch_online_lyrics_reports_transient_error_on_network_failure(monkeypatch):
@@ -39,7 +39,7 @@ def test_fetch_online_lyrics_reports_transient_error_on_network_failure(monkeypa
 
     monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
 
-    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, True)
+    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, None, True)
 
 
 def test_fetch_online_lyrics_reports_transient_error_on_rate_limit(monkeypatch):
@@ -50,7 +50,7 @@ def test_fetch_online_lyrics_reports_transient_error_on_rate_limit(monkeypatch):
 
     monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
 
-    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, True)
+    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, None, True)
 
 
 def test_fetch_online_lyrics_404_is_not_a_transient_error(monkeypatch):
@@ -61,49 +61,91 @@ def test_fetch_online_lyrics_404_is_not_a_transient_error(monkeypatch):
 
     monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
 
-    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, False)
+    assert fetch_online_lyrics("Some Artist", "Some Title") == (None, None, False)
+
+
+def test_fetch_online_lyrics_returns_synced_lrc_alongside_plain_text(monkeypatch):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", lambda *a, **k: FakeResponse())
+    monkeypatch.setattr(
+        "backend.lyrics.json.load", lambda resp: {"plainLyrics": "la la", "syncedLyrics": "[00:01.00] la la"}
+    )
+
+    text, synced, transient_error = fetch_online_lyrics("Some Artist", "Some Title")
+
+    assert text == "la la"
+    assert synced == "[00:01.00] la la"
+    assert transient_error is False
 
 
 def test_get_lyrics_falls_back_to_online_when_no_file_path(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: ("la la la", False))
+    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: ("la la la", "[00:01.00] la la la", False))
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
-    text, source = get_lyrics(row)
+    text, source, synced = get_lyrics(row)
 
     assert text == "la la la"
     assert source == "online"
+    assert synced == "[00:01.00] la la la"
 
 
 def test_get_lyrics_reports_none_when_nothing_found(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, False))
+    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, None, False))
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
-    text, source = get_lyrics(row)
+    text, source, synced = get_lyrics(row)
 
     assert text is None
     assert source == "none"
+    assert synced is None
 
 
 def test_get_lyrics_reports_error_on_transient_failure_rather_than_none(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, True))
+    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, None, True))
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
-    text, source = get_lyrics(row)
+    text, source, synced = get_lyrics(row)
 
     assert text is None
     assert source == "error"
+    assert synced is None
+
+
+def test_get_lyrics_embedded_never_has_synced_timestamps(monkeypatch, tmp_path):
+    path = tmp_path / "track.mp3"
+    path.write_bytes(b"fake")
+    monkeypatch.setattr("backend.lyrics.extract_embedded_lyrics", lambda fp: "embedded text")
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", artist="B", file_path=str(path))
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+
+    text, source, synced = get_lyrics(row)
+
+    assert text == "embedded text"
+    assert source == "embedded"
+    assert synced is None
 
 
 def test_set_lyrics_caches_empty_string_for_not_found():
@@ -117,3 +159,18 @@ def test_set_lyrics_caches_empty_string_for_not_found():
 
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
     assert row["lyrics"] == ""
+    assert row["synced_lyrics"] is None
+
+
+def test_set_lyrics_stores_synced_lrc_alongside_plain_text():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A"))
+    conn.commit()
+
+    set_lyrics(conn, track_id, "plain text", "[00:01.00] plain text")
+    conn.commit()
+
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert row["lyrics"] == "plain text"
+    assert row["synced_lyrics"] == "[00:01.00] plain text"

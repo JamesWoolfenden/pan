@@ -455,6 +455,52 @@ function buildInfoPanel(r) {
   const aboutEl = document.createElement("div");
   aboutEl.className = "info-about";
 
+  const aboutEditBtn = document.createElement("button");
+  aboutEditBtn.textContent = "Edit";
+  const aboutTextarea = document.createElement("textarea");
+  aboutTextarea.className = "info-about-edit";
+  aboutTextarea.hidden = true;
+  const aboutSaveBtn = document.createElement("button");
+  aboutSaveBtn.textContent = "Save";
+  aboutSaveBtn.className = "save-btn";
+  aboutSaveBtn.hidden = true;
+
+  // Lets the writeup be hand-written or corrected directly - useful with no ANTHROPIC_API_KEY
+  // configured, or when the AI's answer was close but not quite right.
+  aboutEditBtn.addEventListener("click", () => {
+    const editing = !aboutTextarea.hidden;
+    if (editing) {
+      aboutTextarea.hidden = true;
+      aboutEl.hidden = false;
+      aboutSaveBtn.hidden = true;
+      aboutEditBtn.textContent = "Edit";
+      return;
+    }
+    aboutTextarea.value = aboutEl.dataset.rawText || "";
+    aboutTextarea.hidden = false;
+    aboutEl.hidden = true;
+    aboutSaveBtn.hidden = false;
+    aboutEditBtn.textContent = "Cancel";
+  });
+
+  aboutSaveBtn.addEventListener("click", async () => {
+    aboutSaveBtn.disabled = true;
+    const res = await fetch(`/track/${r.id}/about`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: aboutTextarea.value }),
+    });
+    aboutSaveBtn.disabled = false;
+    if (!res.ok) return;
+    const data = await res.json();
+    aboutEl.dataset.rawText = data.text || "";
+    aboutEl.textContent = data.text || "No background available (is ANTHROPIC_API_KEY configured?).";
+    aboutTextarea.hidden = true;
+    aboutEl.hidden = false;
+    aboutSaveBtn.hidden = true;
+    aboutEditBtn.textContent = "Edit";
+  });
+
   const lyricsBtn = document.createElement("button");
   lyricsBtn.textContent = "Lyrics";
   const lyricsEl = document.createElement("div");
@@ -464,7 +510,7 @@ function buildInfoPanel(r) {
   // between them (even empty) would force each button onto its own line.
   const actionsRow = document.createElement("div");
   actionsRow.className = "info-actions";
-  actionsRow.append(aboutBtn, lyricsBtn);
+  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn);
 
   // Stays visible (not hidden after first use) and re-labels to "Refresh" so a stale cached
   // lookup - e.g. looked up before a mislabeled artist/title got corrected - can be retried
@@ -497,6 +543,7 @@ function buildInfoPanel(r) {
     aboutBtn.textContent = "Thinking...";
     const res = await fetch(`/track/${r.id}/about${refreshing ? "?refresh=true" : ""}`);
     const data = await res.json();
+    aboutEl.dataset.rawText = data.text || "";
     aboutEl.textContent = data.text || "No background available (is ANTHROPIC_API_KEY configured?).";
     aboutBtn.textContent = "Regenerate";
     aboutBtn.disabled = false;
@@ -530,7 +577,7 @@ function buildInfoPanel(r) {
     if (!factsEl.children.length) factsEl.textContent = "No technical details available.";
   };
 
-  panel.append(factsEl, actionsRow, aboutEl, lyricsEl);
+  panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsEl);
   return panel;
 }
 
