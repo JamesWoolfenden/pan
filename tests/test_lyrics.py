@@ -125,6 +125,68 @@ def test_fetch_online_lyrics_does_not_retry_on_transient_error(monkeypatch):
     assert calls == ["Beatles, The"]
 
 
+def test_fetch_online_lyrics_retries_without_album_after_404(monkeypatch):
+    """Regression test: "Wouldn't It Be Nice" is cataloged under the album "Safari" for one
+    copy of the file, but lrclib's album matching 404s on that - even though the exact same
+    artist+title is indexed fine (confirmed via a different copy cataloged under "Pet Sounds").
+    Dropping album/duration and retrying should find it anyway."""
+    calls = []
+
+    def fake_lrclib_get(artist, title, album, duration_ms):
+        calls.append((artist, album, duration_ms))
+        if album is None and duration_ms is None:
+            return "lyrics text", None, False, False
+        return None, None, False, True
+
+    monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
+
+    text, synced, transient_error = fetch_online_lyrics(
+        "The Beach Boys", "Wouldn't It Be Nice", "Safari", 146137
+    )
+
+    assert text == "lyrics text"
+    assert transient_error is False
+    assert calls == [
+        ("The Beach Boys", "Safari", 146137),
+        ("The Beach Boys", None, None),
+    ]
+
+
+def test_fetch_online_lyrics_does_not_retry_without_album_when_none_was_given(monkeypatch):
+    calls = []
+
+    def fake_lrclib_get(artist, title, album, duration_ms):
+        calls.append((artist, album, duration_ms))
+        return None, None, False, True
+
+    monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
+
+    fetch_online_lyrics("Some Artist", "Some Title")
+
+    assert calls == [("Some Artist", None, None)]
+
+
+def test_fetch_online_lyrics_stops_retrying_once_track_positively_identified(monkeypatch):
+    """A 200 response with no plainLyrics (not a 404) means lrclib found the exact track and it
+    genuinely has no lyrics (e.g. instrumental) - further loosened-query retries would be
+    pointless, so this must stop immediately rather than trying every remaining candidate."""
+    calls = []
+
+    def fake_lrclib_get(artist, title, album, duration_ms):
+        calls.append((artist, album, duration_ms))
+        return None, None, False, False
+
+    monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
+
+    text, synced, transient_error = fetch_online_lyrics(
+        "Some Artist", "Some Title", "Some Album", 100000
+    )
+
+    assert text is None
+    assert transient_error is False
+    assert calls == [("Some Artist", "Some Album", 100000)]
+
+
 def test_fetch_online_lyrics_returns_synced_lrc_alongside_plain_text(monkeypatch):
     class FakeResponse:
         def __enter__(self):

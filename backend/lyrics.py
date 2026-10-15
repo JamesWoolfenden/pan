@@ -107,21 +107,36 @@ def fetch_online_lyrics(
     timestamped "[mm:ss.xx] line" format when it has one (not every track does), for a karaoke-
     style display; transient_error is True for a retry-able failure (rate limited, network/
     timeout, 5xx) as opposed to lrclib's own 404 "no such track" - callers need that distinction
-    so a rate limit doesn't get cached forever as "no lyrics found". A clean 404 gets one retry
-    with a normalized artist name (see _normalize_artist_name) before giving up."""
+    so a rate limit doesn't get cached forever as "no lyrics found".
+
+    On a clean 404, retries with progressively looser queries before giving up: dropping
+    album/duration (this catalog's stored album name - e.g. a compilation title - doesn't always
+    match what lrclib has indexed for an otherwise unambiguous artist+title), and/or a normalized
+    artist name (see _normalize_artist_name), trying each combination in turn. Stops at the first
+    success, transient error, or a response that isn't a 404 (lrclib positively identified the
+    track and it just has no lyrics - no point retrying other variants then)."""
     if not artist or not title:
         return None, None, False
 
-    plain, synced, transient_error, not_found = _lrclib_get(artist, title, album, duration_ms)
-    if plain or transient_error or not not_found:
-        return plain, synced, transient_error
-
     normalized = _normalize_artist_name(artist)
-    if not normalized:
-        return None, None, False
+    artist_variants = [artist] + ([normalized] if normalized else [])
 
-    plain, synced, transient_error, _ = _lrclib_get(normalized, title, album, duration_ms)
-    return plain, synced, transient_error
+    candidates = []
+    for variant in artist_variants:
+        candidates.append((variant, album, duration_ms))
+        if album or duration_ms:
+            candidates.append((variant, None, None))
+
+    for cand_artist, cand_album, cand_duration in candidates:
+        plain, synced, transient_error, not_found = _lrclib_get(cand_artist, title, cand_album, cand_duration)
+        if plain:
+            return plain, synced, False
+        if transient_error:
+            return None, None, True
+        if not not_found:
+            return None, None, False
+
+    return None, None, False
 
 
 def get_lyrics(row) -> tuple[str | None, str, str | None]:
