@@ -242,6 +242,29 @@ function renderAlbums(albums, artist) {
   }
 }
 
+// "Title — Artist[, suffix]" with the artist rendered as a clickable discography link (when
+// known) - shared by the results list and the now-playing bar, so playing a track gives the
+// exact same "find more by this band" access a search result row already has.
+function buildTrackTitleLine(track, suffix = "") {
+  const frag = document.createDocumentFragment();
+  const titleStrong = document.createElement("strong");
+  titleStrong.textContent = track.title || "Untitled";
+  frag.appendChild(titleStrong);
+  frag.append(" — ");
+  if (track.artist) {
+    const artistLink = document.createElement("button");
+    artistLink.className = "artist-link";
+    artistLink.textContent = track.artist;
+    artistLink.title = "Browse this artist's discography";
+    artistLink.addEventListener("click", () => showDiscography(track.artist));
+    frag.appendChild(artistLink);
+  } else {
+    frag.append("Unknown artist");
+  }
+  if (suffix) frag.append(suffix);
+  return frag;
+}
+
 function renderResults(results) {
   if (!results.length) {
     resultsEl.innerHTML = "<li>No matches.</li>";
@@ -268,20 +291,7 @@ function renderResults(results) {
     info.className = "track-info";
 
     const titleEl = document.createElement("div");
-    const titleStrong = document.createElement("strong");
-    titleStrong.textContent = r.title || "Untitled";
-    titleEl.appendChild(titleStrong);
-    titleEl.append(" — ");
-    if (r.artist) {
-      const artistLink = document.createElement("button");
-      artistLink.className = "artist-link";
-      artistLink.textContent = r.artist;
-      artistLink.title = "Browse this artist's discography";
-      artistLink.addEventListener("click", () => showDiscography(r.artist));
-      titleEl.appendChild(artistLink);
-    } else {
-      titleEl.append("Unknown artist");
-    }
+    titleEl.appendChild(buildTrackTitleLine(r));
     info.appendChild(titleEl);
 
     const metaEl = document.createElement("div");
@@ -1000,7 +1010,8 @@ function buildEditPanel(r, tagsEl, editBtn) {
       if (lastResults.includes(r)) renderResults(lastResults);
       if (queue.includes(r)) renderQueue();
       if (queue[currentIndex] === r) {
-        nowPlayingEl.textContent = `${r.title || "Untitled"} — ${r.artist || "Unknown artist"}`;
+        nowPlayingEl.innerHTML = "";
+        nowPlayingEl.appendChild(buildTrackTitleLine(r));
       }
     }
   });
@@ -1206,7 +1217,8 @@ function restoreQueueState() {
 
   const track = currentIndex !== -1 ? queue[currentIndex] : null;
   if (track) {
-    nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"} (paused — press play to resume)`;
+    nowPlayingEl.innerHTML = "";
+    nowPlayingEl.appendChild(buildTrackTitleLine(track, " (paused — press play to resume)"));
     renderNowPlayingActions(track);
     updateMediaSessionMetadata(track);
     if (track.file_path) {
@@ -1410,7 +1422,8 @@ async function playAt(i) {
 
   if (isCasting()) {
     castCurrentTrack();
-    nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"}`;
+    nowPlayingEl.innerHTML = "";
+    nowPlayingEl.appendChild(buildTrackTitleLine(track));
     renderNowPlayingActions(track);
     renderQueue();
     updateMediaSessionMetadata(track);
@@ -1439,7 +1452,8 @@ async function playAt(i) {
   queuePlayer.src = src;
   queuePlayer.play();
   pauseOtherPlayers(queuePlayer);
-  nowPlayingEl.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"}`;
+  nowPlayingEl.innerHTML = "";
+  nowPlayingEl.appendChild(buildTrackTitleLine(track));
   renderNowPlayingActions(track);
   renderQueue();
   updateMediaSessionMetadata(track);
