@@ -1,4 +1,14 @@
-from backend.db import Track, connect, init_db, set_artist, set_tags_list, set_title, tags_list, upsert_track
+from backend.db import (
+    Track,
+    connect,
+    init_db,
+    set_artist,
+    set_tags_list,
+    set_title,
+    tags_list,
+    tracks_missing_identity,
+    upsert_track,
+)
 from backend.tagging.cloud_tagger import suggest_tags
 from backend.tagging.local_tagger import apply_local_tags, infer_mood
 
@@ -89,6 +99,20 @@ def test_set_title_corrects_a_mislabeled_title():
 
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
     assert row["title"] == "Ghost Town"
+
+
+def test_tracks_missing_identity_flags_blank_title_or_artist():
+    conn = connect(":memory:")
+    init_db(conn)
+    good = upsert_track(conn, Track(external_id="local:1", source="local", title="A Song", artist="A Band"))
+    no_title = upsert_track(conn, Track(external_id="local:2", source="local", title="", artist="A Band"))
+    no_artist = upsert_track(conn, Track(external_id="local:3", source="local", title="A Song", artist=""))
+    conn.commit()
+
+    flagged = {row["id"] for row in tracks_missing_identity(conn)}
+
+    assert flagged == {no_title, no_artist}
+    assert good not in flagged
 
 
 def test_suggest_tags_falls_back_without_api_key(monkeypatch):

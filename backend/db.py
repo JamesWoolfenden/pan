@@ -278,6 +278,16 @@ def tracks_missing_tags(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     ).fetchall()
 
 
+def tracks_missing_identity(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Tracks with no usable title or artist - e.g. a filename the scanner/tagger couldn't parse
+    cleanly. These are otherwise invisible in the app: semantic search has no title/artist text
+    to match against, so there's no way to find one to fix it short of querying the database
+    directly."""
+    return conn.execute(
+        "SELECT * FROM tracks WHERE title IS NULL OR title = '' OR artist IS NULL OR artist = ''"
+    ).fetchall()
+
+
 def all_tracks(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     return conn.execute("SELECT * FROM tracks").fetchall()
 

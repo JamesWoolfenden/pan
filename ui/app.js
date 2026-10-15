@@ -503,14 +503,19 @@ function buildInfoPanel(r) {
 
   const lyricsBtn = document.createElement("button");
   lyricsBtn.textContent = "🎤 Lyrics";
+  const lyricsRefreshBtn = document.createElement("button");
+  lyricsRefreshBtn.textContent = "🔄";
+  lyricsRefreshBtn.title = "Re-check lyrics";
+  lyricsRefreshBtn.hidden = true;
   const lyricsEl = document.createElement("div");
   lyricsEl.className = "info-lyrics";
+  lyricsEl.hidden = true;
 
   // Both buttons sit in a row together - without this, the block-level aboutEl/lyricsEl divs
   // between them (even empty) would force each button onto its own line.
   const actionsRow = document.createElement("div");
   actionsRow.className = "info-actions";
-  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn);
+  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn, lyricsRefreshBtn);
 
   // Holds the active timeupdate listener for synced lyrics, so a second lookup (Refresh) or
   // this panel closing can tear down the previous one instead of leaking listeners on
@@ -569,43 +574,61 @@ function buildInfoPanel(r) {
     queuePlayer.addEventListener("timeupdate", syncTimeupdateHandler);
   }
 
-  // Stays visible (not hidden after first use) and re-labels to "Refresh" so a stale cached
-  // lookup - e.g. looked up before a mislabeled artist/title got corrected - can be retried
-  // rather than stuck forever (the backend caches lyrics, including "none found", indefinitely).
-  lyricsBtn.addEventListener("click", async () => {
-    const refreshing = lyricsBtn.dataset.loaded === "true";
-    lyricsBtn.disabled = true;
-    lyricsBtn.textContent = "⏳ Looking up...";
+  // The main button is purely a show/hide toggle once lyrics have been loaded once - it never
+  // re-fetches (that's what the separate small refresh button is for), so hiding and re-showing
+  // is instant and never costs another lrclib request or risks a rate limit.
+  let lyricsLoaded = false;
+
+  async function lookupLyrics(refresh) {
     try {
-      const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
+      const res = await fetch(`/track/${r.id}/lyrics${refresh ? "?refresh=true" : ""}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.source === "error" && refreshing) {
+      if (data.source === "error" && lyricsLoaded) {
         // A failed refresh (e.g. lrclib rate-limited) isn't cached server-side, unlike a
         // confirmed "none" - and must not blow away lyrics already shown from the last
         // successful lookup. Report the failure without touching what's displayed.
-        lyricsBtn.textContent = "⚠ Retry failed";
-        setTimeout(() => {
-          lyricsBtn.textContent = "🔄 Refresh";
-        }, 2500);
-      } else {
-        const fallback = data.source === "error" ? "Lookup failed - try again." : "No lyrics found.";
-        renderLyrics(data.text, data.synced, fallback);
-        lyricsBtn.textContent = "🔄 Refresh";
+        return "transient-error";
       }
+      const fallback = data.source === "error" ? "Lookup failed - try again." : "No lyrics found.";
+      renderLyrics(data.text, data.synced, fallback);
+      lyricsLoaded = true;
+      return "ok";
     } catch (err) {
-      // Same rule as the "error" source above: a hard failure (network error, 500, etc.) on a
-      // refresh shouldn't erase lyrics already on screen from the last successful lookup.
-      if (!refreshing) {
-        teardownSyncedLyrics();
-        lyricsEl.textContent = "Lyrics lookup failed.";
-      }
-      lyricsBtn.textContent = refreshing ? "⚠ Retry failed" : "🔄 Refresh";
-      if (refreshing) setTimeout(() => { lyricsBtn.textContent = "🔄 Refresh"; }, 2500);
-    } finally {
-      lyricsBtn.dataset.loaded = "true";
-      lyricsBtn.disabled = false;
+      if (lyricsLoaded) return "transient-error";
+      teardownSyncedLyrics();
+      lyricsEl.textContent = "Lyrics lookup failed.";
+      lyricsLoaded = true;
+      return "ok";
     }
+  }
+
+  lyricsBtn.addEventListener("click", async () => {
+    if (lyricsLoaded) {
+      // Already fetched once this session - just toggle visibility, no network call.
+      lyricsEl.hidden = !lyricsEl.hidden;
+      lyricsRefreshBtn.hidden = lyricsEl.hidden;
+      lyricsBtn.textContent = lyricsEl.hidden ? "🎤 Lyrics" : "Hide lyrics";
+      return;
+    }
+    lyricsBtn.disabled = true;
+    lyricsBtn.textContent = "⏳ Looking up...";
+    lyricsEl.hidden = false;
+    await lookupLyrics(false);
+    lyricsBtn.disabled = false;
+    lyricsBtn.textContent = lyricsLoaded ? "Hide lyrics" : "🎤 Lyrics";
+    lyricsRefreshBtn.hidden = !lyricsLoaded;
+  });
+
+  // Separate from the show/hide toggle above, so retrying a stale/failed lookup - e.g. after
+  // correcting a mislabeled artist/title - never gets confused with just hiding the lyrics.
+  lyricsRefreshBtn.addEventListener("click", async () => {
+    lyricsRefreshBtn.disabled = true;
+    lyricsRefreshBtn.textContent = "⏳";
+    const result = await lookupLyrics(true);
+    lyricsRefreshBtn.disabled = false;
+    lyricsRefreshBtn.textContent = result === "transient-error" ? "⚠" : "🔄";
+    if (result === "transient-error") setTimeout(() => { lyricsRefreshBtn.textContent = "🔄"; }, 2500);
   });
 
   // Stays visible (not hidden after first use) and re-labels to "Regenerate" so a stale cached
@@ -1617,6 +1640,19 @@ document.getElementById("stats-favorites").addEventListener("click", () => showS
 document.getElementById("stats-most-played").addEventListener("click", () => showStats("most-played", "Most played"));
 document.getElementById("stats-most-skipped").addEventListener("click", () => showStats("most-skipped", "Most skipped"));
 document.getElementById("stats-never-played").addEventListener("click", () => showStats("never-played", "Never played"));
+
+// Tracks with no title/artist are otherwise unfindable - nothing in their metadata for semantic
+// search to match - so this is the only way to browse to one and fix it via Edit tags.
+document.getElementById("missing-metadata-btn").addEventListener("click", async () => {
+  const res = await fetch("/admin/missing-metadata");
+  const data = await res.json();
+  previousResults = lastResults;
+  previousSearchHasMore = searchHasMore;
+  loadMoreBtn.hidden = true;
+  lastResults = data.results;
+  renderResults(lastResults);
+  setContextBanner(`Needs attention (${data.results.length})`, restorePreviousResults);
+});
 
 function escapeHtml(str) {
   const div = document.createElement("div");

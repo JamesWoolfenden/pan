@@ -30,6 +30,7 @@ from backend.db import (
     set_tags_list,
     set_title,
     tags_list,
+    tracks_missing_identity,
 )
 from backend.info import get_track_background
 from backend.lyrics import get_lyrics
@@ -291,6 +292,34 @@ def trigger_reindex():
 @app.get("/admin/reindex/status")
 def reindex_status():
     return _reindex_status
+
+
+@app.get("/admin/missing-metadata")
+def missing_metadata_endpoint():
+    """Tracks with no usable title or artist - otherwise invisible in the app, since semantic
+    search has no title/artist text to match a query against. Lets them be browsed and fixed
+    via the normal Edit tags panel instead of only being found by querying the database."""
+    with connection() as conn:
+        rows = tracks_missing_identity(conn)
+        return {
+            "results": [
+                {
+                    "id": row["id"],
+                    "title": row["title"],
+                    "artist": row["artist"],
+                    "album": row["album"],
+                    "genre": row["genre"],
+                    "mood": row["mood"],
+                    "tags": tags_list(row),
+                    "year": row["year"],
+                    "source": row["source"],
+                    "file_path": row["file_path"],
+                    "plex_rating_key": row["plex_rating_key"],
+                    "favorite": bool(row["favorited_at"]),
+                }
+                for row in rows
+            ]
+        }
 
 
 @app.get("/stream/{track_id}")
