@@ -695,6 +695,25 @@ header h1 {
   overflow-y: auto;
 }
 
+.info-lyrics.info-lyrics-synced {
+  white-space: normal;
+}
+
+.lyrics-line {
+  padding: 0.15rem 0;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.lyrics-line:hover {
+  color: var(--text);
+}
+
+.lyrics-line.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .info-about-edit {
   width: 100%;
   min-height: 6rem;

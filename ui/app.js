@@ -512,6 +512,63 @@ function buildInfoPanel(r) {
   actionsRow.className = "info-actions";
   actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn);
 
+  // Holds the active timeupdate listener for synced lyrics, so a second lookup (Refresh) or
+  // this panel closing can tear down the previous one instead of leaking listeners on
+  // queuePlayer forever.
+  let syncTimeupdateHandler = null;
+  function teardownSyncedLyrics() {
+    if (syncTimeupdateHandler) {
+      queuePlayer.removeEventListener("timeupdate", syncTimeupdateHandler);
+      syncTimeupdateHandler = null;
+    }
+  }
+
+  function renderLyrics(text, synced, fallbackMessage) {
+    teardownSyncedLyrics();
+    lyricsEl.innerHTML = "";
+    lyricsEl.classList.remove("info-lyrics-synced");
+
+    if (!text) {
+      lyricsEl.textContent = fallbackMessage;
+      return;
+    }
+
+    const lines = synced ? parseLrc(synced) : [];
+    if (!lines.length) {
+      lyricsEl.textContent = text;
+      return;
+    }
+
+    // Synced lyrics render as one element per line instead of plain text, so each line can be
+    // highlighted as it plays and clicked to seek - like a karaoke display.
+    lyricsEl.classList.add("info-lyrics-synced");
+    const lineEls = lines.map((line) => {
+      const el = document.createElement("div");
+      el.className = "lyrics-line";
+      el.textContent = line.text || " ";
+      el.addEventListener("click", () => {
+        if (queue[currentIndex] !== r) return;
+        queuePlayer.currentTime = line.time;
+        if (queuePlayer.paused) queuePlayer.play();
+      });
+      lyricsEl.appendChild(el);
+      return el;
+    });
+
+    syncTimeupdateHandler = () => {
+      if (queue[currentIndex] !== r) return;
+      const t = queuePlayer.currentTime;
+      let activeIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].time <= t) activeIndex = i;
+        else break;
+      }
+      lineEls.forEach((el, i) => el.classList.toggle("active", i === activeIndex));
+      if (activeIndex >= 0) lineEls[activeIndex].scrollIntoView({ block: "center", behavior: "smooth" });
+    };
+    queuePlayer.addEventListener("timeupdate", syncTimeupdateHandler);
+  }
+
   // Stays visible (not hidden after first use) and re-labels to "Refresh" so a stale cached
   // lookup - e.g. looked up before a mislabeled artist/title got corrected - can be retried
   // rather than stuck forever (the backend caches lyrics, including "none found", indefinitely).
@@ -525,8 +582,10 @@ function buildInfoPanel(r) {
       const data = await res.json();
       // "error" (e.g. lrclib rate-limited) isn't cached server-side, unlike a confirmed "none" -
       // say so distinctly so a transient failure doesn't read as "definitely no lyrics exist".
-      lyricsEl.textContent = data.text || (data.source === "error" ? "Lookup failed - try again." : "No lyrics found.");
+      const fallback = data.source === "error" ? "Lookup failed - try again." : "No lyrics found.";
+      renderLyrics(data.text, data.synced, fallback);
     } catch (err) {
+      teardownSyncedLyrics();
       lyricsEl.textContent = "Lyrics lookup failed.";
     } finally {
       lyricsBtn.textContent = "Refresh";
@@ -577,6 +636,7 @@ function buildInfoPanel(r) {
     if (!factsEl.children.length) factsEl.textContent = "No technical details available.";
   };
 
+  panel.onHide = teardownSyncedLyrics;
   panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsEl);
   return panel;
 }
@@ -591,6 +651,17 @@ function formatDuration(ms) {
 function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// lrclib's LRC format: one "[mm:ss.xx] text" line per lyric line.
+function parseLrc(lrc) {
+  const lines = [];
+  for (const raw of lrc.split("\n")) {
+    const m = raw.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)$/);
+    if (!m) continue;
+    lines.push({ time: parseInt(m[1], 10) * 60 + parseFloat(m[2]), text: m[3].trim() });
+  }
+  return lines;
 }
 
 // Genre/mood/tags as clickable chips - same "find more like this" idea as the artist/album
@@ -728,7 +799,8 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
   infoBtn.addEventListener("click", () => {
     infoPanel.hidden = !infoPanel.hidden;
     infoBtn.textContent = infoPanel.hidden ? "Info" : "Hide info";
-    if (!infoPanel.hidden) infoPanel.load();
+    if (infoPanel.hidden) infoPanel.onHide();
+    else infoPanel.load();
   });
   buttonHost.appendChild(infoBtn);
   panelHost.appendChild(infoPanel);
