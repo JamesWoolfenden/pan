@@ -679,6 +679,16 @@ header h1 {
   white-space: pre-wrap;
 }
 
+.info-lyrics {
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.5;
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 .edit-row {
   display: flex;
   flex-wrap: wrap;

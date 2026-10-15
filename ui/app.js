@@ -455,6 +455,25 @@ function buildInfoPanel(r) {
   const aboutEl = document.createElement("div");
   aboutEl.className = "info-about";
 
+  const lyricsBtn = document.createElement("button");
+  lyricsBtn.textContent = "Lyrics";
+  const lyricsEl = document.createElement("div");
+  lyricsEl.className = "info-lyrics";
+
+  // Stays visible (not hidden after first use) and re-labels to "Refresh" so a stale cached
+  // lookup - e.g. looked up before a mislabeled artist/title got corrected - can be retried
+  // rather than stuck forever (the backend caches lyrics, including "none found", indefinitely).
+  lyricsBtn.addEventListener("click", async () => {
+    const refreshing = lyricsBtn.textContent === "Refresh";
+    lyricsBtn.disabled = true;
+    lyricsBtn.textContent = "Looking up...";
+    const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
+    const data = await res.json();
+    lyricsEl.textContent = data.text || "No lyrics found.";
+    lyricsBtn.textContent = "Refresh";
+    lyricsBtn.disabled = false;
+  });
+
   // Stays visible (not hidden after first use) and re-labels to "Regenerate" so a stale cached
   // writeup - e.g. generated before a mislabeled artist/title got corrected - can be refreshed
   // rather than stuck forever (the backend caches ai_background indefinitely to save API calls).
@@ -497,7 +516,7 @@ function buildInfoPanel(r) {
     if (!factsEl.children.length) factsEl.textContent = "No technical details available.";
   };
 
-  panel.append(factsEl, aboutBtn, aboutEl);
+  panel.append(factsEl, aboutBtn, aboutEl, lyricsBtn, lyricsEl);
   return panel;
 }
 

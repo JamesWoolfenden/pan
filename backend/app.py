@@ -24,6 +24,7 @@ from backend.db import (
     set_ai_background,
     set_artist,
     set_favorite,
+    set_lyrics,
     set_playlist_tracks,
     set_tags,
     set_tags_list,
@@ -31,6 +32,7 @@ from backend.db import (
     tags_list,
 )
 from backend.info import get_track_background
+from backend.lyrics import get_lyrics
 from backend.paths import resolve as resolve_file_path
 from backend.search.embeddings import reindex_embeddings
 from backend.search.engine import album_tracks as run_album_tracks
@@ -408,6 +410,24 @@ def track_about(track_id: int, refresh: bool = False):
             set_ai_background(conn, track_id, text)
             conn.commit()
         return {"text": text, "cached": False}
+
+
+@app.get("/track/{track_id}/lyrics")
+def track_lyrics(track_id: int, refresh: bool = False):
+    """Cached indefinitely once looked up (lyrics column: NULL = not yet looked up, '' = looked
+    up and none found anywhere) - refresh bypasses that cache to retry, e.g. after a mislabeled
+    artist/title got corrected."""
+    with connection() as conn:
+        row = get_track(conn, track_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        if row["lyrics"] is not None and not refresh:
+            return {"text": row["lyrics"] or None, "cached": True}
+
+        text, source = get_lyrics(row)
+        set_lyrics(conn, track_id, text or "")
+        conn.commit()
+        return {"text": text, "cached": False, "source": source}
 
 
 @app.patch("/track/{track_id}/tags")

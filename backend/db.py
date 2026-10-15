@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     musical_key TEXT,
     tag_source TEXT NOT NULL DEFAULT 'none',  -- 'none' | 'metadata' | 'local' | 'cloud' | 'manual'
     ai_background TEXT,  -- cached AI-generated "tell me more" writeup, so it's only generated once
+    lyrics TEXT,  -- cached lyrics lookup: NULL = not yet looked up, '' = looked up, none found
     tags TEXT,  -- comma-separated freeform tags, manually added - separate from genre/mood, which
                 -- are single-value fields filled by the local/cloud tagger
     favorited_at TEXT  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
@@ -128,6 +129,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN tags TEXT")
     if "favorited_at" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN favorited_at TEXT")
+    if "lyrics" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN lyrics TEXT")
 
 
 def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
@@ -234,6 +237,10 @@ def set_audio_features(conn: sqlite3.Connection, track_id: int, tempo: float, en
 
 def set_ai_background(conn: sqlite3.Connection, track_id: int, text: str) -> None:
     conn.execute("UPDATE tracks SET ai_background=? WHERE id=?", (text, track_id))
+
+
+def set_lyrics(conn: sqlite3.Connection, track_id: int, text: str) -> None:
+    conn.execute("UPDATE tracks SET lyrics=? WHERE id=?", (text, track_id))
 
 
 def set_file_path(conn: sqlite3.Connection, track_id: int, file_path: str) -> None:
