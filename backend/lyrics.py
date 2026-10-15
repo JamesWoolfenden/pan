@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -13,6 +14,18 @@ from backend.paths import resolve as resolve_file_path
 log = logging.getLogger(__name__)
 
 LRCLIB_URL = "https://lrclib.net/api/get"
+
+_SORT_SUFFIX_RE = re.compile(r"^(.+),\s*The$", re.IGNORECASE)
+
+
+def _normalize_artist_name(artist: str) -> str | None:
+    """"Beatles, The" -> "The Beatles" - a sort-friendly inversion this library's catalog uses
+    for a handful of artists, which lrclib's own matching doesn't undo: looking it up verbatim
+    reports a well-known track as not found. Returns None if the name isn't in that form."""
+    match = _SORT_SUFFIX_RE.match(artist.strip())
+    if not match:
+        return None
+    return f"The {match.group(1)}"
 
 
 def extract_embedded_lyrics(file_path: str) -> str | None:
@@ -57,18 +70,12 @@ def extract_embedded_lyrics(file_path: str) -> str | None:
     return None
 
 
-def fetch_online_lyrics(
-    artist: str, title: str, album: str | None = None, duration_ms: int | None = None
-) -> tuple[str | None, str | None, bool]:
-    """Looks up lyrics from lrclib.net's free, keyless API - used when the file itself has none
-    embedded. Returns (plain_text, synced_lrc, transient_error): synced_lrc is lrclib's own
-    timestamped "[mm:ss.xx] line" format when it has one (not every track does), for a karaoke-
-    style display; transient_error is True for a retry-able failure (rate limited, network/
-    timeout, 5xx) as opposed to lrclib's own 404 "no such track" - callers need that distinction
-    so a rate limit doesn't get cached forever as "no lyrics found"."""
-    if not artist or not title:
-        return None, None, False
-
+def _lrclib_get(
+    artist: str, title: str, album: str | None, duration_ms: int | None
+) -> tuple[str | None, str | None, bool, bool]:
+    """A single lrclib lookup attempt. Returns (plain_text, synced_lrc, transient_error,
+    not_found) - not_found is a clean 404 (no such track), as opposed to transient_error
+    (rate limited, network/timeout, 5xx)."""
     params = {"artist_name": artist, "track_name": title}
     if album:
         params["album_name"] = album
@@ -82,14 +89,39 @@ def fetch_online_lyrics(
             data = json.load(resp)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            return None, None, False
+            return None, None, False, True
         log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
-        return None, None, True
+        return None, None, True, False
     except Exception:
         log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
-        return None, None, True
+        return None, None, True, False
 
-    return data.get("plainLyrics") or None, data.get("syncedLyrics") or None, False
+    return data.get("plainLyrics") or None, data.get("syncedLyrics") or None, False, False
+
+
+def fetch_online_lyrics(
+    artist: str, title: str, album: str | None = None, duration_ms: int | None = None
+) -> tuple[str | None, str | None, bool]:
+    """Looks up lyrics from lrclib.net's free, keyless API - used when the file itself has none
+    embedded. Returns (plain_text, synced_lrc, transient_error): synced_lrc is lrclib's own
+    timestamped "[mm:ss.xx] line" format when it has one (not every track does), for a karaoke-
+    style display; transient_error is True for a retry-able failure (rate limited, network/
+    timeout, 5xx) as opposed to lrclib's own 404 "no such track" - callers need that distinction
+    so a rate limit doesn't get cached forever as "no lyrics found". A clean 404 gets one retry
+    with a normalized artist name (see _normalize_artist_name) before giving up."""
+    if not artist or not title:
+        return None, None, False
+
+    plain, synced, transient_error, not_found = _lrclib_get(artist, title, album, duration_ms)
+    if plain or transient_error or not not_found:
+        return plain, synced, transient_error
+
+    normalized = _normalize_artist_name(artist)
+    if not normalized:
+        return None, None, False
+
+    plain, synced, transient_error, _ = _lrclib_get(normalized, title, album, duration_ms)
+    return plain, synced, transient_error
 
 
 def get_lyrics(row) -> tuple[str | None, str, str | None]:

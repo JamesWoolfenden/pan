@@ -1,7 +1,7 @@
 from mutagen._vorbis import VCommentDict
 
 from backend.db import Track, connect, init_db, set_lyrics, upsert_track
-from backend.lyrics import extract_embedded_lyrics, fetch_online_lyrics, get_lyrics
+from backend.lyrics import _normalize_artist_name, extract_embedded_lyrics, fetch_online_lyrics, get_lyrics
 
 
 def test_extract_embedded_lyrics_returns_none_for_missing_file():
@@ -62,6 +62,67 @@ def test_fetch_online_lyrics_404_is_not_a_transient_error(monkeypatch):
     monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", boom)
 
     assert fetch_online_lyrics("Some Artist", "Some Title") == (None, None, False)
+
+
+def test_normalize_artist_name_moves_the_suffix_to_front():
+    assert _normalize_artist_name("Beatles, The") == "The Beatles"
+    assert _normalize_artist_name("Specials, The") == "The Specials"
+
+
+def test_normalize_artist_name_returns_none_when_not_inverted():
+    assert _normalize_artist_name("The Beatles") is None
+    assert _normalize_artist_name("Radiohead") is None
+
+
+def test_fetch_online_lyrics_retries_with_normalized_artist_after_404(monkeypatch):
+    """Regression test: lrclib has "With a Little Help from My Friends" under "The Beatles",
+    but this library's catalog stores the artist as the sort-friendly "Beatles, The" - a plain
+    lookup 404s even though the song is right there under the normal name."""
+    calls = []
+
+    def fake_lrclib_get(artist, title, album, duration_ms):
+        calls.append(artist)
+        if artist == "The Beatles":
+            return "lyrics text", None, False, False
+        return None, None, False, True
+
+    monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
+
+    text, synced, transient_error = fetch_online_lyrics("Beatles, The", "Some Song")
+
+    assert text == "lyrics text"
+    assert transient_error is False
+    assert calls == ["Beatles, The", "The Beatles"]
+
+
+def test_fetch_online_lyrics_does_not_retry_when_artist_not_inverted(monkeypatch):
+    calls = []
+
+    def fake_lrclib_get(artist, title, album, duration_ms):
+        calls.append(artist)
+        return None, None, False, True
+
+    monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
+
+    text, synced, transient_error = fetch_online_lyrics("Radiohead", "Some Song")
+
+    assert text is None
+    assert calls == ["Radiohead"]
+
+
+def test_fetch_online_lyrics_does_not_retry_on_transient_error(monkeypatch):
+    calls = []
+
+    def fake_lrclib_get(artist, title, album, duration_ms):
+        calls.append(artist)
+        return None, None, True, False
+
+    monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
+
+    text, synced, transient_error = fetch_online_lyrics("Beatles, The", "Some Song")
+
+    assert transient_error is True
+    assert calls == ["Beatles, The"]
 
 
 def test_fetch_online_lyrics_returns_synced_lrc_alongside_plain_text(monkeypatch):
