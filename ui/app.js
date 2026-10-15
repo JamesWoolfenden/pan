@@ -465,6 +465,17 @@ function buildInfoPanel(r) {
   const aboutEl = document.createElement("div");
   aboutEl.className = "info-about";
 
+  // dataset.rawText keeps the original markdown source (for the Edit textarea) separate from
+  // aboutEl's rendered DOM.
+  function setAboutText(text) {
+    aboutEl.dataset.rawText = text || "";
+    if (text) {
+      renderMarkdown(aboutEl, text);
+    } else {
+      aboutEl.textContent = "No background available (is ANTHROPIC_API_KEY configured?).";
+    }
+  }
+
   const aboutEditBtn = document.createElement("button");
   aboutEditBtn.textContent = "✎ Edit";
   const aboutTextarea = document.createElement("textarea");
@@ -503,8 +514,7 @@ function buildInfoPanel(r) {
     aboutSaveBtn.disabled = false;
     if (!res.ok) return;
     const data = await res.json();
-    aboutEl.dataset.rawText = data.text || "";
-    aboutEl.textContent = data.text || "No background available (is ANTHROPIC_API_KEY configured?).";
+    setAboutText(data.text);
     aboutTextarea.hidden = true;
     aboutEl.hidden = false;
     aboutSaveBtn.hidden = true;
@@ -662,8 +672,7 @@ function buildInfoPanel(r) {
     aboutBtn.textContent = "⏳ Thinking...";
     const res = await fetch(`/track/${r.id}/about${refreshing ? "?refresh=true" : ""}`);
     const data = await res.json();
-    aboutEl.dataset.rawText = data.text || "";
-    aboutEl.textContent = data.text || "No background available (is ANTHROPIC_API_KEY configured?).";
+    setAboutText(data.text);
     aboutBtn.textContent = "🔄 Regenerate";
     aboutBtn.dataset.loaded = "true";
     aboutBtn.disabled = false;
@@ -723,6 +732,54 @@ function parseLrc(lrc) {
     lines.push({ time: parseInt(m[1], 10) * 60 + parseFloat(m[2]), text: m[3].trim() });
   }
   return lines;
+}
+
+// Minimal markdown rendering for the AI "tell me more" writeup - just the subset Claude's short
+// prose responses realistically use (paragraphs, **bold**, *italic*, "- " bullet lists), not a
+// general-purpose parser pulled in as a new dependency.
+function renderMarkdown(container, text) {
+  container.innerHTML = "";
+
+  const renderInline = (el, str) => {
+    for (const part of str.split(/(\*\*[^*]+\*\*|\*[^*]+\*|_[^_]+_)/g)) {
+      if (!part) continue;
+      if (part.startsWith("**") && part.endsWith("**")) {
+        const strong = document.createElement("strong");
+        strong.textContent = part.slice(2, -2);
+        el.appendChild(strong);
+      } else if ((part.startsWith("*") && part.endsWith("*")) || (part.startsWith("_") && part.endsWith("_"))) {
+        const em = document.createElement("em");
+        em.textContent = part.slice(1, -1);
+        el.appendChild(em);
+      } else {
+        el.appendChild(document.createTextNode(part));
+      }
+    }
+  };
+
+  let listEl = null;
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      listEl = null;
+      continue;
+    }
+    const bullet = line.match(/^[-*]\s+(.*)$/);
+    if (bullet) {
+      if (!listEl) {
+        listEl = document.createElement("ul");
+        container.appendChild(listEl);
+      }
+      const li = document.createElement("li");
+      renderInline(li, bullet[1]);
+      listEl.appendChild(li);
+      continue;
+    }
+    listEl = null;
+    const p = document.createElement("p");
+    renderInline(p, line);
+    container.appendChild(p);
+  }
 }
 
 // Genre/mood/tags as clickable chips - same "find more like this" idea as the artist/album

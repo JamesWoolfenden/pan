@@ -682,7 +682,19 @@ header h1 {
   color: var(--text);
   line-height: 1.5;
   margin-top: 0.5rem;
-  white-space: pre-wrap;
+}
+
+.info-about p {
+  margin: 0 0 0.6rem;
+}
+
+.info-about p:last-child {
+  margin-bottom: 0;
+}
+
+.info-about ul {
+  margin: 0 0 0.6rem;
+  padding-left: 1.2rem;
 }
 
 .info-lyrics {
