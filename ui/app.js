@@ -511,11 +511,23 @@ function buildInfoPanel(r) {
   lyricsEl.className = "info-lyrics";
   lyricsEl.hidden = true;
 
+  // No API key needed (unlike the AI/lyrics lookups) - just a YouTube search for artist+title,
+  // same free/keyless spirit as the lrclib fallback. A search results page, not a guaranteed
+  // exact official video, but that's a fine tradeoff for not managing another API key/quota.
+  const videoBtn = document.createElement("button");
+  videoBtn.textContent = "📺 Video";
+  videoBtn.title = "Search YouTube for this track";
+  videoBtn.addEventListener("click", () => {
+    const query = `${r.artist || ""} ${r.title || ""}`.trim();
+    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+    window.open(url, "_blank", "noopener");
+  });
+
   // Both buttons sit in a row together - without this, the block-level aboutEl/lyricsEl divs
   // between them (even empty) would force each button onto its own line.
   const actionsRow = document.createElement("div");
   actionsRow.className = "info-actions";
-  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn, lyricsRefreshBtn);
+  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn, lyricsRefreshBtn, videoBtn);
 
   // Holds the active timeupdate listener for synced lyrics, so a second lookup (Refresh) or
   // this panel closing can tear down the previous one instead of leaking listeners on
