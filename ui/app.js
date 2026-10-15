@@ -467,11 +467,17 @@ function buildInfoPanel(r) {
     const refreshing = lyricsBtn.textContent === "Refresh";
     lyricsBtn.disabled = true;
     lyricsBtn.textContent = "Looking up...";
-    const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
-    const data = await res.json();
-    lyricsEl.textContent = data.text || "No lyrics found.";
-    lyricsBtn.textContent = "Refresh";
-    lyricsBtn.disabled = false;
+    try {
+      const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      lyricsEl.textContent = data.text || "No lyrics found.";
+    } catch (err) {
+      lyricsEl.textContent = "Lyrics lookup failed.";
+    } finally {
+      lyricsBtn.textContent = "Refresh";
+      lyricsBtn.disabled = false;
+    }
   });
 
   // Stays visible (not hidden after first use) and re-labels to "Regenerate" so a stale cached

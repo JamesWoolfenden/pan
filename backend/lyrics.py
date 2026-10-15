@@ -41,11 +41,17 @@ def extract_embedded_lyrics(file_path: str) -> str | None:
             return uslts[0].text or None
 
     for key in ("LYRICS", "UNSYNCEDLYRICS", "\xa9lyr"):
-        value = tags.get(key) if hasattr(tags, "get") else None
-        if value:
-            text = value[0] if isinstance(value, list) else value
-            text = str(text).strip()
-            return text or None
+        # Vorbis comments (FLAC/OGG) raise ValueError rather than KeyError for a key they
+        # consider invalid - e.g. the MP4-only "\xa9lyr" atom name isn't valid-looking as a
+        # Vorbis field - so both must be caught, not just the KeyError .get() normally handles.
+        try:
+            value = tags[key]
+        except (LookupError, ValueError):
+            continue
+        text = value[0] if isinstance(value, list) else value
+        text = str(text).strip()
+        if text:
+            return text
 
     return None
 

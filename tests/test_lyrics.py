@@ -1,3 +1,5 @@
+from mutagen._vorbis import VCommentDict
+
 from backend.db import Track, connect, init_db, set_lyrics, upsert_track
 from backend.lyrics import extract_embedded_lyrics, fetch_online_lyrics, get_lyrics
 
@@ -9,6 +11,19 @@ def test_extract_embedded_lyrics_returns_none_for_missing_file():
 def test_extract_embedded_lyrics_returns_none_for_non_audio_file(tmp_path):
     path = tmp_path / "not-audio.mp3"
     path.write_text("this is not an audio file")
+
+    assert extract_embedded_lyrics(str(path)) is None
+
+
+def test_extract_embedded_lyrics_handles_flac_with_no_lyrics_tag(tmp_path, monkeypatch):
+    """Regression test: VCommentDict (FLAC/OGG) raises ValueError, not KeyError, for a key it
+    considers invalid - which the MP4-only "\xa9lyr" atom name is, as far as Vorbis comments are
+    concerned. Checking that key against a real FLAC file with no embedded lyrics used to crash
+    this with an unhandled ValueError instead of just reporting no lyrics found."""
+    path = tmp_path / "track.flac"
+    path.write_bytes(b"fake")
+    fake_audio = type("FakeAudio", (), {"tags": VCommentDict(), "pictures": []})()
+    monkeypatch.setattr("backend.lyrics.mutagen.File", lambda p: fake_audio)
 
     assert extract_embedded_lyrics(str(path)) is None
 
