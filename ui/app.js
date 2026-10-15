@@ -460,6 +460,12 @@ function buildInfoPanel(r) {
   const lyricsEl = document.createElement("div");
   lyricsEl.className = "info-lyrics";
 
+  // Both buttons sit in a row together - without this, the block-level aboutEl/lyricsEl divs
+  // between them (even empty) would force each button onto its own line.
+  const actionsRow = document.createElement("div");
+  actionsRow.className = "info-actions";
+  actionsRow.append(aboutBtn, lyricsBtn);
+
   // Stays visible (not hidden after first use) and re-labels to "Refresh" so a stale cached
   // lookup - e.g. looked up before a mislabeled artist/title got corrected - can be retried
   // rather than stuck forever (the backend caches lyrics, including "none found", indefinitely).
@@ -524,7 +530,7 @@ function buildInfoPanel(r) {
     if (!factsEl.children.length) factsEl.textContent = "No technical details available.";
   };
 
-  panel.append(factsEl, aboutBtn, aboutEl, lyricsBtn, lyricsEl);
+  panel.append(factsEl, actionsRow, aboutEl, lyricsEl);
   return panel;
 }
 

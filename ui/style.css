@@ -671,6 +671,12 @@ header h1 {
   word-break: break-all;
 }
 
+.info-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .info-about {
   font-size: 0.85rem;
   color: var(--text);
