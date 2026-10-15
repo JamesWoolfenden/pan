@@ -998,6 +998,10 @@ function buildEditPanel(r, tagsEl, editBtn) {
   artistInput.placeholder = "Artist";
   artistInput.value = r.artist || "";
 
+  const albumInput = document.createElement("input");
+  albumInput.placeholder = "Album";
+  albumInput.value = r.album || "";
+
   const genreInput = document.createElement("input");
   genreInput.placeholder = "Genre";
   genreInput.value = r.genre || "";
@@ -1042,6 +1046,7 @@ function buildEditPanel(r, tagsEl, editBtn) {
       body: JSON.stringify({
         title: titleInput.value.trim() || null,
         artist: artistInput.value.trim() || null,
+        album: albumInput.value.trim() || null,
         genre: genreInput.value.trim() || null,
         mood: moodInput.value.trim() || null,
         tags: tagsEditor.getTags(),
@@ -1050,9 +1055,10 @@ function buildEditPanel(r, tagsEl, editBtn) {
     saveBtn.disabled = false;
     if (!res.ok) return;
     const updated = await res.json();
-    const identityChanged = r.artist !== updated.artist || r.title !== updated.title;
+    const identityChanged = r.artist !== updated.artist || r.title !== updated.title || r.album !== updated.album;
     r.title = updated.title;
     r.artist = updated.artist;
+    r.album = updated.album;
     r.genre = updated.genre;
     r.mood = updated.mood;
     r.tags = updated.tags;
@@ -1075,7 +1081,7 @@ function buildEditPanel(r, tagsEl, editBtn) {
 
   const row1 = document.createElement("div");
   row1.className = "edit-row";
-  row1.append(titleInput, artistInput, genreInput, moodInput, suggestBtn, saveBtn);
+  row1.append(titleInput, artistInput, albumInput, genreInput, moodInput, suggestBtn, saveBtn);
 
   panel.append(row1, tagsEditor.el, suggestionsEl);
   return panel;

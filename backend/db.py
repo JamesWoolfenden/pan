@@ -225,6 +225,10 @@ def set_title(conn: sqlite3.Connection, track_id: int, title: str) -> None:
     conn.execute("UPDATE tracks SET title=? WHERE id=?", (title, track_id))
 
 
+def set_album(conn: sqlite3.Connection, track_id: int, album: str) -> None:
+    conn.execute("UPDATE tracks SET album=? WHERE id=?", (album, track_id))
+
+
 def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> None:
     conn.execute(
         "UPDATE tracks SET favorited_at = ? WHERE id = ?",

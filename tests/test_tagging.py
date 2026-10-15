@@ -2,6 +2,7 @@ from backend.db import (
     Track,
     connect,
     init_db,
+    set_album,
     set_artist,
     set_tags_list,
     set_title,
@@ -99,6 +100,22 @@ def test_set_title_corrects_a_mislabeled_title():
 
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
     assert row["title"] == "Ghost Town"
+
+
+def test_set_album_corrects_a_mislabeled_album():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(
+        external_id="local:1", source="local", title="Satisfaction", artist="The Rolling Stones",
+        album="Bacobens Rock Top 500",
+    ))
+    conn.commit()
+
+    set_album(conn, track_id, "Out of Our Heads")
+    conn.commit()
+
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert row["album"] == "Out of Our Heads"
 
 
 def test_tracks_missing_identity_flags_blank_title_or_artist():

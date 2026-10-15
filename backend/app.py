@@ -22,6 +22,7 @@ from backend.db import (
     record_play_event,
     rename_playlist,
     set_ai_background,
+    set_album,
     set_artist,
     set_favorite,
     set_lyrics,
@@ -370,6 +371,7 @@ class TagUpdate(BaseModel):
     tags: list[str] | None = None
     artist: str | None = None
     title: str | None = None
+    album: str | None = None
 
 
 @app.get("/track/{track_id}/suggest-tags")
@@ -492,13 +494,15 @@ def update_tags(track_id: int, update: TagUpdate):
         if update.tags is not None:
             set_tags_list(conn, track_id, update.tags)
         # Blank/whitespace means "didn't type a correction", not "clear the field" - a
-        # mislabeled/missing artist or title (e.g. a compilation track credited to "Various
-        # Artists", or named only from a messy filename) is worth fixing by hand, but there's
-        # no reason to ever want either wiped to empty.
+        # mislabeled/missing artist, title, or album (e.g. a compilation track credited to
+        # "Various Artists", or named only from a messy filename) is worth fixing by hand, but
+        # there's no reason to ever want any of them wiped to empty.
         if update.artist and update.artist.strip():
             set_artist(conn, track_id, update.artist.strip())
         if update.title and update.title.strip():
             set_title(conn, track_id, update.title.strip())
+        if update.album and update.album.strip():
+            set_album(conn, track_id, update.album.strip())
         conn.commit()
         updated = get_track(conn, track_id)
         reindex_embeddings(conn, [updated])
@@ -509,6 +513,7 @@ def update_tags(track_id: int, update: TagUpdate):
         "tags": tags_list(updated),
         "artist": updated["artist"],
         "title": updated["title"],
+        "album": updated["album"],
     }
 
 
