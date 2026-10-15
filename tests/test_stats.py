@@ -1,5 +1,5 @@
 from backend.db import Track, connect, init_db, record_play_event, set_favorite, upsert_track
-from backend.stats import favorites, most_played, most_skipped, never_played, recently_played
+from backend.stats import favorites, most_played, most_skipped, never_played, recently_added, recently_played
 
 
 def _track(conn, title, file_path="Z:\\music\\x.mp3"):
@@ -97,6 +97,32 @@ def test_recently_played_orders_by_most_recent_play_and_dedupes_tracks():
 
     assert [r["id"] for r in results] == [newer, older]
     assert results[0]["play_count"] == 2
+
+
+def test_recently_added_orders_by_insertion_newest_first():
+    conn = connect(":memory:")
+    init_db(conn)
+    older = _track(conn, "Older")
+    newer = _track(conn, "Newer")
+    conn.commit()
+
+    results = recently_added(conn)
+
+    assert [r["id"] for r in results] == [newer, older]
+
+
+def test_recently_added_order_unaffected_by_later_update():
+    conn = connect(":memory:")
+    init_db(conn)
+    first = _track(conn, "First")
+    second = _track(conn, "Second")
+    conn.commit()
+    upsert_track(conn, Track(external_id="First", source="local", title="First (fixed)", artist="Artist"))
+    conn.commit()
+
+    results = recently_added(conn)
+
+    assert [r["id"] for r in results] == [second, first]
 
 
 def test_favorites_lists_only_favorited_tracks_most_recent_first():

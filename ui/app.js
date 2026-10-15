@@ -1725,6 +1725,7 @@ async function showStats(endpointPath, label) {
 }
 
 document.getElementById("stats-recently-played").addEventListener("click", () => showStats("recently-played", "Recently played"));
+document.getElementById("stats-recently-added").addEventListener("click", () => showStats("recently-added", "Recently added"));
 document.getElementById("stats-favorites").addEventListener("click", () => showStats("favorites", "Favorites"));
 document.getElementById("stats-most-played").addEventListener("click", () => showStats("most-played", "Most played"));
 document.getElementById("stats-most-skipped").addEventListener("click", () => showStats("most-skipped", "Most skipped"));

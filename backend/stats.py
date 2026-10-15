@@ -78,6 +78,15 @@ def recently_played(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
     return [_to_stat_result(row) for row in rows]
 
 
+def recently_added(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
+    """Most recently added tracks, newest first. There's no separate "added at" timestamp column
+    - id is AUTOINCREMENT and never changes once a row exists (upsert_track only UPDATEs matching
+    rows), so insertion order is exactly id order, including for rows ingested before this stat
+    existed."""
+    rows = conn.execute("SELECT * FROM tracks ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    return [_to_stat_result(row) for row in rows]
+
+
 def favorites(conn: sqlite3.Connection, limit: int = 200) -> list[dict]:
     """Favorited tracks, most recently favorited first. favorited_at ties (possible since it
     comes from Python's clock, which can be coarser than a microsecond on some systems) break

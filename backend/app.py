@@ -46,7 +46,7 @@ from backend.search.engine import search_by_tag as run_search_by_tag
 from backend.search.engine import similar as run_similar
 from backend.search.engine import suggest_for_playlist as run_suggest_for_playlist
 from backend.search.engine import versions as run_versions
-from backend.stats import favorites, most_played, most_skipped, never_played, recently_played
+from backend.stats import favorites, most_played, most_skipped, never_played, recently_added, recently_played
 from backend.tagging.cloud_tagger import suggest_tags
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -258,6 +258,12 @@ def most_skipped_endpoint(limit: int = 25):
 def recently_played_endpoint(limit: int = 25):
     with connection() as conn:
         return {"results": recently_played(conn, limit)}
+
+
+@app.get("/stats/recently-added")
+def recently_added_endpoint(limit: int = 25):
+    with connection() as conn:
+        return {"results": recently_added(conn, limit)}
 
 
 @app.get("/stats/favorites")
