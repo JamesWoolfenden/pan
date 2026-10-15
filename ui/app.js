@@ -451,17 +451,17 @@ function buildInfoPanel(r) {
   factsEl.textContent = "Loading...";
 
   const aboutBtn = document.createElement("button");
-  aboutBtn.textContent = "Tell me more (AI)";
+  aboutBtn.textContent = "✨ Tell me more (AI)";
   const aboutEl = document.createElement("div");
   aboutEl.className = "info-about";
 
   const aboutEditBtn = document.createElement("button");
-  aboutEditBtn.textContent = "Edit";
+  aboutEditBtn.textContent = "✎ Edit";
   const aboutTextarea = document.createElement("textarea");
   aboutTextarea.className = "info-about-edit";
   aboutTextarea.hidden = true;
   const aboutSaveBtn = document.createElement("button");
-  aboutSaveBtn.textContent = "Save";
+  aboutSaveBtn.textContent = "💾 Save";
   aboutSaveBtn.className = "save-btn";
   aboutSaveBtn.hidden = true;
 
@@ -473,14 +473,14 @@ function buildInfoPanel(r) {
       aboutTextarea.hidden = true;
       aboutEl.hidden = false;
       aboutSaveBtn.hidden = true;
-      aboutEditBtn.textContent = "Edit";
+      aboutEditBtn.textContent = "✎ Edit";
       return;
     }
     aboutTextarea.value = aboutEl.dataset.rawText || "";
     aboutTextarea.hidden = false;
     aboutEl.hidden = true;
     aboutSaveBtn.hidden = false;
-    aboutEditBtn.textContent = "Cancel";
+    aboutEditBtn.textContent = "✕ Cancel";
   });
 
   aboutSaveBtn.addEventListener("click", async () => {
@@ -498,11 +498,11 @@ function buildInfoPanel(r) {
     aboutTextarea.hidden = true;
     aboutEl.hidden = false;
     aboutSaveBtn.hidden = true;
-    aboutEditBtn.textContent = "Edit";
+    aboutEditBtn.textContent = "✎ Edit";
   });
 
   const lyricsBtn = document.createElement("button");
-  lyricsBtn.textContent = "Lyrics";
+  lyricsBtn.textContent = "🎤 Lyrics";
   const lyricsEl = document.createElement("div");
   lyricsEl.className = "info-lyrics";
 
@@ -573,9 +573,9 @@ function buildInfoPanel(r) {
   // lookup - e.g. looked up before a mislabeled artist/title got corrected - can be retried
   // rather than stuck forever (the backend caches lyrics, including "none found", indefinitely).
   lyricsBtn.addEventListener("click", async () => {
-    const refreshing = lyricsBtn.textContent === "Refresh";
+    const refreshing = lyricsBtn.dataset.loaded === "true";
     lyricsBtn.disabled = true;
-    lyricsBtn.textContent = "Looking up...";
+    lyricsBtn.textContent = "⏳ Looking up...";
     try {
       const res = await fetch(`/track/${r.id}/lyrics${refreshing ? "?refresh=true" : ""}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -588,7 +588,8 @@ function buildInfoPanel(r) {
       teardownSyncedLyrics();
       lyricsEl.textContent = "Lyrics lookup failed.";
     } finally {
-      lyricsBtn.textContent = "Refresh";
+      lyricsBtn.textContent = "🔄 Refresh";
+      lyricsBtn.dataset.loaded = "true";
       lyricsBtn.disabled = false;
     }
   });
@@ -597,14 +598,15 @@ function buildInfoPanel(r) {
   // writeup - e.g. generated before a mislabeled artist/title got corrected - can be refreshed
   // rather than stuck forever (the backend caches ai_background indefinitely to save API calls).
   aboutBtn.addEventListener("click", async () => {
-    const refreshing = aboutBtn.textContent === "Regenerate";
+    const refreshing = aboutBtn.dataset.loaded === "true";
     aboutBtn.disabled = true;
-    aboutBtn.textContent = "Thinking...";
+    aboutBtn.textContent = "⏳ Thinking...";
     const res = await fetch(`/track/${r.id}/about${refreshing ? "?refresh=true" : ""}`);
     const data = await res.json();
     aboutEl.dataset.rawText = data.text || "";
     aboutEl.textContent = data.text || "No background available (is ANTHROPIC_API_KEY configured?).";
-    aboutBtn.textContent = "Regenerate";
+    aboutBtn.textContent = "🔄 Regenerate";
+    aboutBtn.dataset.loaded = "true";
     aboutBtn.disabled = false;
   });
 
