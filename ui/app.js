@@ -499,6 +499,9 @@ function buildInfoPanel(r) {
 
   const aboutEditBtn = document.createElement("button");
   aboutEditBtn.textContent = "✎ Edit about";
+  // Hidden until "Tell me more" has been opened at least once - editing a writeup that isn't
+  // shown yet is confusing, and the button just clutters the row until then.
+  aboutEditBtn.hidden = true;
   const aboutTextarea = document.createElement("textarea");
   aboutTextarea.className = "info-about-edit";
   aboutTextarea.hidden = true;
@@ -554,6 +557,8 @@ function buildInfoPanel(r) {
 
   const lyricsEditBtn = document.createElement("button");
   lyricsEditBtn.textContent = "✎ Edit lyrics";
+  // Hidden until "Lyrics" has been opened at least once - same reasoning as aboutEditBtn.
+  lyricsEditBtn.hidden = true;
   const lyricsTextarea = document.createElement("textarea");
   lyricsTextarea.className = "info-lyrics-edit";
   lyricsTextarea.hidden = true;
@@ -684,6 +689,7 @@ function buildInfoPanel(r) {
     lyricsBtn.disabled = false;
     lyricsBtn.textContent = lyricsLoaded ? "Hide lyrics" : "🎤 Lyrics";
     lyricsRefreshBtn.hidden = !lyricsLoaded;
+    lyricsEditBtn.hidden = !lyricsLoaded;
   });
 
   // Separate from the show/hide toggle above, so retrying a stale/failed lookup - e.g. after
@@ -749,6 +755,7 @@ function buildInfoPanel(r) {
     aboutBtn.textContent = "🔄 Regenerate";
     aboutBtn.dataset.loaded = "true";
     aboutBtn.disabled = false;
+    aboutEditBtn.hidden = false;
   });
 
   // Always re-fetches on open (no "only load once" cache) - tag/title/artist edits change the
