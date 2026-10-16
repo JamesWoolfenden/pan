@@ -485,6 +485,23 @@ def track_lyrics(track_id: int, refresh: bool = False):
         return {"text": text, "cached": False, "source": source, "synced": synced}
 
 
+class LyricsUpdate(BaseModel):
+    text: str
+
+
+@app.patch("/track/{track_id}/lyrics")
+def update_track_lyrics(track_id: int, update: LyricsUpdate):
+    """Lets a user hand-paste lyrics directly - useful when lrclib doesn't have the track, or is
+    rate-limited. Clears any previously cached synced (LRC) lyrics, since hand-pasted plain text
+    has no timestamps and would otherwise display alongside stale ones from an earlier lookup."""
+    with connection() as conn:
+        if get_track(conn, track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        set_lyrics(conn, track_id, update.text, None)
+        conn.commit()
+    return {"text": update.text}
+
+
 @app.patch("/track/{track_id}/tags")
 def update_tags(track_id: int, update: TagUpdate):
     """User-corrected tags always win over local/cloud inference - future reindex passes never

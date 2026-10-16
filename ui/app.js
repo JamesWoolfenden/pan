@@ -498,12 +498,12 @@ function buildInfoPanel(r) {
   }
 
   const aboutEditBtn = document.createElement("button");
-  aboutEditBtn.textContent = "✎ Edit";
+  aboutEditBtn.textContent = "✎ Edit about";
   const aboutTextarea = document.createElement("textarea");
   aboutTextarea.className = "info-about-edit";
   aboutTextarea.hidden = true;
   const aboutSaveBtn = document.createElement("button");
-  aboutSaveBtn.textContent = "💾 Save";
+  aboutSaveBtn.textContent = "💾 Save about";
   aboutSaveBtn.className = "save-btn";
   aboutSaveBtn.hidden = true;
 
@@ -515,14 +515,14 @@ function buildInfoPanel(r) {
       aboutTextarea.hidden = true;
       aboutEl.hidden = false;
       aboutSaveBtn.hidden = true;
-      aboutEditBtn.textContent = "✎ Edit";
+      aboutEditBtn.textContent = "✎ Edit about";
       return;
     }
     aboutTextarea.value = aboutEl.dataset.rawText || "";
     aboutTextarea.hidden = false;
     aboutEl.hidden = true;
     aboutSaveBtn.hidden = false;
-    aboutEditBtn.textContent = "✕ Cancel";
+    aboutEditBtn.textContent = "✕ Cancel editing about";
   });
 
   aboutSaveBtn.addEventListener("click", async () => {
@@ -539,7 +539,7 @@ function buildInfoPanel(r) {
     aboutTextarea.hidden = true;
     aboutEl.hidden = false;
     aboutSaveBtn.hidden = true;
-    aboutEditBtn.textContent = "✎ Edit";
+    aboutEditBtn.textContent = "✎ Edit about";
   });
 
   const lyricsBtn = document.createElement("button");
@@ -551,6 +551,16 @@ function buildInfoPanel(r) {
   const lyricsEl = document.createElement("div");
   lyricsEl.className = "info-lyrics";
   lyricsEl.hidden = true;
+
+  const lyricsEditBtn = document.createElement("button");
+  lyricsEditBtn.textContent = "✎ Edit lyrics";
+  const lyricsTextarea = document.createElement("textarea");
+  lyricsTextarea.className = "info-lyrics-edit";
+  lyricsTextarea.hidden = true;
+  const lyricsSaveBtn = document.createElement("button");
+  lyricsSaveBtn.textContent = "💾 Save lyrics";
+  lyricsSaveBtn.className = "save-btn";
+  lyricsSaveBtn.hidden = true;
 
   // No API key needed (unlike the AI/lyrics lookups) - just a YouTube search for artist+title,
   // same free/keyless spirit as the lrclib fallback. A search results page, not a guaranteed
@@ -568,7 +578,7 @@ function buildInfoPanel(r) {
   // between them (even empty) would force each button onto its own line.
   const actionsRow = document.createElement("div");
   actionsRow.className = "info-actions";
-  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn, lyricsRefreshBtn, videoBtn);
+  actionsRow.append(aboutBtn, aboutEditBtn, lyricsBtn, lyricsRefreshBtn, lyricsEditBtn, videoBtn);
 
   // Holds the active timeupdate listener for synced lyrics, so a second lookup (Refresh) or
   // this panel closing can tear down the previous one instead of leaking listeners on
@@ -585,6 +595,9 @@ function buildInfoPanel(r) {
     teardownSyncedLyrics();
     lyricsEl.innerHTML = "";
     lyricsEl.classList.remove("info-lyrics-synced");
+    // Kept separate from the rendered DOM (plain text even when synced) so the Edit textarea
+    // always starts from the underlying lyrics, not a reconstruction of the line-by-line markup.
+    lyricsEl.dataset.rawText = text || "";
 
     if (!text) {
       lyricsEl.textContent = fallbackMessage;
@@ -684,6 +697,45 @@ function buildInfoPanel(r) {
     if (result === "transient-error") setTimeout(() => { lyricsRefreshBtn.textContent = "🔄"; }, 2500);
   });
 
+  // Lets lyrics be hand-pasted or corrected directly - useful when lrclib doesn't have the
+  // track, is rate-limited, or got it wrong. Saving always clears any synced (LRC) timestamps
+  // server-side, since hand-pasted plain text can't carry them.
+  lyricsEditBtn.addEventListener("click", () => {
+    const editing = !lyricsTextarea.hidden;
+    if (editing) {
+      lyricsTextarea.hidden = true;
+      lyricsEl.hidden = !lyricsLoaded;
+      lyricsSaveBtn.hidden = true;
+      lyricsEditBtn.textContent = "✎ Edit lyrics";
+      return;
+    }
+    lyricsTextarea.value = lyricsEl.dataset.rawText || "";
+    lyricsTextarea.hidden = false;
+    lyricsEl.hidden = true;
+    lyricsSaveBtn.hidden = false;
+    lyricsEditBtn.textContent = "✕ Cancel editing lyrics";
+  });
+
+  lyricsSaveBtn.addEventListener("click", async () => {
+    lyricsSaveBtn.disabled = true;
+    const res = await fetch(`/track/${r.id}/lyrics`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: lyricsTextarea.value }),
+    });
+    lyricsSaveBtn.disabled = false;
+    if (!res.ok) return;
+    const data = await res.json();
+    renderLyrics(data.text, null, "No lyrics found.");
+    lyricsLoaded = true;
+    lyricsTextarea.hidden = true;
+    lyricsEl.hidden = false;
+    lyricsSaveBtn.hidden = true;
+    lyricsEditBtn.textContent = "✎ Edit lyrics";
+    lyricsBtn.textContent = "Hide lyrics";
+    lyricsRefreshBtn.hidden = false;
+  });
+
   // Stays visible (not hidden after first use) and re-labels to "Regenerate" so a stale cached
   // writeup - e.g. generated before a mislabeled artist/title got corrected - can be refreshed
   // rather than stuck forever (the backend caches ai_background indefinitely to save API calls).
@@ -728,7 +780,7 @@ function buildInfoPanel(r) {
   };
 
   panel.onHide = teardownSyncedLyrics;
-  panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsEl);
+  panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsEl, lyricsTextarea, lyricsSaveBtn);
   return panel;
 }
 

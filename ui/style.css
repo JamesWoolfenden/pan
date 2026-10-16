@@ -726,7 +726,8 @@ header h1 {
   font-weight: 600;
 }
 
-.info-about-edit {
+.info-about-edit,
+.info-lyrics-edit {
   width: 100%;
   min-height: 6rem;
   margin-top: 0.5rem;
