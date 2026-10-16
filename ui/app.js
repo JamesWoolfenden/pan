@@ -1508,7 +1508,16 @@ function castCurrentTrack() {
   mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
   mediaInfo.metadata.title = track.title || "Untitled";
   mediaInfo.metadata.artist = track.artist || "";
-  session.loadMedia(new chrome.cast.media.LoadRequest(mediaInfo)).then(() => queuePlayer.pause());
+  session.loadMedia(new chrome.cast.media.LoadRequest(mediaInfo))
+    .then(() => queuePlayer.pause())
+    .catch((err) => {
+      // A rejected loadMedia (receiver can't decode this format/file, or a network hiccup
+      // reaching :8080) used to just silently stall here forever - nothing else would ever
+      // advance the queue, since PLAYER_STATE_CHANGED's IDLE+FINISHED check never fires for a
+      // track that failed to load in the first place. Skip to the next track instead.
+      console.warn("Cast loadMedia failed, skipping track", track.id, err);
+      advanceOnEnded();
+    });
 }
 
 function initializeCastApi() {
@@ -1530,9 +1539,15 @@ function initializeCastApi() {
     playPauseBtn.innerHTML = castPlayer.isPaused ? "&#9654;" : "&#10074;&#10074;";
   });
   castController.addEventListener(cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED, () => {
-    const finished = castPlayer.playerState === chrome.cast.media.PlayerState.IDLE &&
-      castPlayer.idleReason === chrome.cast.media.IdleReason.FINISHED;
-    if (finished) advanceOnEnded();
+    if (castPlayer.playerState !== chrome.cast.media.PlayerState.IDLE) return;
+    // FINISHED is the normal end-of-track case. ERROR (receiver failed partway through a
+    // track it had already started, e.g. a dropped connection) used to leave playback stalled
+    // on that track forever, since nothing else treats an IDLE/ERROR state as "move on" -
+    // skip ahead the same as a normal finish rather than getting stuck.
+    if (castPlayer.idleReason === chrome.cast.media.IdleReason.FINISHED ||
+        castPlayer.idleReason === chrome.cast.media.IdleReason.ERROR) {
+      advanceOnEnded();
+    }
   });
 }
 
