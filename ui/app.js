@@ -1704,6 +1704,27 @@ function renderPlaylists(playlists) {
     suggestBtn.addEventListener("click", () => showPlaylistSuggestions(p.id, p.name));
     actions.appendChild(suggestBtn);
 
+    const renameBtn = document.createElement("button");
+    renameBtn.className = "rename-btn";
+    renameBtn.textContent = "✎";
+    renameBtn.title = "Rename playlist";
+    renameBtn.addEventListener("click", async () => {
+      const name = prompt("New playlist name?", p.name);
+      if (!name || !name.trim() || name.trim() === p.name) return;
+      const res = await fetch(`/playlists/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) return;
+      if (currentPlaylistId === p.id) {
+        currentPlaylistName = name.trim();
+        updateSaveControls();
+      }
+      loadPlaylists();
+    });
+    actions.appendChild(renameBtn);
+
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "×";
     deleteBtn.title = "Delete playlist";
