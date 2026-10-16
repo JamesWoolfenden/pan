@@ -1520,22 +1520,34 @@ function updateCastVolumeUi() {
   castMuteBtn.title = castPlayer.isMuted ? "Unmute" : "Mute";
 }
 
+// Whether the current load actually got as far as playing, so PLAYER_STATE_CHANGED's IDLE
+// handler (below) knows a later IDLE really means "this track ended" rather than "no media
+// loaded yet" (true before the first ever load) or "already handled via the catch below".
+// Deliberately NOT keyed off idleReason - some receiver firmware reports IDLE at the end of a
+// track with an idleReason other than FINISHED (or that lags/doesn't update in time), which is
+// what made the previous FINISHED/ERROR-only check still miss real "track ended" cases.
+let castTrackActive = false;
+
 function castCurrentTrack() {
   if (!isCasting() || currentIndex === -1) return;
   const session = cast.framework.CastContext.getInstance().getCurrentSession();
   if (!session) return;
+  castTrackActive = false;
   const track = queue[currentIndex];
   const mediaInfo = new chrome.cast.media.MediaInfo(`${CAST_STREAM_ORIGIN}/stream/${track.id}`, guessCastContentType(track));
   mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
   mediaInfo.metadata.title = track.title || "Untitled";
   mediaInfo.metadata.artist = track.artist || "";
   session.loadMedia(new chrome.cast.media.LoadRequest(mediaInfo))
-    .then(() => queuePlayer.pause())
+    .then(() => {
+      castTrackActive = true;
+      queuePlayer.pause();
+    })
     .catch((err) => {
       // A rejected loadMedia (receiver can't decode this format/file, or a network hiccup
       // reaching :8080) used to just silently stall here forever - nothing else would ever
-      // advance the queue, since PLAYER_STATE_CHANGED's IDLE+FINISHED check never fires for a
-      // track that failed to load in the first place. Skip to the next track instead.
+      // advance the queue, since the IDLE handler only ever fires for a track that actually
+      // started. Skip to the next track instead.
       console.warn("Cast loadMedia failed, skipping track", track.id, err);
       advanceOnEnded();
     });
@@ -1560,15 +1572,14 @@ function initializeCastApi() {
     playPauseBtn.innerHTML = castPlayer.isPaused ? "&#9654;" : "&#10074;&#10074;";
   });
   castController.addEventListener(cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED, () => {
-    if (castPlayer.playerState !== chrome.cast.media.PlayerState.IDLE) return;
-    // FINISHED is the normal end-of-track case. ERROR (receiver failed partway through a
-    // track it had already started, e.g. a dropped connection) used to leave playback stalled
-    // on that track forever, since nothing else treats an IDLE/ERROR state as "move on" -
-    // skip ahead the same as a normal finish rather than getting stuck.
-    if (castPlayer.idleReason === chrome.cast.media.IdleReason.FINISHED ||
-        castPlayer.idleReason === chrome.cast.media.IdleReason.ERROR) {
-      advanceOnEnded();
-    }
+    if (!isCasting() || castPlayer.playerState !== chrome.cast.media.PlayerState.IDLE) return;
+    // Only advance for an IDLE that follows a track that genuinely started (castTrackActive) -
+    // not the IDLE that's just the default state before the first ever load. Once consumed,
+    // reset the flag so a receiver that reports IDLE more than once for the same ended track
+    // (seen on some firmware) can't double-advance.
+    if (!castTrackActive) return;
+    castTrackActive = false;
+    advanceOnEnded();
   });
   castController.addEventListener(cast.framework.RemotePlayerEventType.VOLUME_LEVEL_CHANGED, updateCastVolumeUi);
   castController.addEventListener(cast.framework.RemotePlayerEventType.IS_MUTED_CHANGED, updateCastVolumeUi);
