@@ -309,6 +309,7 @@ header h1 {
   font-size: 0.85rem;
 }
 
+#cast-progress-controls,
 #cast-volume-controls {
   display: flex;
   align-items: center;
@@ -316,8 +317,16 @@ header h1 {
   margin-top: 0.4rem;
 }
 
-#cast-volume {
+#cast-volume,
+#cast-progress {
   flex: 1;
+}
+
+#cast-time-current,
+#cast-time-duration {
+  font-size: 0.75rem;
+  color: var(--text-faint);
+  min-width: 2.5em;
 }
 
 #queue-list {

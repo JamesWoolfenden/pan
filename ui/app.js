@@ -27,6 +27,10 @@ const castStatusEl = document.getElementById("cast-status");
 const castVolumeControlsEl = document.getElementById("cast-volume-controls");
 const castMuteBtn = document.getElementById("cast-mute");
 const castVolumeSlider = document.getElementById("cast-volume");
+const castProgressControlsEl = document.getElementById("cast-progress-controls");
+const castProgressSlider = document.getElementById("cast-progress");
+const castTimeCurrentEl = document.getElementById("cast-time-current");
+const castTimeDurationEl = document.getElementById("cast-time-duration");
 const queueListEl = document.getElementById("queue-list");
 const nowPlayingEl = document.getElementById("queue-now-playing");
 const shuffleBtn = document.getElementById("queue-shuffle");
@@ -1503,11 +1507,15 @@ function updateCastUi() {
   queuePlayer.hidden = casting;
   castStatusEl.hidden = !casting;
   castVolumeControlsEl.hidden = !casting;
+  castProgressControlsEl.hidden = !casting;
   if (casting) {
     const session = cast.framework.CastContext.getInstance().getCurrentSession();
     const deviceName = session?.getCastDevice()?.friendlyName || "Chromecast";
     castStatusEl.textContent = `Casting to ${deviceName} - use the controls above to play/pause/skip.`;
     updateCastVolumeUi();
+    startCastProgressPolling();
+  } else {
+    stopCastProgressPolling();
   }
 }
 
@@ -1519,6 +1527,42 @@ function updateCastVolumeUi() {
   castMuteBtn.textContent = castPlayer.isMuted ? "\u{1F507}" : "\u{1F50A}";
   castMuteBtn.title = castPlayer.isMuted ? "Unmute" : "Mute";
 }
+
+// Unlike the local <audio> element, the Cast SDK has no continuous "time updated" event - the
+// framework only refreshes castPlayer.currentTime/duration periodically on its own, so a poll
+// is the normal way sender apps drive a progress bar. Paused while the user is actively dragging
+// the slider (castSeeking), so the poll can't fight with their in-progress drag.
+let castProgressTimer = null;
+let castSeeking = false;
+
+function startCastProgressPolling() {
+  if (castProgressTimer) return;
+  castProgressTimer = setInterval(() => {
+    if (castSeeking || !isCasting()) return;
+    const duration = castPlayer.duration || 0;
+    castProgressSlider.max = String(duration);
+    castProgressSlider.value = String(castPlayer.currentTime || 0);
+    castTimeCurrentEl.textContent = formatDuration((castPlayer.currentTime || 0) * 1000);
+    castTimeDurationEl.textContent = formatDuration(duration * 1000);
+  }, 1000);
+}
+
+function stopCastProgressPolling() {
+  if (castProgressTimer) {
+    clearInterval(castProgressTimer);
+    castProgressTimer = null;
+  }
+}
+
+castProgressSlider.addEventListener("input", () => {
+  castSeeking = true;
+  castTimeCurrentEl.textContent = formatDuration(Number(castProgressSlider.value) * 1000);
+});
+castProgressSlider.addEventListener("change", () => {
+  castPlayer.currentTime = Number(castProgressSlider.value);
+  castController.seek();
+  castSeeking = false;
+});
 
 // Whether the current load actually got as far as playing, so PLAYER_STATE_CHANGED's IDLE
 // handler (below) knows a later IDLE really means "this track ended" rather than "no media
