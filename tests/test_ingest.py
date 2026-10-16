@@ -1,4 +1,13 @@
-from backend.db import Track, connect, init_db, merge_plex_metadata, set_ai_background, set_audio_features, upsert_track
+from backend.db import (
+    Track,
+    connect,
+    init_db,
+    merge_plex_metadata,
+    set_ai_background,
+    set_artist,
+    set_audio_features,
+    upsert_track,
+)
 from backend.ingest.local_source import normalize_path
 from backend.ingest.merge import known_file_paths, path_to_id_map
 from backend.ingest.plex_source import remap_plex_path
@@ -44,6 +53,25 @@ def test_upsert_track_does_not_clobber_existing_genre_with_null():
 
     row = conn.execute("SELECT * FROM tracks WHERE external_id = 'local:1'").fetchone()
     assert row["genre"] == "Rock"
+
+
+def test_upsert_track_does_not_revert_a_manually_corrected_artist():
+    """Regression test: a compilation track manually corrected via set_artist (e.g. unscrambling
+    "Bacobens Rock Top 500", where every track's artist was wrongly set to the compiler) used to
+    get silently reverted back to the source's own (wrong) metadata on the very next rescan,
+    since upsert_track overwrote artist/title/album unconditionally."""
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="Various Artists"))
+    conn.commit()
+    set_artist(conn, track_id, "The Rolling Stones")
+    conn.commit()
+
+    upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="Various Artists"))
+    conn.commit()
+
+    row = conn.execute("SELECT * FROM tracks WHERE external_id = 'local:1'").fetchone()
+    assert row["artist"] == "The Rolling Stones"
 
 
 def test_remap_plex_path_translates_nas_prefix_to_local_share(monkeypatch):
@@ -100,6 +128,28 @@ def test_merge_plex_metadata_preserves_id_and_audio_features():
     assert conn.execute("SELECT COUNT(*) c FROM tracks").fetchone()["c"] == 1
 
 
+def test_merge_plex_metadata_does_not_revert_a_manually_corrected_artist():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="Song", artist="Various Artists",
+                     file_path="Z:\\music\\a.flac")
+    )
+    conn.commit()
+    set_artist(conn, track_id, "The Rolling Stones")
+    conn.commit()
+
+    plex_track = Track(
+        external_id="plex:99", source="plex", plex_rating_key="99",
+        title="Song", artist="Various Artists", album="Album", file_path="Z:\\music\\a.flac",
+    )
+    merge_plex_metadata(conn, track_id, plex_track)
+    conn.commit()
+
+    row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    assert row["artist"] == "The Rolling Stones"
+
+
 def test_set_ai_background_persists_and_defaults_to_null():
     conn = connect(":memory:")
     init_db(conn)
@@ -146,3 +196,34 @@ def test_migrate_adds_ai_background_to_a_pre_existing_tracks_table():
 
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()}
     assert "ai_background" in columns
+
+
+def test_migrate_adds_identity_source_defaulting_to_auto():
+    conn = connect(":memory:")
+    conn.executescript("""
+        CREATE TABLE tracks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            external_id TEXT UNIQUE NOT NULL,
+            source TEXT NOT NULL,
+            plex_rating_key TEXT,
+            file_path TEXT,
+            title TEXT,
+            artist TEXT,
+            album TEXT,
+            genre TEXT,
+            mood TEXT,
+            year INTEGER,
+            duration_ms INTEGER,
+            tempo REAL,
+            energy REAL,
+            musical_key TEXT,
+            tag_source TEXT NOT NULL DEFAULT 'none'
+        );
+    """)
+    conn.execute("INSERT INTO tracks (external_id, source, title) VALUES ('local:1', 'local', 'Song')")
+    conn.commit()
+
+    init_db(conn)
+
+    row = conn.execute("SELECT identity_source FROM tracks WHERE external_id = 'local:1'").fetchone()
+    assert row["identity_source"] == "auto"

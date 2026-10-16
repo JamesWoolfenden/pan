@@ -38,8 +38,12 @@ CREATE TABLE IF NOT EXISTS tracks (
                          -- whenever `lyrics` is NULL/'' too, no separate "looked up" state needed
     tags TEXT,  -- comma-separated freeform tags, manually added - separate from genre/mood, which
                 -- are single-value fields filled by the local/cloud tagger
-    favorited_at TEXT  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
+    favorited_at TEXT,  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
                        -- can be listed most-recently-favorited first
+    identity_source TEXT NOT NULL DEFAULT 'auto'  -- 'auto' | 'manual' - 'manual' once title/artist/
+                       -- album has been corrected by hand (or a migration script), so a later
+                       -- Plex/local rescan doesn't silently revert it back to the source's own
+                       -- (wrong) metadata. See upsert_track/merge_plex_metadata.
 );
 CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
 CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre);
@@ -135,6 +139,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN lyrics TEXT")
     if "synced_lyrics" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN synced_lyrics TEXT")
+    if "identity_source" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN identity_source TEXT NOT NULL DEFAULT 'auto'")
 
 
 def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
@@ -144,8 +150,11 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
     if existing:
         conn.execute(
             """
-            UPDATE tracks SET source=?, plex_rating_key=?, file_path=?, title=?, artist=?,
-                album=?, genre=COALESCE(?, genre), mood=COALESCE(?, mood), year=?,
+            UPDATE tracks SET source=?, plex_rating_key=?, file_path=?,
+                title=CASE WHEN identity_source='manual' THEN title ELSE ? END,
+                artist=CASE WHEN identity_source='manual' THEN artist ELSE ? END,
+                album=CASE WHEN identity_source='manual' THEN album ELSE ? END,
+                genre=COALESCE(?, genre), mood=COALESCE(?, mood), year=?,
                 duration_ms=?, tempo=COALESCE(?, tempo), energy=COALESCE(?, energy),
                 musical_key=COALESCE(?, musical_key)
             WHERE id=?
@@ -218,15 +227,17 @@ def set_tags_list(conn: sqlite3.Connection, track_id: int, tags: list[str]) -> N
 
 
 def set_artist(conn: sqlite3.Connection, track_id: int, artist: str) -> None:
-    conn.execute("UPDATE tracks SET artist=? WHERE id=?", (artist, track_id))
+    # identity_source='manual' protects this from being silently reverted by a later Plex/local
+    # rescan - see upsert_track/merge_plex_metadata.
+    conn.execute("UPDATE tracks SET artist=?, identity_source='manual' WHERE id=?", (artist, track_id))
 
 
 def set_title(conn: sqlite3.Connection, track_id: int, title: str) -> None:
-    conn.execute("UPDATE tracks SET title=? WHERE id=?", (title, track_id))
+    conn.execute("UPDATE tracks SET title=?, identity_source='manual' WHERE id=?", (title, track_id))
 
 
 def set_album(conn: sqlite3.Connection, track_id: int, album: str) -> None:
-    conn.execute("UPDATE tracks SET album=? WHERE id=?", (album, track_id))
+    conn.execute("UPDATE tracks SET album=?, identity_source='manual' WHERE id=?", (album, track_id))
 
 
 def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> None:
@@ -257,15 +268,18 @@ def set_file_path(conn: sqlite3.Connection, track_id: int, file_path: str) -> No
 
 def merge_plex_metadata(conn: sqlite3.Connection, track_id: int, track: Track) -> None:
     """Enrich an already-cataloged track (e.g. found by the local scan) with Plex's metadata,
-    without touching its id - so audio features/embeddings already computed for it survive."""
+    without touching its id - so audio features/embeddings already computed for it survive.
+    Leaves title/artist/album alone once identity_source is 'manual' - otherwise Plex's own
+    (possibly wrong) metadata for that file silently reverts a deliberate correction on the
+    very next ingest, same as upsert_track."""
     conn.execute(
         """
         UPDATE tracks SET
             plex_rating_key = ?,
             source = 'plex',
-            title = COALESCE(NULLIF(?, ''), title),
-            artist = COALESCE(NULLIF(?, ''), artist),
-            album = COALESCE(NULLIF(?, ''), album),
+            title = CASE WHEN identity_source='manual' THEN title ELSE COALESCE(NULLIF(?, ''), title) END,
+            artist = CASE WHEN identity_source='manual' THEN artist ELSE COALESCE(NULLIF(?, ''), artist) END,
+            album = CASE WHEN identity_source='manual' THEN album ELSE COALESCE(NULLIF(?, ''), album) END,
             genre = COALESCE(?, genre),
             mood = COALESCE(?, mood),
             year = COALESCE(?, year)
