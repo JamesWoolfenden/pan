@@ -309,6 +309,17 @@ header h1 {
   font-size: 0.85rem;
 }
 
+#cast-volume-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+#cast-volume {
+  flex: 1;
+}
+
 #queue-list {
   list-style: none;
   margin: 0.6rem 0 0;

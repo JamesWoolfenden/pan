@@ -24,6 +24,9 @@ adminToggleBtn.addEventListener("click", () => {
 
 const queuePlayer = document.getElementById("queue-player");
 const castStatusEl = document.getElementById("cast-status");
+const castVolumeControlsEl = document.getElementById("cast-volume-controls");
+const castMuteBtn = document.getElementById("cast-mute");
+const castVolumeSlider = document.getElementById("cast-volume");
 const queueListEl = document.getElementById("queue-list");
 const nowPlayingEl = document.getElementById("queue-now-playing");
 const shuffleBtn = document.getElementById("queue-shuffle");
@@ -1499,11 +1502,22 @@ function updateCastUi() {
   const casting = isCasting();
   queuePlayer.hidden = casting;
   castStatusEl.hidden = !casting;
+  castVolumeControlsEl.hidden = !casting;
   if (casting) {
     const session = cast.framework.CastContext.getInstance().getCurrentSession();
     const deviceName = session?.getCastDevice()?.friendlyName || "Chromecast";
     castStatusEl.textContent = `Casting to ${deviceName} - use the controls above to play/pause/skip.`;
+    updateCastVolumeUi();
   }
+}
+
+// Reflects the receiver's actual volume/mute state - kept in sync both after our own slider/mute
+// changes and after an external one (the device's physical remote, Google Home app, etc.) via
+// the VOLUME_LEVEL_CHANGED/IS_MUTED_CHANGED listeners below.
+function updateCastVolumeUi() {
+  castVolumeSlider.value = castPlayer.volumeLevel;
+  castMuteBtn.textContent = castPlayer.isMuted ? "\u{1F507}" : "\u{1F50A}";
+  castMuteBtn.title = castPlayer.isMuted ? "Unmute" : "Mute";
 }
 
 function castCurrentTrack() {
@@ -1556,6 +1570,14 @@ function initializeCastApi() {
       advanceOnEnded();
     }
   });
+  castController.addEventListener(cast.framework.RemotePlayerEventType.VOLUME_LEVEL_CHANGED, updateCastVolumeUi);
+  castController.addEventListener(cast.framework.RemotePlayerEventType.IS_MUTED_CHANGED, updateCastVolumeUi);
+
+  castVolumeSlider.addEventListener("input", () => {
+    castPlayer.volumeLevel = Number(castVolumeSlider.value);
+    castController.setVolumeLevel();
+  });
+  castMuteBtn.addEventListener("click", () => castController.muteOrUnmute());
 }
 
 window["__onGCastApiAvailable"] = (isAvailable) => {
