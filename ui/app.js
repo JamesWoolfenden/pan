@@ -33,6 +33,7 @@ const nextBtn = document.getElementById("queue-next");
 const repeatBtn = document.getElementById("queue-repeat");
 const saveBtn = document.getElementById("queue-save");
 const cloneBtn = document.getElementById("queue-clone");
+const addToPlaylistBtn = document.getElementById("queue-add-to-playlist");
 const clearBtn = document.getElementById("queue-clear");
 const queueListToggleBtn = document.getElementById("queue-list-toggle");
 const playlistsListEl = document.getElementById("playlists-list");
@@ -236,8 +237,19 @@ function renderAlbums(albums, artist) {
     playBtn.textContent = "Play";
     playBtn.addEventListener("click", () => playArtistAlbum(artist, a.album));
 
+    const playlistBtn = document.createElement("button");
+    playlistBtn.textContent = "+ Playlist";
+    playlistBtn.title = "Add this whole album to a playlist";
+    const playlistPanel = buildPlaylistPickerPanel(() => fetchAlbumTrackIds(artist, a.album));
+    playlistBtn.addEventListener("click", () => {
+      playlistPanel.hidden = !playlistPanel.hidden;
+      if (!playlistPanel.hidden) playlistPanel.load();
+    });
+
     li.appendChild(info);
     li.appendChild(playBtn);
+    li.appendChild(playlistBtn);
+    li.appendChild(playlistPanel);
     resultsEl.appendChild(li);
   }
 }
@@ -354,11 +366,12 @@ function renderResults(results) {
   }
 }
 
-// trackIdsSource is either a fixed array (single track) or a function returning the current
+// trackIdsSource is either a fixed array (single track), a sync function returning the current
 // ids to add (e.g. "add all" needs the live result list, since it can grow via Load more or
-// shrink via dismiss between opening the panel and clicking a playlist).
+// shrink via dismiss between opening the panel and clicking a playlist), or an async function
+// (e.g. an album's tracks, which need a fetch to resolve to ids first).
 function buildPlaylistPickerPanel(trackIdsSource) {
-  const trackIds = () => (typeof trackIdsSource === "function" ? trackIdsSource() : trackIdsSource);
+  const trackIds = async () => (typeof trackIdsSource === "function" ? await trackIdsSource() : trackIdsSource);
 
   const panel = document.createElement("div");
   panel.className = "playlist-picker-panel";
@@ -375,7 +388,7 @@ function buildPlaylistPickerPanel(trackIdsSource) {
     await fetch("/playlists", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), track_ids: trackIds() }),
+      body: JSON.stringify({ name: name.trim(), track_ids: await trackIds() }),
     });
     loadPlaylists();
     panel.hidden = true;
@@ -398,7 +411,7 @@ function buildPlaylistPickerPanel(trackIdsSource) {
         btn.addEventListener("click", async () => {
           // Sequential, not Promise.all, so tracks land in the playlist in the same order
           // they're shown in the results.
-          for (const id of trackIds()) {
+          for (const id of await trackIds()) {
             await fetch(`/playlists/${p.id}/tracks`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -427,6 +440,14 @@ async function playArtistAlbum(artist, album) {
   const res = await fetch(`/artist/album?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`);
   const data = await res.json();
   playTrackList(data.results, `Album: "${album}" — ${artist}`);
+}
+
+// Album rows (discography view) only carry artist/album/track_count, not track ids - fetch the
+// same way playArtistAlbum does, lazily, only once the +Playlist panel is actually opened.
+async function fetchAlbumTrackIds(artist, album) {
+  const res = await fetch(`/artist/album?artist=${encodeURIComponent(artist)}&album=${encodeURIComponent(album)}`);
+  const data = await res.json();
+  return data.results.filter((r) => r.file_path).map((r) => r.id);
 }
 
 // Used by both "play this album" paths. Keeps the tracks visible in the main results list (with
@@ -1328,6 +1349,7 @@ function renderQueue() {
   repeatBtn.disabled = !hasQueue;
   saveBtn.disabled = !hasQueue;
   cloneBtn.disabled = !hasQueue;
+  addToPlaylistBtn.disabled = !hasQueue;
   clearBtn.disabled = !hasQueue;
   persistQueueState();
   refreshQueueButtons();
@@ -1620,6 +1642,15 @@ saveBtn.addEventListener("click", async () => {
 // Clone: fork the currently-loaded playlist's queue into a new one instead of updating it -
 // only shown when a playlist is actually loaded (see updateSaveControls).
 cloneBtn.addEventListener("click", saveAsNewPlaylist);
+
+// Unlike Save (which creates a new playlist or overwrites the one the queue was loaded from),
+// this adds the whole queue onto an existing playlist of your choice, same as per-track +Playlist.
+const addToPlaylistPanel = buildPlaylistPickerPanel(() => queue.map((t) => t.id));
+document.getElementById("queue-header").appendChild(addToPlaylistPanel);
+addToPlaylistBtn.addEventListener("click", () => {
+  addToPlaylistPanel.hidden = !addToPlaylistPanel.hidden;
+  if (!addToPlaylistPanel.hidden) addToPlaylistPanel.load();
+});
 
 clearBtn.addEventListener("click", () => {
   recordCurrentPlayProgress();
