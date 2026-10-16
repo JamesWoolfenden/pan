@@ -49,8 +49,11 @@
         <span id="cast-time-duration">0:00</span>
       </div>
       <div id="cast-volume-controls" hidden>
-        <button id="cast-mute" title="Mute">&#128266;</button>
-        <input id="cast-volume" type="range" min="0" max="1" step="0.05" title="Cast volume" />
+        <button id="cast-volume-toggle" title="Show volume control" aria-expanded="false">&#128266;</button>
+        <div id="cast-volume-sliders" class="collapsed">
+          <button id="cast-mute" title="Mute">&#128266;</button>
+          <input id="cast-volume" type="range" min="0" max="1" step="0.05" title="Cast volume" />
+        </div>
       </div>
       <ol id="queue-list"></ol>
     </section>

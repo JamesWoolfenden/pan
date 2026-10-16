@@ -329,6 +329,17 @@ header h1 {
   min-width: 2.5em;
 }
 
+#cast-volume-sliders {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+#cast-volume-sliders.collapsed {
+  display: none;
+}
+
 #queue-list {
   list-style: none;
   margin: 0.6rem 0 0;

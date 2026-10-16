@@ -25,6 +25,8 @@ adminToggleBtn.addEventListener("click", () => {
 const queuePlayer = document.getElementById("queue-player");
 const castStatusEl = document.getElementById("cast-status");
 const castVolumeControlsEl = document.getElementById("cast-volume-controls");
+const castVolumeToggleBtn = document.getElementById("cast-volume-toggle");
+const castVolumeSlidersEl = document.getElementById("cast-volume-sliders");
 const castMuteBtn = document.getElementById("cast-mute");
 const castVolumeSlider = document.getElementById("cast-volume");
 const castProgressControlsEl = document.getElementById("cast-progress-controls");
@@ -1526,7 +1528,17 @@ function updateCastVolumeUi() {
   castVolumeSlider.value = castPlayer.volumeLevel;
   castMuteBtn.textContent = castPlayer.isMuted ? "\u{1F507}" : "\u{1F50A}";
   castMuteBtn.title = castPlayer.isMuted ? "Unmute" : "Mute";
+  // The toggle button mirrors mute state at a glance, even collapsed - only clicking it reveals
+  // the actual slider/mute button, keeping the status line from being dominated by a control
+  // most casting sessions never need to touch.
+  castVolumeToggleBtn.textContent = castPlayer.isMuted ? "\u{1F507}" : "\u{1F50A}";
 }
+
+castVolumeToggleBtn.addEventListener("click", () => {
+  const collapsed = castVolumeSlidersEl.classList.toggle("collapsed");
+  castVolumeToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  castVolumeToggleBtn.title = collapsed ? "Show volume control" : "Hide volume control";
+});
 
 // Unlike the local <audio> element, the Cast SDK has no continuous "time updated" event - the
 // framework only refreshes castPlayer.currentTime/duration periodically on its own, so a poll
