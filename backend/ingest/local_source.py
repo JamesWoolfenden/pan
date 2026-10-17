@@ -79,7 +79,9 @@ def _read_tags(file_path: Path) -> dict:
         except ValueError:
             year = None
 
-    duration_ms = int(audio.info.length * 1000) if getattr(audio, "info", None) else None
+    duration_ms = (
+        int(audio.info.length * 1000) if getattr(audio, "info", None) else None
+    )
 
     return {
         "title": first("title"),

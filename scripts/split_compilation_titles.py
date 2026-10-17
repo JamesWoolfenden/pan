@@ -33,7 +33,7 @@ _STRAY_LEADING_NUMBER = re.compile(r"^\d+\s*-\s*(.+)$")
 
 
 def _split_title(title: str) -> tuple[str, str] | None:
-    """"NNN - Real Artist - Real Title" or "Real Artist - Real Title" -> (artist, title).
+    """ "NNN - Real Artist - Real Title" or "Real Artist - Real Title" -> (artist, title).
     Requires " - " (spaces around the dash) as the separator, not a bare hyphen, so a name like
     "T-Rex" doesn't get split mid-word. Returns None if the title has no such separator."""
     match = _NUMBERED.match(title) or _PLAIN.match(title)
@@ -50,7 +50,9 @@ def _split_title(title: str) -> tuple[str, str] | None:
 
 def migrate(conn: sqlite3.Connection, album: str) -> dict:
     counts = {"fixed": 0, "no_separator_skipped": 0}
-    rows = conn.execute("SELECT id, title FROM tracks WHERE album = ?", (album,)).fetchall()
+    rows = conn.execute(
+        "SELECT id, title FROM tracks WHERE album = ?", (album,)
+    ).fetchall()
     for row in rows:
         split = _split_title(row["title"] or "")
         if split is None:
@@ -68,13 +70,17 @@ def main() -> None:
     with connection() as conn:
         counts = migrate(conn, album)
         conn.commit()
-        rows = conn.execute("SELECT id FROM tracks WHERE album = ?", (album,)).fetchall()
+        rows = conn.execute(
+            "SELECT id FROM tracks WHERE album = ?", (album,)
+        ).fetchall()
         fixed_rows = [get_track(conn, row["id"]) for row in rows]
         reindex_embeddings(conn, fixed_rows)
 
     log.info(
         "Fixed %d tracks in %r (re-embedded), left %d untouched (no ' - ' separator)",
-        counts["fixed"], album, counts["no_separator_skipped"],
+        counts["fixed"],
+        album,
+        counts["no_separator_skipped"],
     )
 
 

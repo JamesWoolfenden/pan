@@ -14,7 +14,9 @@ COMMIT_EVERY = 100
 
 
 def known_file_paths(conn: sqlite3.Connection) -> set[str]:
-    rows = conn.execute("SELECT file_path FROM tracks WHERE file_path IS NOT NULL").fetchall()
+    rows = conn.execute(
+        "SELECT file_path FROM tracks WHERE file_path IS NOT NULL"
+    ).fetchall()
     return {normalize_path(row["file_path"]) for row in rows}
 
 
@@ -45,7 +47,11 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
     if settings.plex_baseurl and settings.plex_token:
         existing_by_path = path_to_id_map(conn)
         for track in iter_plex_tracks(settings.plex_baseurl, settings.plex_token):
-            existing_id = existing_by_path.get(normalize_path(track.file_path)) if track.file_path else None
+            existing_id = (
+                existing_by_path.get(normalize_path(track.file_path))
+                if track.file_path
+                else None
+            )
             if existing_id is not None:
                 merge_plex_metadata(conn, existing_id, track)
                 counts["plex_merged"] += 1
@@ -57,14 +63,20 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
             if counts["plex"] % COMMIT_EVERY == 0:
                 conn.commit()
         conn.commit()
-        log.info("Plex: %d tracks seen, %d merged into existing rows, %d inserted new",
-                  counts["plex"], counts["plex_merged"], counts["plex"] - counts["plex_merged"])
+        log.info(
+            "Plex: %d tracks seen, %d merged into existing rows, %d inserted new",
+            counts["plex"],
+            counts["plex_merged"],
+            counts["plex"] - counts["plex_merged"],
+        )
     else:
         log.info("Plex not configured (PLEX_BASEURL/PLEX_TOKEN missing) - skipping")
 
     if settings.shared_drive_path:
         skip_paths = known_file_paths(conn)
-        for track in iter_local_tracks(settings.shared_drive_path, skip_paths=skip_paths):
+        for track in iter_local_tracks(
+            settings.shared_drive_path, skip_paths=skip_paths
+        ):
             upsert_track(conn, track)
             counts["local"] += 1
             if counts["local"] % COMMIT_EVERY == 0:

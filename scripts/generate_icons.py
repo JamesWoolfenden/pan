@@ -29,14 +29,21 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
 def render(size: int, corner_radius_ratio: float = 0.22) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=int(size * corner_radius_ratio), fill=ACCENT)
+    draw.rounded_rectangle(
+        [0, 0, size - 1, size - 1], radius=int(size * corner_radius_ratio), fill=ACCENT
+    )
 
     # "pan" centered, sized/positioned to stay within a maskable icon's ~80% safe zone.
     font = _font(int(size * 0.42))
     text = "pan"
     bbox = draw.textbbox((0, 0), text, font=font)
     text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    draw.text(((size - text_w) / 2 - bbox[0], (size - text_h) / 2 - bbox[1]), text, font=font, fill=TEXT)
+    draw.text(
+        ((size - text_w) / 2 - bbox[0], (size - text_h) / 2 - bbox[1]),
+        text,
+        font=font,
+        fill=TEXT,
+    )
     return img
 
 

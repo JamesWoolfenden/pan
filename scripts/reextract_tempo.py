@@ -38,19 +38,33 @@ def _extract(job: tuple[int, str]) -> tuple[int, dict | None]:
 def main() -> None:
     with connection() as conn:
         init_db(conn)
-        rows = conn.execute("SELECT id, file_path FROM tracks WHERE file_path IS NOT NULL").fetchall()
+        rows = conn.execute(
+            "SELECT id, file_path FROM tracks WHERE file_path IS NOT NULL"
+        ).fetchall()
         jobs = [(row["id"], row["file_path"]) for row in rows]
 
-    log.info("Re-extracting audio features for %d tracks across %d workers", len(jobs), WORKERS)
+    log.info(
+        "Re-extracting audio features for %d tracks across %d workers",
+        len(jobs),
+        WORKERS,
+    )
     succeeded = 0
     failed = 0
     start = time.monotonic()
 
     with connection() as conn:
         with ProcessPoolExecutor(max_workers=WORKERS) as pool:
-            for processed, (track_id, features) in enumerate(pool.map(_extract, jobs, chunksize=4), start=1):
+            for processed, (track_id, features) in enumerate(
+                pool.map(_extract, jobs, chunksize=4), start=1
+            ):
                 if features:
-                    set_audio_features(conn, track_id, features["tempo"], features["energy"], features["musical_key"])
+                    set_audio_features(
+                        conn,
+                        track_id,
+                        features["tempo"],
+                        features["energy"],
+                        features["musical_key"],
+                    )
                     succeeded += 1
                 else:
                     failed += 1
@@ -63,11 +77,21 @@ def main() -> None:
                     remaining = (len(jobs) - processed) / rate if rate else float("inf")
                     log.info(
                         "%d/%d processed (%d succeeded, %d failed) - %.2f tracks/s, ~%.0fs remaining",
-                        processed, len(jobs), succeeded, failed, rate, remaining,
+                        processed,
+                        len(jobs),
+                        succeeded,
+                        failed,
+                        rate,
+                        remaining,
                     )
         conn.commit()
 
-    log.info("Done: re-extracted features for %d/%d tracks (%d failed to load)", succeeded, len(jobs), failed)
+    log.info(
+        "Done: re-extracted features for %d/%d tracks (%d failed to load)",
+        succeeded,
+        len(jobs),
+        failed,
+    )
 
 
 if __name__ == "__main__":

@@ -45,7 +45,9 @@ def migrate(conn: sqlite3.Connection, shared_drive_path: str) -> dict:
 
 def main() -> None:
     if not settings.shared_drive_path:
-        log.error("SHARED_DRIVE_PATH is not configured - nothing to make paths relative to")
+        log.error(
+            "SHARED_DRIVE_PATH is not configured - nothing to make paths relative to"
+        )
         return
 
     with connection() as conn:
@@ -53,7 +55,9 @@ def main() -> None:
 
     log.info(
         "Converted %d absolute paths to relative, %d already relative, %d left absolute (not under %s)",
-        counts["converted"], counts["already_relative"], counts["skipped_not_under_root"],
+        counts["converted"],
+        counts["already_relative"],
+        counts["skipped_not_under_root"],
         settings.shared_drive_path,
     )
 

@@ -17,13 +17,17 @@ def remap_plex_path(path: str | None) -> str | None:
     PLEX_REMOTE_MUSIC_PATH as the prefix to strip. Stored relative (not re-prefixed with the
     local root) so the catalog stays portable across machines with different roots. Leaves the
     path untouched if no mapping is configured or it doesn't match the configured prefix."""
-    if not path or not settings.plex_remote_music_path or not settings.shared_drive_path:
+    if (
+        not path
+        or not settings.plex_remote_music_path
+        or not settings.shared_drive_path
+    ):
         return path
     remote_prefix = settings.plex_remote_music_path.rstrip("/\\")
     normalized = path.replace("\\", "/")
     if not normalized.startswith(remote_prefix.replace("\\", "/")):
         return path
-    return normalized[len(remote_prefix):].lstrip("/")
+    return normalized[len(remote_prefix) :].lstrip("/")
 
 
 def iter_plex_tracks(baseurl: str, token: str) -> Iterator[Track]:
@@ -49,7 +53,8 @@ def iter_plex_tracks(baseurl: str, token: str) -> Iterator[Track]:
                 album=plex_track.parentTitle or "",
                 genre=_first_tag(plex_track, "genres"),
                 mood=_first_tag(plex_track, "moods"),
-                year=getattr(plex_track, "parentYear", None) or getattr(plex_track, "year", None),
+                year=getattr(plex_track, "parentYear", None)
+                or getattr(plex_track, "year", None),
                 duration_ms=plex_track.duration,
                 tag_source="metadata" if _first_tag(plex_track, "genres") else "none",
             )

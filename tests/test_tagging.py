@@ -25,10 +25,14 @@ def test_infer_mood_fast_loud_is_energetic():
 def test_apply_local_tags_fills_missing_mood_from_features():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", genre="Rock"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", genre="Rock")
+    )
     conn.commit()
 
-    resolved = apply_local_tags(conn, track_id, genre="Rock", mood=None, tempo=160, energy=0.9)
+    resolved = apply_local_tags(
+        conn, track_id, genre="Rock", mood=None, tempo=160, energy=0.9
+    )
     conn.commit()
 
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
@@ -40,10 +44,14 @@ def test_apply_local_tags_fills_missing_mood_from_features():
 def test_apply_local_tags_reports_unresolved_when_genre_and_features_missing():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A")
+    )
     conn.commit()
 
-    resolved = apply_local_tags(conn, track_id, genre=None, mood=None, tempo=None, energy=None)
+    resolved = apply_local_tags(
+        conn, track_id, genre=None, mood=None, tempo=None, energy=None
+    )
 
     assert resolved is False
 
@@ -51,7 +59,9 @@ def test_apply_local_tags_reports_unresolved_when_genre_and_features_missing():
 def test_set_tags_list_normalizes_case_whitespace_and_duplicates():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A")
+    )
     conn.commit()
 
     set_tags_list(conn, track_id, [" Road Trip ", "ROAD TRIP", "live"])
@@ -64,7 +74,9 @@ def test_set_tags_list_normalizes_case_whitespace_and_duplicates():
 def test_set_tags_list_empty_clears_tags():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A")
+    )
     conn.commit()
     set_tags_list(conn, track_id, ["live"])
     conn.commit()
@@ -79,7 +91,12 @@ def test_set_tags_list_empty_clears_tags():
 def test_set_artist_corrects_a_mislabeled_artist():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="Various Artists"))
+    track_id = upsert_track(
+        conn,
+        Track(
+            external_id="local:1", source="local", title="A", artist="Various Artists"
+        ),
+    )
     conn.commit()
 
     set_artist(conn, track_id, "The Specials")
@@ -92,7 +109,10 @@ def test_set_artist_corrects_a_mislabeled_artist():
 def test_set_title_corrects_a_mislabeled_title():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="01 track", artist="Artist"))
+    track_id = upsert_track(
+        conn,
+        Track(external_id="local:1", source="local", title="01 track", artist="Artist"),
+    )
     conn.commit()
 
     set_title(conn, track_id, "Ghost Town")
@@ -105,10 +125,16 @@ def test_set_title_corrects_a_mislabeled_title():
 def test_set_album_corrects_a_mislabeled_album():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(
-        external_id="local:1", source="local", title="Satisfaction", artist="The Rolling Stones",
-        album="Bacobens Rock Top 500",
-    ))
+    track_id = upsert_track(
+        conn,
+        Track(
+            external_id="local:1",
+            source="local",
+            title="Satisfaction",
+            artist="The Rolling Stones",
+            album="Bacobens Rock Top 500",
+        ),
+    )
     conn.commit()
 
     set_album(conn, track_id, "Out of Our Heads")
@@ -121,9 +147,16 @@ def test_set_album_corrects_a_mislabeled_album():
 def test_tracks_missing_identity_flags_blank_title_or_artist():
     conn = connect(":memory:")
     init_db(conn)
-    good = upsert_track(conn, Track(external_id="local:1", source="local", title="A Song", artist="A Band"))
-    no_title = upsert_track(conn, Track(external_id="local:2", source="local", title="", artist="A Band"))
-    no_artist = upsert_track(conn, Track(external_id="local:3", source="local", title="A Song", artist=""))
+    good = upsert_track(
+        conn,
+        Track(external_id="local:1", source="local", title="A Song", artist="A Band"),
+    )
+    no_title = upsert_track(
+        conn, Track(external_id="local:2", source="local", title="", artist="A Band")
+    )
+    no_artist = upsert_track(
+        conn, Track(external_id="local:3", source="local", title="A Song", artist="")
+    )
     conn.commit()
 
     flagged = {row["id"] for row in tracks_missing_identity(conn)}
@@ -136,7 +169,15 @@ def test_suggest_tags_falls_back_without_api_key(monkeypatch):
     monkeypatch.setattr("backend.tagging.cloud_tagger.settings.anthropic_api_key", "")
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="I Need a Man", artist="Eurythmics"))
+    track_id = upsert_track(
+        conn,
+        Track(
+            external_id="local:1",
+            source="local",
+            title="I Need a Man",
+            artist="Eurythmics",
+        ),
+    )
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 

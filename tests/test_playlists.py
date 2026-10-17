@@ -17,7 +17,12 @@ from backend.search.engine import playlist_tracks
 
 def _make_tracks(conn, n):
     return [
-        upsert_track(conn, Track(external_id=f"t{i}", source="local", title=f"Song {i}", artist="Artist"))
+        upsert_track(
+            conn,
+            Track(
+                external_id=f"t{i}", source="local", title=f"Song {i}", artist="Artist"
+            ),
+        )
         for i in range(n)
     ]
 

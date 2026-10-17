@@ -1,0 +1,3 @@
+scan_roots:
+  - path: .
+    targets: [dockerfile, docker-compose]

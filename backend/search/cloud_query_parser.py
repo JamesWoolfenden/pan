@@ -50,7 +50,9 @@ def parse_query(query: str) -> dict:
     is configured or the response can't be parsed."""
     fallback = {"semantic_query": query}
     if not settings.anthropic_api_key:
-        log.info("ANTHROPIC_API_KEY not configured - falling back to plain semantic search")
+        log.info(
+            "ANTHROPIC_API_KEY not configured - falling back to plain semantic search"
+        )
         return fallback
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)

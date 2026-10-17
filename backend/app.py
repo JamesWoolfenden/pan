@@ -52,7 +52,14 @@ from backend.search.engine import search_by_tag as run_search_by_tag
 from backend.search.engine import similar as run_similar
 from backend.search.engine import suggest_for_playlist as run_suggest_for_playlist
 from backend.search.engine import versions as run_versions
-from backend.stats import favorites, most_played, most_skipped, never_played, recently_added, recently_played
+from backend.stats import (
+    favorites,
+    most_played,
+    most_skipped,
+    never_played,
+    recently_added,
+    recently_played,
+)
 from backend.tagging.cloud_tagger import suggest_tags
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -78,20 +85,26 @@ async def require_auth(request, call_next):
     Tailscale), set both so a visitor can't browse the library or trigger the Claude-billed
     reindex. /stream/* is exempt: Chromecast's receiver fetches it directly and can't supply
     credentials, and it's already LAN-trust-only per the Makefile's port-8080 plain-HTTP path."""
-    if settings.pan_auth_user and settings.pan_auth_password and not request.url.path.startswith("/stream/"):
+    if (
+        settings.pan_auth_user
+        and settings.pan_auth_password
+        and not request.url.path.startswith("/stream/")
+    ):
         valid = False
         header = request.headers.get("authorization", "")
         if header.startswith("Basic "):
             try:
                 decoded = base64.b64decode(header[6:]).decode("utf-8")
                 user, _, password = decoded.partition(":")
-                valid = secrets.compare_digest(user, settings.pan_auth_user) and secrets.compare_digest(
-                    password, settings.pan_auth_password
-                )
+                valid = secrets.compare_digest(
+                    user, settings.pan_auth_user
+                ) and secrets.compare_digest(password, settings.pan_auth_password)
             except Exception:
                 valid = False
         if not valid:
-            return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="pan"'})
+            return Response(
+                status_code=401, headers={"WWW-Authenticate": 'Basic realm="pan"'}
+            )
     return await call_next(request)
 
 
@@ -112,9 +125,13 @@ def search_endpoint(q: str, limit: int = 25, offset: int = 0):
 @app.get("/search/by-tag")
 def search_by_tag_endpoint(field: str, value: str, limit: int = 25, offset: int = 0):
     if field not in ("genre", "mood", "tag"):
-        raise HTTPException(status_code=400, detail="field must be one of: genre, mood, tag")
+        raise HTTPException(
+            status_code=400, detail="field must be one of: genre, mood, tag"
+        )
     with connection() as conn:
-        return {"results": run_search_by_tag(conn, field, value, limit=limit, offset=offset)}
+        return {
+            "results": run_search_by_tag(conn, field, value, limit=limit, offset=offset)
+        }
 
 
 @app.get("/track/{track_id}/similar")
@@ -219,7 +236,11 @@ def get_playlist_endpoint(playlist_id: int):
         playlist = get_playlist(conn, playlist_id)
         if playlist is None:
             raise HTTPException(status_code=404, detail="Playlist not found")
-        return {"id": playlist["id"], "name": playlist["name"], "results": run_playlist_tracks(conn, playlist_id)}
+        return {
+            "id": playlist["id"],
+            "name": playlist["name"],
+            "results": run_playlist_tracks(conn, playlist_id),
+        }
 
 
 @app.get("/playlists/{playlist_id}/suggest")
@@ -416,7 +437,11 @@ def track_art(track_id: int):
     if art is None:
         raise HTTPException(status_code=404, detail="No embedded art")
     data, mime = art
-    return Response(content=data, media_type=mime, headers={"Cache-Control": "public, max-age=86400"})
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 class TagUpdate(BaseModel):
@@ -524,7 +549,11 @@ def track_lyrics(track_id: int, refresh: bool = False):
         if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
         if row["lyrics"] is not None and not refresh:
-            return {"text": row["lyrics"] or None, "cached": True, "synced": row["synced_lyrics"]}
+            return {
+                "text": row["lyrics"] or None,
+                "cached": True,
+                "synced": row["synced_lyrics"],
+            }
 
         text, source, synced = get_lyrics(row)
         if source != "error":
@@ -617,8 +646,11 @@ def download_cert():
     a file around. Installing this as a trusted CA (not just clicking through the browser warning)
     is what PWA installability actually requires - see the conversation for why."""
     pem = Path("certs/cert.pem").read_text(encoding="utf-8")
-    return Response(content=pem, media_type="application/x-pem-file",
-                     headers={"Content-Disposition": "attachment; filename=pan-cert.pem"})
+    return Response(
+        content=pem,
+        media_type="application/x-pem-file",
+        headers={"Content-Disposition": "attachment; filename=pan-cert.pem"},
+    )
 
 
 @app.get("/sw.js")
@@ -628,4 +660,8 @@ def service_worker():
     are supposed to always revalidate a service worker script, but Cache-Control: no-cache makes
     that explicit rather than relying on that behavior being consistent across browsers."""
     js = Path("ui/sw.js").read_text(encoding="utf-8")
-    return Response(content=js, media_type="application/javascript", headers={"Cache-Control": "no-cache"})
+    return Response(
+        content=js,
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )

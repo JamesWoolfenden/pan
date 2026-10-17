@@ -19,7 +19,7 @@ _SORT_SUFFIX_RE = re.compile(r"^(.+),\s*The$", re.IGNORECASE)
 
 
 def _normalize_artist_name(artist: str) -> str | None:
-    """"Beatles, The" -> "The Beatles" - a sort-friendly inversion this library's catalog uses
+    """ "Beatles, The" -> "The Beatles" - a sort-friendly inversion this library's catalog uses
     for a handful of artists, which lrclib's own matching doesn't undo: looking it up verbatim
     reports a well-known track as not found. Returns None if the name isn't in that form."""
     match = _SORT_SUFFIX_RE.match(artist.strip())
@@ -84,7 +84,9 @@ def _lrclib_get(
     url = f"{LRCLIB_URL}?{urllib.parse.urlencode(params)}"
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "pan (personal music library)"})
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "pan (personal music library)"}
+        )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.load(resp)
     except urllib.error.HTTPError as exc:
@@ -96,7 +98,12 @@ def _lrclib_get(
         log.debug("lrclib lookup failed for %s - %s", artist, title, exc_info=True)
         return None, None, True, False
 
-    return data.get("plainLyrics") or None, data.get("syncedLyrics") or None, False, False
+    return (
+        data.get("plainLyrics") or None,
+        data.get("syncedLyrics") or None,
+        False,
+        False,
+    )
 
 
 def fetch_online_lyrics(
@@ -128,7 +135,9 @@ def fetch_online_lyrics(
             candidates.append((variant, None, None))
 
     for cand_artist, cand_album, cand_duration in candidates:
-        plain, synced, transient_error, not_found = _lrclib_get(cand_artist, title, cand_album, cand_duration)
+        plain, synced, transient_error, not_found = _lrclib_get(
+            cand_artist, title, cand_album, cand_duration
+        )
         if plain:
             return plain, synced, False
         if transient_error:

@@ -33,7 +33,11 @@ def main() -> None:
         init_db(conn)
 
         counts = run_ingest(conn)
-        log.info("Ingested %d Plex tracks, %d local-only tracks", counts["plex"], counts["local"])
+        log.info(
+            "Ingested %d Plex tracks, %d local-only tracks",
+            counts["plex"],
+            counts["local"],
+        )
 
         # Audio analysis is by far the slowest phase on a large library, and can run for
         # hours. Commit + log progress periodically rather than only at the end, so a crash
@@ -46,7 +50,13 @@ def main() -> None:
         for processed, row in enumerate(to_process, start=1):
             features = extract_features(resolve_file_path(row["file_path"]))
             if features:
-                set_audio_features(conn, row["id"], features["tempo"], features["energy"], features["musical_key"])
+                set_audio_features(
+                    conn,
+                    row["id"],
+                    features["tempo"],
+                    features["energy"],
+                    features["musical_key"],
+                )
                 feature_count += 1
 
             if processed % COMMIT_EVERY == 0:
@@ -54,22 +64,36 @@ def main() -> None:
             if processed % LOG_EVERY == 0 or processed == len(to_process):
                 elapsed = time.monotonic() - start
                 rate = processed / elapsed if elapsed else 0
-                remaining = (len(to_process) - processed) / rate if rate else float("inf")
+                remaining = (
+                    (len(to_process) - processed) / rate if rate else float("inf")
+                )
                 log.info(
                     "Audio features: %d/%d processed (%d succeeded) - %.1f tracks/s, ~%.0fs remaining",
-                    processed, len(to_process), feature_count, rate, remaining,
+                    processed,
+                    len(to_process),
+                    feature_count,
+                    rate,
+                    remaining,
                 )
         conn.commit()
-        log.info("Extracted audio features for %d/%d tracks", feature_count, len(to_process))
+        log.info(
+            "Extracted audio features for %d/%d tracks", feature_count, len(to_process)
+        )
 
         candidates = tracks_missing_tags(conn)
         still_missing = []
         for row in candidates:
-            if not apply_local_tags(conn, row["id"], row["genre"], row["mood"], row["tempo"], row["energy"]):
+            if not apply_local_tags(
+                conn, row["id"], row["genre"], row["mood"], row["tempo"], row["energy"]
+            ):
                 still_missing.append(row)
         conn.commit()
-        log.info("Local tagging resolved %d/%d tracks, %d still need cloud tagging",
-                  len(candidates) - len(still_missing), len(candidates), len(still_missing))
+        log.info(
+            "Local tagging resolved %d/%d tracks, %d still need cloud tagging",
+            len(candidates) - len(still_missing),
+            len(candidates),
+            len(still_missing),
+        )
 
         cloud_tagged = tag_with_cloud(conn, still_missing)
         log.info("Cloud-tagged %d tracks", cloud_tagged)

@@ -54,9 +54,18 @@ def _check(job: tuple[int, str]) -> tuple[int, dict]:
     try:
         y, _sr = librosa.load(path, sr=22050, mono=True, duration=1)
     except Exception as exc:
-        return track_id, {"status": "decode_error", "path": str(path), "size": size, "error": f"{type(exc).__name__}: {exc}"}
+        return track_id, {
+            "status": "decode_error",
+            "path": str(path),
+            "size": size,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
     if y.size == 0:
-        return track_id, {"status": "empty_decoded_audio", "path": str(path), "size": size}
+        return track_id, {
+            "status": "empty_decoded_audio",
+            "path": str(path),
+            "size": size,
+        }
 
     return track_id, {"status": "ok", "path": str(path), "size": size}
 
@@ -82,26 +91,42 @@ def main() -> None:
     failures = []
     start = time.monotonic()
     with ProcessPoolExecutor(max_workers=WORKERS) as pool:
-        for processed, (track_id, diagnosis) in enumerate(pool.map(_check, jobs, chunksize=8), start=1):
+        for processed, (track_id, diagnosis) in enumerate(
+            pool.map(_check, jobs, chunksize=8), start=1
+        ):
             if diagnosis["status"] != "ok":
                 row = by_id[track_id]
                 duplicates = [
-                    d for d in song_index.get(_song_key(row), []) if d["id"] != track_id and d["readable"]
+                    d
+                    for d in song_index.get(_song_key(row), [])
+                    if d["id"] != track_id and d["readable"]
                 ]
-                failures.append({
-                    "id": track_id, "title": row["title"], "artist": row["artist"],
-                    "file_path": row["file_path"], **diagnosis,
-                    "duplicate_exists": bool(duplicates),
-                    "duplicate_candidates": duplicates,
-                    "recommendation": "safe to delete - readable duplicate exists" if duplicates else
-                        "only copy - replace (re-rip/re-download) rather than delete, or the song is lost",
-                })
+                failures.append(
+                    {
+                        "id": track_id,
+                        "title": row["title"],
+                        "artist": row["artist"],
+                        "file_path": row["file_path"],
+                        **diagnosis,
+                        "duplicate_exists": bool(duplicates),
+                        "duplicate_candidates": duplicates,
+                        "recommendation": "safe to delete - readable duplicate exists"
+                        if duplicates
+                        else "only copy - replace (re-rip/re-download) rather than delete, or the song is lost",
+                    }
+                )
             if processed % LOG_EVERY == 0 or processed == len(jobs):
                 elapsed = time.monotonic() - start
                 rate = processed / elapsed if elapsed else 0
                 remaining = (len(jobs) - processed) / rate if rate else float("inf")
-                log.info("%d/%d checked (%d failures so far) - %.1f tracks/s, ~%.0fs remaining",
-                          processed, len(jobs), len(failures), rate, remaining)
+                log.info(
+                    "%d/%d checked (%d failures so far) - %.1f tracks/s, ~%.0fs remaining",
+                    processed,
+                    len(jobs),
+                    len(failures),
+                    rate,
+                    remaining,
+                )
 
     out_path = "scripts/tempo_failure_audit.json"
     with open(out_path, "w", encoding="utf-8") as f:
@@ -110,7 +135,12 @@ def main() -> None:
     by_status: dict[str, int] = {}
     for r in failures:
         by_status[r["status"]] = by_status.get(r["status"], 0) + 1
-    log.info("Done: %d failures out of %d tracks. By status: %s", len(failures), len(jobs), by_status)
+    log.info(
+        "Done: %d failures out of %d tracks. By status: %s",
+        len(failures),
+        len(jobs),
+        by_status,
+    )
     log.info("Full report written to %s", out_path)
 
 

@@ -36,7 +36,9 @@ def embed_text(text: str) -> list[float]:
 def reindex_embeddings(conn: sqlite3.Connection, rows: list[sqlite3.Row]) -> int:
     model = get_model()
     texts = [track_text(row) for row in rows]
-    vectors = model.encode(texts, normalize_embeddings=True, batch_size=64, show_progress_bar=False)
+    vectors = model.encode(
+        texts, normalize_embeddings=True, batch_size=64, show_progress_bar=False
+    )
     for row, vector in zip(rows, vectors):
         upsert_embedding(conn, row["id"], vector.tolist())
     conn.commit()

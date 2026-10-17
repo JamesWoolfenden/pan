@@ -1,7 +1,14 @@
 # pan
 
-AI-enabled search and tagging for a music library spread across a Plex server and a shared
-drive of local files.
+A self-hosted web app for a music library spread across a Plex server and a shared drive of
+local files: AI-assisted search/tagging, a full in-browser player with Chromecast support, and
+installable as a PWA — reachable just on the LAN, or from anywhere via the Tailscale deployment
+below.
+
+![pan: a natural-language search ("upbeat but not metal") against a local library, with queue,
+playlists and stats panels](docs/screenshot.jpg)
+
+## Cataloging
 
 - **Ingests** your catalog from Plex (`python-plexapi`) and scans a shared drive for anything
   Plex doesn't already know about, deduplicating by file path.
@@ -12,6 +19,31 @@ drive of local files.
   (`sentence-transformers` + `sqlite-vec`, fully offline); queries with negation or
   multi-constraint logic ("upbeat but not metal", "before 1990") get parsed into a structured
   filter by Claude first, then combined with the embedding search.
+- **Fixes itself**: edit genre/mood/tags/artist/title/album by hand (sticks permanently, never
+  reverted by a later reindex), get an AI tag suggestion per track, or find everything still
+  missing a usable title/artist via the "Needs attention" admin view.
+
+## Listening
+
+- **Plays** tracks in-browser with a persistent queue (shuffle/repeat, save-as-playlist,
+  gapless prefetch of the next track), or casts to a **Chromecast** with its own volume and
+  seek controls.
+- **Remembers what you were listening to between devices** — pause on your phone, pick it back
+  up on the desktop.
+- **Playlists**, **favorites**, and **listening stats** (most/never played, most skipped,
+  recently played/added) built from actual play events, not just a counter.
+- Per-track **lyrics** (synced where available) and an AI-generated **"tell me more"**
+  background writeup, both cached after first lookup.
+- **Installable as a PWA** on a phone's home screen, with offline-friendly static assets via a
+  service worker.
+
+## Access
+
+- LAN-only by default, or reachable from anywhere via the Tailscale-based NAS deployment below
+  (no port-forwarding, no public exposure).
+- Single-user HTTP Basic Auth (`PAN_AUTH_USER`/`PAN_AUTH_PASSWORD`) gates everything once the
+  app is reachable beyond the LAN, except `/stream/*` (Chromecast's receiver can't send
+  credentials, and that endpoint is LAN-trust-only regardless).
 
 ## Setup
 
@@ -95,9 +127,11 @@ needed for this path.
      reachable beyond the LAN, nothing else stops a visitor from browsing your library or
      triggering a Claude-billed reindex.
 6. Build and start, either via Container Manager's "Project" import or over SSH:
+
    ```sh
    docker compose up -d --build
    ```
+
    The `tailscale` service runs in **userspace networking mode** (`TS_USERSPACE=true` in
    `docker-compose.yml`) rather than the usual kernel TUN device — some Synology models don't
    expose `/dev/net/tun` to Docker at all, and userspace mode works fine for this setup since we
@@ -108,10 +142,12 @@ needed for this path.
    "no matching manifest", which otherwise looks like an architecture mismatch but usually isn't.
 7. Point the app at a tailnet HTTPS address — first time only, since the exact MagicDNS domain
    (`pan.<your-tailnet>.ts.net`) isn't known until the node registers:
+
    ```sh
    docker compose exec tailscale tailscale serve --bg http://127.0.0.1:8000
    docker compose exec tailscale tailscale serve status   # prints the https://pan.<tailnet>.ts.net URL
    ```
+
    This alone does **not** survive the `pan`/`tailscale` containers being recreated (torn down
    and rebuilt, not just restarted) — only the tailnet identity persists via the `tailscale-state`
    volume, not the serve routing. Make it permanent instead: run

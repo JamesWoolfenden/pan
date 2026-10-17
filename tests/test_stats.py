@@ -1,9 +1,32 @@
-from backend.db import Track, connect, init_db, record_play_event, set_favorite, upsert_track
-from backend.stats import favorites, most_played, most_skipped, never_played, recently_added, recently_played
+from backend.db import (
+    Track,
+    connect,
+    init_db,
+    record_play_event,
+    set_favorite,
+    upsert_track,
+)
+from backend.stats import (
+    favorites,
+    most_played,
+    most_skipped,
+    never_played,
+    recently_added,
+    recently_played,
+)
 
 
 def _track(conn, title, file_path="Z:\\music\\x.mp3"):
-    return upsert_track(conn, Track(external_id=title, source="local", title=title, artist="Artist", file_path=file_path))
+    return upsert_track(
+        conn,
+        Track(
+            external_id=title,
+            source="local",
+            title=title,
+            artist="Artist",
+            file_path=file_path,
+        ),
+    )
 
 
 def test_most_played_orders_by_play_count_descending():
@@ -43,7 +66,9 @@ def test_never_played_excludes_tracks_with_play_events():
 def test_never_played_excludes_tracks_without_a_file_path():
     conn = connect(":memory:")
     init_db(conn)
-    unplayable = upsert_track(conn, Track(external_id="a", source="plex", title="No File", artist="Artist"))
+    unplayable = upsert_track(
+        conn, Track(external_id="a", source="plex", title="No File", artist="Artist")
+    )
     conn.commit()
 
     results = never_played(conn)
@@ -117,7 +142,12 @@ def test_recently_added_order_unaffected_by_later_update():
     first = _track(conn, "First")
     second = _track(conn, "Second")
     conn.commit()
-    upsert_track(conn, Track(external_id="First", source="local", title="First (fixed)", artist="Artist"))
+    upsert_track(
+        conn,
+        Track(
+            external_id="First", source="local", title="First (fixed)", artist="Artist"
+        ),
+    )
     conn.commit()
 
     results = recently_added(conn)

@@ -22,8 +22,14 @@ def infer_mood(tempo: float, energy: float) -> str:
     return "energetic"
 
 
-def apply_local_tags(conn: sqlite3.Connection, track_id: int, genre: str | None, mood: str | None,
-                      tempo: float | None, energy: float | None) -> bool:
+def apply_local_tags(
+    conn: sqlite3.Connection,
+    track_id: int,
+    genre: str | None,
+    mood: str | None,
+    tempo: float | None,
+    energy: float | None,
+) -> bool:
     """Fill in mood from audio features when it's missing but genre/mood both still need
     *something*. Returns True if it set a tag, so the caller can skip the cloud tagger."""
     if genre and mood:
@@ -34,7 +40,13 @@ def apply_local_tags(conn: sqlite3.Connection, track_id: int, genre: str | None,
         new_mood = infer_mood(tempo, energy)
 
     if genre or new_mood:
-        set_tags(conn, track_id, genre, new_mood, "local" if new_mood and not mood else "metadata")
+        set_tags(
+            conn,
+            track_id,
+            genre,
+            new_mood,
+            "local" if new_mood and not mood else "metadata",
+        )
         return bool(genre and new_mood)
 
     return False

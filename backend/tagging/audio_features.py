@@ -12,7 +12,9 @@ log = logging.getLogger(__name__)
 KEY_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
-def _load_with_audioread(file_path: str | Path, sr: int, mono: bool, duration: float) -> tuple[np.ndarray, int]:
+def _load_with_audioread(
+    file_path: str | Path, sr: int, mono: bool, duration: float
+) -> tuple[np.ndarray, int]:
     """librosa.load() (1.0+) only uses soundfile/libsndfile, which has never supported AAC/M4A -
     every .m4a in the library fails here with "Format not recognised" regardless of whether the
     file is actually fine. audioread (with ffmpeg as its backend) decodes those where soundfile
@@ -46,7 +48,11 @@ def extract_features(file_path: str | Path) -> dict | None:
         try:
             y, sr = _load_with_audioread(file_path, sr=22050, mono=True, duration=60)
         except Exception:
-            log.debug("Could not load audio for feature extraction: %s", file_path, exc_info=True)
+            log.debug(
+                "Could not load audio for feature extraction: %s",
+                file_path,
+                exc_info=True,
+            )
             return None
 
     if y.size == 0:

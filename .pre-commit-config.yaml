@@ -1,0 +1,49 @@
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
+    hooks:
+      - id: check-json
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: pretty-format-json
+        args:
+          - --autofix
+      - id: detect-private-key
+  - repo: https://github.com/Lucas-C/pre-commit-hooks
+    rev: ad1b27d73581aa16cca06fc4a0761fc563ffe8e8 # v1.5.6
+    hooks:
+      - id: forbid-tabs
+        exclude_types: [python, javascript, markdown, makefile]
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: e72a3ca1632f0b11a07d171449fe447a7ff6795e # v0.48.0
+    hooks:
+      - id: markdownlint
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 0671d8ab202c4ac093b78433ae5baf74f3fc7246 # v0.15.15
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+  - repo: https://github.com/jameswoolfenden/ghat
+    rev: v0.1.46
+    hooks:
+      - id: ghat-go
+        name: ghat
+        description: upgrade action dependencies
+        language: golang
+        entry: ghat swot -d . --stable 14
+        always_run: true
+        pass_filenames: false
+        types: [yaml]
+  - repo: local
+    hooks:
+      - id: holden
+        name: holden scan
+        entry: holden scan
+        language: system
+        pass_filenames: false
+        types: [terraform]

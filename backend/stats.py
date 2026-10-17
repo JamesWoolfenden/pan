@@ -83,7 +83,9 @@ def recently_added(conn: sqlite3.Connection, limit: int = 25) -> list[dict]:
     - id is AUTOINCREMENT and never changes once a row exists (upsert_track only UPDATEs matching
     rows), so insertion order is exactly id order, including for rows ingested before this stat
     existed."""
-    rows = conn.execute("SELECT * FROM tracks ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    rows = conn.execute(
+        "SELECT * FROM tracks ORDER BY id DESC LIMIT ?", (limit,)
+    ).fetchall()
     return [_to_stat_result(row) for row in rows]
 
 

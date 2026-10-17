@@ -11,7 +11,14 @@ def _row(conn, **kwargs):
 def test_track_text_excludes_title():
     conn = connect(":memory:")
     init_db(conn)
-    row = _row(conn, title="Can You Feel It", artist="Mr. Fingers", album="Chicago Trax", genre="House", mood="upbeat")
+    row = _row(
+        conn,
+        title="Can You Feel It",
+        artist="Mr. Fingers",
+        album="Chicago Trax",
+        genre="House",
+        mood="upbeat",
+    )
 
     text = track_text(row)
 
@@ -35,7 +42,9 @@ def test_track_text_does_not_include_tempo_as_text():
     # folding it into the text embedding too would double-count it.
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="a", source="local", title="X", artist="Artist"))
+    track_id = upsert_track(
+        conn, Track(external_id="a", source="local", title="X", artist="Artist")
+    )
     conn.commit()
     set_audio_features(conn, track_id, tempo=125.0, energy=0.8, musical_key="E")
     conn.commit()
@@ -51,7 +60,9 @@ def test_track_text_includes_tags():
 
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="a", source="local", title="X", artist="Artist"))
+    track_id = upsert_track(
+        conn, Track(external_id="a", source="local", title="X", artist="Artist")
+    )
     conn.commit()
     set_tags_list(conn, track_id, ["road trip", "live"])
     conn.commit()

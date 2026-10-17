@@ -1,7 +1,12 @@
 from mutagen._vorbis import VCommentDict
 
 from backend.db import Track, connect, init_db, set_lyrics, upsert_track
-from backend.lyrics import _normalize_artist_name, extract_embedded_lyrics, fetch_online_lyrics, get_lyrics
+from backend.lyrics import (
+    _normalize_artist_name,
+    extract_embedded_lyrics,
+    fetch_online_lyrics,
+    get_lyrics,
+)
 
 
 def test_extract_embedded_lyrics_returns_none_for_missing_file():
@@ -152,7 +157,9 @@ def test_fetch_online_lyrics_retries_without_album_after_404(monkeypatch):
     ]
 
 
-def test_fetch_online_lyrics_does_not_retry_without_album_when_none_was_given(monkeypatch):
+def test_fetch_online_lyrics_does_not_retry_without_album_when_none_was_given(
+    monkeypatch,
+):
     calls = []
 
     def fake_lrclib_get(artist, title, album, duration_ms):
@@ -166,7 +173,9 @@ def test_fetch_online_lyrics_does_not_retry_without_album_when_none_was_given(mo
     assert calls == [("Some Artist", None, None)]
 
 
-def test_fetch_online_lyrics_stops_retrying_once_track_positively_identified(monkeypatch):
+def test_fetch_online_lyrics_stops_retrying_once_track_positively_identified(
+    monkeypatch,
+):
     """A 200 response with no plainLyrics (not a 404) means lrclib found the exact track and it
     genuinely has no lyrics (e.g. instrumental) - further loosened-query retries would be
     pointless, so this must stop immediately rather than trying every remaining candidate."""
@@ -195,9 +204,12 @@ def test_fetch_online_lyrics_returns_synced_lrc_alongside_plain_text(monkeypatch
         def __exit__(self, *a):
             return False
 
-    monkeypatch.setattr("backend.lyrics.urllib.request.urlopen", lambda *a, **k: FakeResponse())
     monkeypatch.setattr(
-        "backend.lyrics.json.load", lambda resp: {"plainLyrics": "la la", "syncedLyrics": "[00:01.00] la la"}
+        "backend.lyrics.urllib.request.urlopen", lambda *a, **k: FakeResponse()
+    )
+    monkeypatch.setattr(
+        "backend.lyrics.json.load",
+        lambda resp: {"plainLyrics": "la la", "syncedLyrics": "[00:01.00] la la"},
     )
 
     text, synced, transient_error = fetch_online_lyrics("Some Artist", "Some Title")
@@ -208,10 +220,15 @@ def test_fetch_online_lyrics_returns_synced_lrc_alongside_plain_text(monkeypatch
 
 
 def test_get_lyrics_falls_back_to_online_when_no_file_path(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: ("la la la", "[00:01.00] la la la", False))
+    monkeypatch.setattr(
+        "backend.lyrics.fetch_online_lyrics",
+        lambda *a, **k: ("la la la", "[00:01.00] la la la", False),
+    )
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", artist="B")
+    )
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
@@ -223,10 +240,14 @@ def test_get_lyrics_falls_back_to_online_when_no_file_path(monkeypatch):
 
 
 def test_get_lyrics_reports_none_when_nothing_found(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, None, False))
+    monkeypatch.setattr(
+        "backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, None, False)
+    )
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", artist="B")
+    )
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
@@ -238,10 +259,14 @@ def test_get_lyrics_reports_none_when_nothing_found(monkeypatch):
 
 
 def test_get_lyrics_reports_error_on_transient_failure_rather_than_none(monkeypatch):
-    monkeypatch.setattr("backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, None, True))
+    monkeypatch.setattr(
+        "backend.lyrics.fetch_online_lyrics", lambda *a, **k: (None, None, True)
+    )
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="B"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", artist="B")
+    )
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
@@ -255,11 +280,20 @@ def test_get_lyrics_reports_error_on_transient_failure_rather_than_none(monkeypa
 def test_get_lyrics_embedded_never_has_synced_timestamps(monkeypatch, tmp_path):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"fake")
-    monkeypatch.setattr("backend.lyrics.extract_embedded_lyrics", lambda fp: "embedded text")
+    monkeypatch.setattr(
+        "backend.lyrics.extract_embedded_lyrics", lambda fp: "embedded text"
+    )
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(
-        conn, Track(external_id="local:1", source="local", title="A", artist="B", file_path=str(path))
+        conn,
+        Track(
+            external_id="local:1",
+            source="local",
+            title="A",
+            artist="B",
+            file_path=str(path),
+        ),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
@@ -274,7 +308,9 @@ def test_get_lyrics_embedded_never_has_synced_timestamps(monkeypatch, tmp_path):
 def test_set_lyrics_caches_empty_string_for_not_found():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A")
+    )
     conn.commit()
 
     set_lyrics(conn, track_id, "")
@@ -288,7 +324,9 @@ def test_set_lyrics_caches_empty_string_for_not_found():
 def test_set_lyrics_stores_synced_lrc_alongside_plain_text():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A"))
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A")
+    )
     conn.commit()
 
     set_lyrics(conn, track_id, "plain text", "[00:01.00] plain text")

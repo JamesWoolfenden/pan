@@ -38,14 +38,18 @@ def get_track_background(row) -> str:
         # response with reasoning but no actual answer (stop_reason "max_tokens", zero text
         # blocks). None of this app's prompts need multi-step reasoning, so turn it off.
         thinking={"type": "between_tools"},
-        messages=[{
-            "role": "user",
-            "content": PROMPT.format(
-                title=row["title"] or "Unknown",
-                artist=row["artist"] or "Unknown",
-                album=row["album"] or "Unknown",
-                year=row["year"] or "Unknown",
-            ),
-        }],
+        messages=[
+            {
+                "role": "user",
+                "content": PROMPT.format(
+                    title=row["title"] or "Unknown",
+                    artist=row["artist"] or "Unknown",
+                    album=row["album"] or "Unknown",
+                    year=row["year"] or "Unknown",
+                ),
+            }
+        ],
     )
-    return "".join(block.text for block in message.content if block.type == "text").strip()
+    return "".join(
+        block.text for block in message.content if block.type == "text"
+    ).strip()

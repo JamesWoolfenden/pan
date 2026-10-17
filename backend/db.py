@@ -137,7 +137,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     """CREATE TABLE IF NOT EXISTS doesn't add new columns to an already-existing tracks table
     (e.g. the real library's pan.db from before ai_background existed) - add any that are
     missing so older databases pick up new columns without a full reindex."""
-    existing_columns = {row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()}
+    existing_columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()
+    }
     if "ai_background" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN ai_background TEXT")
     if "tags" not in existing_columns:
@@ -149,7 +151,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if "synced_lyrics" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN synced_lyrics TEXT")
     if "identity_source" not in existing_columns:
-        conn.execute("ALTER TABLE tracks ADD COLUMN identity_source TEXT NOT NULL DEFAULT 'auto'")
+        conn.execute(
+            "ALTER TABLE tracks ADD COLUMN identity_source TEXT NOT NULL DEFAULT 'auto'"
+        )
 
 
 def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
@@ -215,7 +219,13 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
     return cur.lastrowid
 
 
-def set_tags(conn: sqlite3.Connection, track_id: int, genre: str | None, mood: str | None, tag_source: str) -> None:
+def set_tags(
+    conn: sqlite3.Connection,
+    track_id: int,
+    genre: str | None,
+    mood: str | None,
+    tag_source: str,
+) -> None:
     conn.execute(
         "UPDATE tracks SET genre=?, mood=?, tag_source=? WHERE id=?",
         (genre, mood, tag_source, track_id),
@@ -232,21 +242,32 @@ def tags_list(row: sqlite3.Row) -> list[str]:
 
 def set_tags_list(conn: sqlite3.Connection, track_id: int, tags: list[str]) -> None:
     normalized = sorted({t.strip().lower() for t in tags if t.strip()})
-    conn.execute("UPDATE tracks SET tags=? WHERE id=?", (",".join(normalized) or None, track_id))
+    conn.execute(
+        "UPDATE tracks SET tags=? WHERE id=?", (",".join(normalized) or None, track_id)
+    )
 
 
 def set_artist(conn: sqlite3.Connection, track_id: int, artist: str) -> None:
     # identity_source='manual' protects this from being silently reverted by a later Plex/local
     # rescan - see upsert_track/merge_plex_metadata.
-    conn.execute("UPDATE tracks SET artist=?, identity_source='manual' WHERE id=?", (artist, track_id))
+    conn.execute(
+        "UPDATE tracks SET artist=?, identity_source='manual' WHERE id=?",
+        (artist, track_id),
+    )
 
 
 def set_title(conn: sqlite3.Connection, track_id: int, title: str) -> None:
-    conn.execute("UPDATE tracks SET title=?, identity_source='manual' WHERE id=?", (title, track_id))
+    conn.execute(
+        "UPDATE tracks SET title=?, identity_source='manual' WHERE id=?",
+        (title, track_id),
+    )
 
 
 def set_album(conn: sqlite3.Connection, track_id: int, album: str) -> None:
-    conn.execute("UPDATE tracks SET album=?, identity_source='manual' WHERE id=?", (album, track_id))
+    conn.execute(
+        "UPDATE tracks SET album=?, identity_source='manual' WHERE id=?",
+        (album, track_id),
+    )
 
 
 def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> None:
@@ -256,7 +277,13 @@ def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> Non
     )
 
 
-def set_audio_features(conn: sqlite3.Connection, track_id: int, tempo: float, energy: float, musical_key: str) -> None:
+def set_audio_features(
+    conn: sqlite3.Connection,
+    track_id: int,
+    tempo: float,
+    energy: float,
+    musical_key: str,
+) -> None:
     conn.execute(
         "UPDATE tracks SET tempo=?, energy=?, musical_key=? WHERE id=?",
         (tempo, energy, musical_key, track_id),
@@ -267,8 +294,13 @@ def set_ai_background(conn: sqlite3.Connection, track_id: int, text: str) -> Non
     conn.execute("UPDATE tracks SET ai_background=? WHERE id=?", (text, track_id))
 
 
-def set_lyrics(conn: sqlite3.Connection, track_id: int, text: str, synced: str | None = None) -> None:
-    conn.execute("UPDATE tracks SET lyrics=?, synced_lyrics=? WHERE id=?", (text, synced, track_id))
+def set_lyrics(
+    conn: sqlite3.Connection, track_id: int, text: str, synced: str | None = None
+) -> None:
+    conn.execute(
+        "UPDATE tracks SET lyrics=?, synced_lyrics=? WHERE id=?",
+        (text, synced, track_id),
+    )
 
 
 def set_file_path(conn: sqlite3.Connection, track_id: int, file_path: str) -> None:
@@ -294,8 +326,16 @@ def merge_plex_metadata(conn: sqlite3.Connection, track_id: int, track: Track) -
             year = COALESCE(?, year)
         WHERE id = ?
         """,
-        (track.plex_rating_key, track.title, track.artist, track.album,
-         track.genre, track.mood, track.year, track_id),
+        (
+            track.plex_rating_key,
+            track.title,
+            track.artist,
+            track.album,
+            track.genre,
+            track.mood,
+            track.year,
+            track_id,
+        ),
     )
 
 
@@ -327,12 +367,16 @@ def get_tracks_by_ids(conn: sqlite3.Connection, ids: list[int]) -> list[sqlite3.
     if not ids:
         return []
     placeholders = ",".join("?" for _ in ids)
-    rows = conn.execute(f"SELECT * FROM tracks WHERE id IN ({placeholders})", ids).fetchall()
+    rows = conn.execute(
+        f"SELECT * FROM tracks WHERE id IN ({placeholders})", ids
+    ).fetchall()
     by_id = {row["id"]: row for row in rows}
     return [by_id[i] for i in ids if i in by_id]
 
 
-def get_embeddings(conn: sqlite3.Connection, track_ids: list[int]) -> dict[int, list[float]]:
+def get_embeddings(
+    conn: sqlite3.Connection, track_ids: list[int]
+) -> dict[int, list[float]]:
     """Raw stored vectors for a specific set of tracks - used to build an aggregate (e.g. a
     playlist's mean embedding), as opposed to search_embeddings/rank_by_embedding which compare
     *against* a vector rather than returning the vectors themselves. sqlite_vec's Python package
@@ -340,7 +384,10 @@ def get_embeddings(conn: sqlite3.Connection, track_ids: list[int]) -> dict[int, 
     if not track_ids:
         return {}
     placeholders = ",".join("?" for _ in track_ids)
-    rows = conn.execute(f"SELECT rowid, embedding FROM track_vectors WHERE rowid IN ({placeholders})", track_ids).fetchall()
+    rows = conn.execute(
+        f"SELECT rowid, embedding FROM track_vectors WHERE rowid IN ({placeholders})",
+        track_ids,
+    ).fetchall()
     result = {}
     for row in rows:
         blob = row["embedding"]
@@ -349,7 +396,9 @@ def get_embeddings(conn: sqlite3.Connection, track_ids: list[int]) -> dict[int, 
     return result
 
 
-def upsert_embedding(conn: sqlite3.Connection, track_id: int, embedding: list[float]) -> None:
+def upsert_embedding(
+    conn: sqlite3.Connection, track_id: int, embedding: list[float]
+) -> None:
     conn.execute("DELETE FROM track_vectors WHERE rowid = ?", (track_id,))
     conn.execute(
         "INSERT INTO track_vectors (rowid, embedding) VALUES (?, ?)",
@@ -357,7 +406,9 @@ def upsert_embedding(conn: sqlite3.Connection, track_id: int, embedding: list[fl
     )
 
 
-def search_embeddings(conn: sqlite3.Connection, query_embedding: list[float], limit: int = 25) -> list[tuple[int, float]]:
+def search_embeddings(
+    conn: sqlite3.Connection, query_embedding: list[float], limit: int = 25
+) -> list[tuple[int, float]]:
     rows = conn.execute(
         """
         SELECT rowid, distance FROM track_vectors
@@ -394,7 +445,9 @@ def rank_by_embedding(
     return [(row["rowid"], row["distance"]) for row in rows]
 
 
-def find_similar_embeddings(conn: sqlite3.Connection, track_id: int, limit: int = 25) -> list[tuple[int, float]]:
+def find_similar_embeddings(
+    conn: sqlite3.Connection, track_id: int, limit: int = 25
+) -> list[tuple[int, float]]:
     """KNN search using a track's own stored embedding as the query vector - entirely in SQL,
     no need to pull the vector into Python and re-serialize it."""
     rows = conn.execute(
@@ -419,7 +472,9 @@ def create_playlist(conn: sqlite3.Connection, name: str, track_ids: list[int]) -
     return playlist_id
 
 
-def set_playlist_tracks(conn: sqlite3.Connection, playlist_id: int, track_ids: list[int]) -> None:
+def set_playlist_tracks(
+    conn: sqlite3.Connection, playlist_id: int, track_ids: list[int]
+) -> None:
     """Replace a playlist's full track list (order included) - used when a queue that was loaded
     from this playlist gets edited and saved back, unlike add_track_to_playlist's single-track
     append."""
@@ -430,7 +485,9 @@ def set_playlist_tracks(conn: sqlite3.Connection, playlist_id: int, track_ids: l
     )
 
 
-def add_track_to_playlist(conn: sqlite3.Connection, playlist_id: int, track_id: int) -> None:
+def add_track_to_playlist(
+    conn: sqlite3.Connection, playlist_id: int, track_id: int
+) -> None:
     next_position = conn.execute(
         "SELECT COALESCE(MAX(position) + 1, 0) AS n FROM playlist_tracks WHERE playlist_id = ?",
         (playlist_id,),
@@ -454,7 +511,9 @@ def list_playlists(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def get_playlist(conn: sqlite3.Connection, playlist_id: int) -> sqlite3.Row | None:
-    return conn.execute("SELECT * FROM playlists WHERE id = ?", (playlist_id,)).fetchone()
+    return conn.execute(
+        "SELECT * FROM playlists WHERE id = ?", (playlist_id,)
+    ).fetchone()
 
 
 def get_playlist_track_ids(conn: sqlite3.Connection, playlist_id: int) -> list[int]:
@@ -474,7 +533,9 @@ def delete_playlist(conn: sqlite3.Connection, playlist_id: int) -> None:
     conn.execute("DELETE FROM playlists WHERE id = ?", (playlist_id,))
 
 
-def record_play_event(conn: sqlite3.Connection, track_id: int, percent_listened: float) -> None:
+def record_play_event(
+    conn: sqlite3.Connection, track_id: int, percent_listened: float
+) -> None:
     percent_listened = max(0.0, min(1.0, percent_listened))
     conn.execute(
         "INSERT INTO play_events (track_id, percent_listened) VALUES (?, ?)",
@@ -483,7 +544,9 @@ def record_play_event(conn: sqlite3.Connection, track_id: int, percent_listened:
 
 
 def get_now_playing(conn: sqlite3.Connection) -> sqlite3.Row | None:
-    return conn.execute("SELECT state, updated_at FROM now_playing WHERE id = 1").fetchone()
+    return conn.execute(
+        "SELECT state, updated_at FROM now_playing WHERE id = 1"
+    ).fetchone()
 
 
 def set_now_playing(conn: sqlite3.Connection, state_json: str) -> None:

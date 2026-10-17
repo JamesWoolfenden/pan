@@ -41,7 +41,9 @@ def test_is_complex_query_detects_bare_decade_mentions():
 
 
 def test_parse_query_falls_back_without_api_key(monkeypatch):
-    monkeypatch.setattr("backend.search.cloud_query_parser.settings.anthropic_api_key", "")
+    monkeypatch.setattr(
+        "backend.search.cloud_query_parser.settings.anthropic_api_key", ""
+    )
     result = parse_query("something upbeat")
     assert result == {"semantic_query": "something upbeat"}
 
@@ -49,8 +51,12 @@ def test_parse_query_falls_back_without_api_key(monkeypatch):
 def test_filtered_candidate_ids_applies_genre_exclude():
     conn = connect(":memory:")
     init_db(conn)
-    keep_id = upsert_track(conn, Track(external_id="a", source="local", title="A", genre="Rock"))
-    drop_id = upsert_track(conn, Track(external_id="b", source="local", title="B", genre="Metal"))
+    keep_id = upsert_track(
+        conn, Track(external_id="a", source="local", title="A", genre="Rock")
+    )
+    drop_id = upsert_track(
+        conn, Track(external_id="b", source="local", title="B", genre="Metal")
+    )
     conn.commit()
 
     ids = _filtered_candidate_ids(conn, {"genre_exclude": ["Metal"]})
@@ -70,7 +76,9 @@ def test_filtered_candidate_ids_year_range_excludes_null_year_without_content_fi
     # through would defeat the point of the year filter.
     conn = connect(":memory:")
     init_db(conn)
-    dated_id = upsert_track(conn, Track(external_id="a", source="local", title="A", year=1985))
+    dated_id = upsert_track(
+        conn, Track(external_id="a", source="local", title="A", year=1985)
+    )
     undated_id = upsert_track(conn, Track(external_id="b", source="local", title="B"))
     conn.commit()
 
@@ -86,12 +94,20 @@ def test_filtered_candidate_ids_year_range_includes_null_year_alongside_genre_fi
     # safer than silently dropping a genuine match for missing metadata.
     conn = connect(":memory:")
     init_db(conn)
-    dated_id = upsert_track(conn, Track(external_id="a", source="local", title="A", genre="Ska", year=1981))
-    undated_id = upsert_track(conn, Track(external_id="b", source="local", title="B", genre="Ska"))
-    wrong_genre_id = upsert_track(conn, Track(external_id="c", source="local", title="C", genre="Rock"))
+    dated_id = upsert_track(
+        conn, Track(external_id="a", source="local", title="A", genre="Ska", year=1981)
+    )
+    undated_id = upsert_track(
+        conn, Track(external_id="b", source="local", title="B", genre="Ska")
+    )
+    wrong_genre_id = upsert_track(
+        conn, Track(external_id="c", source="local", title="C", genre="Rock")
+    )
     conn.commit()
 
-    ids = _filtered_candidate_ids(conn, {"genre_include": ["Ska"], "year_min": 1980, "year_max": 1989})
+    ids = _filtered_candidate_ids(
+        conn, {"genre_include": ["Ska"], "year_min": 1980, "year_max": 1989}
+    )
 
     assert dated_id in ids
     assert undated_id in ids
@@ -125,7 +141,9 @@ def test_filtered_candidate_ids_tag_include_matches_exact_token_not_substring():
 
 
 def test_apply_genre_aliases_leaves_unrelated_queries_untouched():
-    filt = _apply_genre_aliases("chill study music", {"semantic_query": "chill study music"})
+    filt = _apply_genre_aliases(
+        "chill study music", {"semantic_query": "chill study music"}
+    )
     assert "genre_include" not in filt
 
 
@@ -135,9 +153,17 @@ def test_dedupe_by_song_supports_pagination_via_offset_plus_limit_then_slice():
     conn = connect(":memory:")
     init_db(conn)
     for i in range(5):
-        upsert_track(conn, Track(external_id=str(i), source="local", title=f"Song {i}", artist="Artist"))
+        upsert_track(
+            conn,
+            Track(
+                external_id=str(i), source="local", title=f"Song {i}", artist="Artist"
+            ),
+        )
     conn.commit()
-    rows = [conn.execute("SELECT * FROM tracks WHERE title = ?", (f"Song {i}",)).fetchone() for i in range(5)]
+    rows = [
+        conn.execute("SELECT * FROM tracks WHERE title = ?", (f"Song {i}",)).fetchone()
+        for i in range(5)
+    ]
 
     page1 = _dedupe_by_song(rows, limit=2)
     page2 = _dedupe_by_song(rows, limit=4)[2:]
@@ -157,14 +183,26 @@ def test_dedupe_by_song_merges_plex_reversed_article_artist_with_local_copy(tmp_
     conn = connect(":memory:")
     init_db(conn)
     plex_id = upsert_track(
-        conn, Track(external_id="a", source="plex", title="Ghosttown", artist="Specials, The")
+        conn,
+        Track(
+            external_id="a", source="plex", title="Ghosttown", artist="Specials, The"
+        ),
     )
     local_id = upsert_track(
-        conn, Track(external_id="b", source="local", title="Ghosttown", artist="The Specials", file_path=str(mp3_path))
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Ghosttown",
+            artist="The Specials",
+            file_path=str(mp3_path),
+        ),
     )
     conn.commit()
-    rows = [conn.execute("SELECT * FROM tracks WHERE id = ?", (plex_id,)).fetchone(),
-            conn.execute("SELECT * FROM tracks WHERE id = ?", (local_id,)).fetchone()]
+    rows = [
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (plex_id,)).fetchone(),
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (local_id,)).fetchone(),
+    ]
 
     result = _dedupe_by_song(rows, limit=25)
 
@@ -182,11 +220,31 @@ def test_dedupe_by_song_prefers_higher_quality_duplicate(tmp_path):
     init_db(conn)
     # The lower-quality mp3 ranks first (closer embedding match) but the dedupe should still
     # surface the flac copy, since it's the file you'd actually want to play.
-    mp3_id = upsert_track(conn, Track(external_id="a", source="local", title="Song", artist="Artist", file_path=str(mp3_path)))
-    flac_id = upsert_track(conn, Track(external_id="b", source="local", title="Song", artist="Artist", file_path=str(flac_path)))
+    mp3_id = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="Song",
+            artist="Artist",
+            file_path=str(mp3_path),
+        ),
+    )
+    flac_id = upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Song",
+            artist="Artist",
+            file_path=str(flac_path),
+        ),
+    )
     conn.commit()
-    rows = [conn.execute("SELECT * FROM tracks WHERE id = ?", (mp3_id,)).fetchone(),
-            conn.execute("SELECT * FROM tracks WHERE id = ?", (flac_id,)).fetchone()]
+    rows = [
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (mp3_id,)).fetchone(),
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (flac_id,)).fetchone(),
+    ]
 
     result = _dedupe_by_song(rows, limit=25)
 
@@ -202,11 +260,31 @@ def test_dedupe_by_song_prefers_larger_file_within_same_format(tmp_path):
 
     conn = connect(":memory:")
     init_db(conn)
-    small_id = upsert_track(conn, Track(external_id="a", source="local", title="Song", artist="Artist", file_path=str(small)))
-    large_id = upsert_track(conn, Track(external_id="b", source="local", title="Song", artist="Artist", file_path=str(large)))
+    small_id = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="Song",
+            artist="Artist",
+            file_path=str(small),
+        ),
+    )
+    large_id = upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Song",
+            artist="Artist",
+            file_path=str(large),
+        ),
+    )
     conn.commit()
-    rows = [conn.execute("SELECT * FROM tracks WHERE id = ?", (small_id,)).fetchone(),
-            conn.execute("SELECT * FROM tracks WHERE id = ?", (large_id,)).fetchone()]
+    rows = [
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (small_id,)).fetchone(),
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (large_id,)).fetchone(),
+    ]
 
     result = _dedupe_by_song(rows, limit=25)
 
@@ -216,11 +294,17 @@ def test_dedupe_by_song_prefers_larger_file_within_same_format(tmp_path):
 def test_dedupe_by_song_leaves_distinct_songs_untouched():
     conn = connect(":memory:")
     init_db(conn)
-    a = upsert_track(conn, Track(external_id="a", source="local", title="Song A", artist="Artist"))
-    b = upsert_track(conn, Track(external_id="b", source="local", title="Song B", artist="Artist"))
+    a = upsert_track(
+        conn, Track(external_id="a", source="local", title="Song A", artist="Artist")
+    )
+    b = upsert_track(
+        conn, Track(external_id="b", source="local", title="Song B", artist="Artist")
+    )
     conn.commit()
-    rows = [conn.execute("SELECT * FROM tracks WHERE id = ?", (a,)).fetchone(),
-            conn.execute("SELECT * FROM tracks WHERE id = ?", (b,)).fetchone()]
+    rows = [
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (a,)).fetchone(),
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (b,)).fetchone(),
+    ]
 
     result = _dedupe_by_song(rows, limit=25)
 
@@ -257,9 +341,15 @@ def test_find_similar_embeddings_ranks_closest_vector_first():
 def test_similar_excludes_other_copies_of_the_anchor_song():
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(external_id="a", source="local", title="Song", artist="Artist"))
-    duplicate_copy = upsert_track(conn, Track(external_id="b", source="local", title="song", artist="artist"))
-    other_song = upsert_track(conn, Track(external_id="c", source="local", title="Different", artist="Artist"))
+    anchor = upsert_track(
+        conn, Track(external_id="a", source="local", title="Song", artist="Artist")
+    )
+    duplicate_copy = upsert_track(
+        conn, Track(external_id="b", source="local", title="song", artist="artist")
+    )
+    other_song = upsert_track(
+        conn, Track(external_id="c", source="local", title="Different", artist="Artist")
+    )
     conn.commit()
 
     vec = [0.0] * EMBEDDING_DIM
@@ -278,10 +368,50 @@ def test_similar_excludes_other_copies_of_the_anchor_song():
 def test_suggest_for_playlist_finds_a_nearby_track_and_excludes_playlist_members():
     conn = connect(":memory:")
     init_db(conn)
-    member_a = upsert_track(conn, Track(external_id="a", source="local", title="A", artist="X", tempo=120, energy=0.5))
-    member_b = upsert_track(conn, Track(external_id="b", source="local", title="B", artist="X", tempo=120, energy=0.5))
-    near = upsert_track(conn, Track(external_id="near", source="local", title="Near", artist="Y", tempo=120, energy=0.5))
-    far = upsert_track(conn, Track(external_id="far", source="local", title="Far", artist="Z", tempo=120, energy=0.5))
+    member_a = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="A",
+            artist="X",
+            tempo=120,
+            energy=0.5,
+        ),
+    )
+    member_b = upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="B",
+            artist="X",
+            tempo=120,
+            energy=0.5,
+        ),
+    )
+    near = upsert_track(
+        conn,
+        Track(
+            external_id="near",
+            source="local",
+            title="Near",
+            artist="Y",
+            tempo=120,
+            energy=0.5,
+        ),
+    )
+    far = upsert_track(
+        conn,
+        Track(
+            external_id="far",
+            source="local",
+            title="Far",
+            artist="Z",
+            tempo=120,
+            energy=0.5,
+        ),
+    )
     conn.commit()
 
     near_vec = [0.0] * EMBEDDING_DIM
@@ -308,9 +438,15 @@ def test_suggest_for_playlist_finds_a_nearby_track_and_excludes_playlist_members
 def test_suggest_for_playlist_excludes_a_duplicate_copy_of_a_member_song():
     conn = connect(":memory:")
     init_db(conn)
-    member = upsert_track(conn, Track(external_id="a", source="local", title="Song", artist="Artist"))
-    duplicate_copy = upsert_track(conn, Track(external_id="b", source="local", title="song", artist="artist"))
-    other = upsert_track(conn, Track(external_id="c", source="local", title="Other", artist="Y"))
+    member = upsert_track(
+        conn, Track(external_id="a", source="local", title="Song", artist="Artist")
+    )
+    duplicate_copy = upsert_track(
+        conn, Track(external_id="b", source="local", title="song", artist="artist")
+    )
+    other = upsert_track(
+        conn, Track(external_id="c", source="local", title="Other", artist="Y")
+    )
     conn.commit()
 
     vec = [0.0] * EMBEDDING_DIM
@@ -341,18 +477,39 @@ def test_suggest_for_playlist_returns_empty_for_an_empty_playlist():
 def test_album_tracks_orders_by_leading_track_number_in_filename():
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(
-        external_id="a", source="local", title="Second", artist="Band", album="LP",
-        file_path="Z:\\music\\Band\\LP\\02 Second.mp3",
-    ))
-    upsert_track(conn, Track(
-        external_id="b", source="local", title="First", artist="Band", album="LP",
-        file_path="Z:\\music\\Band\\LP\\01 First.mp3",
-    ))
-    upsert_track(conn, Track(
-        external_id="c", source="local", title="Third", artist="Band", album="LP",
-        file_path="Z:\\music\\Band\\LP\\03 Third.mp3",
-    ))
+    anchor = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="Second",
+            artist="Band",
+            album="LP",
+            file_path="Z:\\music\\Band\\LP\\02 Second.mp3",
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="First",
+            artist="Band",
+            album="LP",
+            file_path="Z:\\music\\Band\\LP\\01 First.mp3",
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="c",
+            source="local",
+            title="Third",
+            artist="Band",
+            album="LP",
+            file_path="Z:\\music\\Band\\LP\\03 Third.mp3",
+        ),
+    )
     conn.commit()
 
     results = album_tracks(conn, anchor)
@@ -363,8 +520,16 @@ def test_album_tracks_orders_by_leading_track_number_in_filename():
 def test_album_tracks_ignores_tracks_from_other_albums():
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(external_id="a", source="local", title="A", artist="Band", album="LP"))
-    upsert_track(conn, Track(external_id="b", source="local", title="B", artist="Band", album="Other LP"))
+    anchor = upsert_track(
+        conn,
+        Track(external_id="a", source="local", title="A", artist="Band", album="LP"),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="b", source="local", title="B", artist="Band", album="Other LP"
+        ),
+    )
     conn.commit()
 
     results = album_tracks(conn, anchor)
@@ -380,12 +545,28 @@ def test_album_tracks_prefers_best_quality_duplicate(tmp_path):
 
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(
-        external_id="a", source="local", title="Song", artist="Band", album="LP", file_path=str(mp3_path),
-    ))
-    flac_id = upsert_track(conn, Track(
-        external_id="b", source="local", title="Song", artist="Band", album="LP", file_path=str(flac_path),
-    ))
+    anchor = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="Song",
+            artist="Band",
+            album="LP",
+            file_path=str(mp3_path),
+        ),
+    )
+    flac_id = upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Song",
+            artist="Band",
+            album="LP",
+            file_path=str(flac_path),
+        ),
+    )
     conn.commit()
 
     results = album_tracks(conn, anchor)
@@ -405,10 +586,34 @@ def test_base_title_strips_bracketed_and_dash_suffixes():
 def test_versions_groups_remixes_of_the_same_song():
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(external_id="a", source="local", title="Sexy Boy [Radio Edit]", artist="Air"))
-    upsert_track(conn, Track(external_id="b", source="local", title="Sexy Boy [Cassius Radio Mix]", artist="Air"))
-    upsert_track(conn, Track(external_id="c", source="local", title="Playground Love", artist="Air"))
-    unrelated_artist = upsert_track(conn, Track(external_id="d", source="local", title="Sexy Boy [Remix]", artist="Someone Else"))
+    anchor = upsert_track(
+        conn,
+        Track(
+            external_id="a", source="local", title="Sexy Boy [Radio Edit]", artist="Air"
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Sexy Boy [Cassius Radio Mix]",
+            artist="Air",
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(external_id="c", source="local", title="Playground Love", artist="Air"),
+    )
+    unrelated_artist = upsert_track(
+        conn,
+        Track(
+            external_id="d",
+            source="local",
+            title="Sexy Boy [Remix]",
+            artist="Someone Else",
+        ),
+    )
     conn.commit()
 
     results = versions(conn, anchor)
@@ -426,12 +631,26 @@ def test_versions_dedupes_exact_duplicate_mixes_by_quality(tmp_path):
 
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(
-        external_id="a", source="local", title="Song [Radio Edit]", artist="Artist", file_path=str(mp3_path),
-    ))
-    flac_id = upsert_track(conn, Track(
-        external_id="b", source="local", title="Song [Radio Edit]", artist="Artist", file_path=str(flac_path),
-    ))
+    anchor = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="Song [Radio Edit]",
+            artist="Artist",
+            file_path=str(mp3_path),
+        ),
+    )
+    flac_id = upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Song [Radio Edit]",
+            artist="Artist",
+            file_path=str(flac_path),
+        ),
+    )
     conn.commit()
 
     results = versions(conn, anchor)
@@ -443,10 +662,50 @@ def test_versions_dedupes_exact_duplicate_mixes_by_quality(tmp_path):
 def test_discography_groups_albums_with_track_counts_and_years():
     conn = connect(":memory:")
     init_db(conn)
-    upsert_track(conn, Track(external_id="a", source="local", title="A1", artist="Band", album="Debut", year=2000))
-    upsert_track(conn, Track(external_id="b", source="local", title="A2", artist="Band", album="Debut", year=2000))
-    upsert_track(conn, Track(external_id="c", source="local", title="B1", artist="Band", album="Sophomore", year=2003))
-    upsert_track(conn, Track(external_id="d", source="local", title="X1", artist="Other Band", album="Unrelated", year=2010))
+    upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="A1",
+            artist="Band",
+            album="Debut",
+            year=2000,
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="A2",
+            artist="Band",
+            album="Debut",
+            year=2000,
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="c",
+            source="local",
+            title="B1",
+            artist="Band",
+            album="Sophomore",
+            year=2003,
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="d",
+            source="local",
+            title="X1",
+            artist="Other Band",
+            album="Unrelated",
+            year=2010,
+        ),
+    )
     conn.commit()
 
     albums = discography(conn, "Band")
@@ -460,8 +719,28 @@ def test_discography_groups_albums_with_track_counts_and_years():
 def test_discography_dedupes_song_copies_within_an_album():
     conn = connect(":memory:")
     init_db(conn)
-    upsert_track(conn, Track(external_id="a", source="local", title="Song", artist="Band", album="LP", year=1999))
-    upsert_track(conn, Track(external_id="b", source="local", title="song", artist="band", album="lp", year=1999))
+    upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="local",
+            title="Song",
+            artist="Band",
+            album="LP",
+            year=1999,
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="song",
+            artist="band",
+            album="lp",
+            year=1999,
+        ),
+    )
     conn.commit()
 
     albums = discography(conn, "Band")
@@ -469,7 +748,9 @@ def test_discography_dedupes_song_copies_within_an_album():
     assert albums == [{"album": "LP", "year": 1999, "track_count": 1}]
 
 
-def test_search_does_not_drop_a_filtered_match_that_ranks_poorly_on_leftover_semantic_text(monkeypatch):
+def test_search_does_not_drop_a_filtered_match_that_ranks_poorly_on_leftover_semantic_text(
+    monkeypatch,
+):
     # Reproduces the real bug: "1990s house classics" -> filter handles genre+year, leaving a
     # weak leftover semantic_query ("classic") that the real match doesn't embed close to. A
     # bounded top-N vector scan intersected with the filter can miss it entirely; search()
@@ -477,7 +758,16 @@ def test_search_does_not_drop_a_filtered_match_that_ranks_poorly_on_leftover_sem
     conn = connect(":memory:")
     init_db(conn)
 
-    match_id = upsert_track(conn, Track(external_id="match", source="local", title="Deep Cut", artist="A", genre="House"))
+    match_id = upsert_track(
+        conn,
+        Track(
+            external_id="match",
+            source="local",
+            title="Deep Cut",
+            artist="A",
+            genre="House",
+        ),
+    )
     conn.commit()
 
     query_vec = [0.0] * EMBEDDING_DIM
@@ -489,7 +779,16 @@ def test_search_does_not_drop_a_filtered_match_that_ranks_poorly_on_leftover_sem
     # Noise tracks that don't match the filter but rank closer to the query than the real
     # match - more than old_limit (1 * VECTOR_CANDIDATE_MULTIPLIER) would have allowed through.
     for i in range(10):
-        noise_id = upsert_track(conn, Track(external_id=f"noise{i}", source="local", title=f"Noise {i}", artist="B", genre="Pop"))
+        noise_id = upsert_track(
+            conn,
+            Track(
+                external_id=f"noise{i}",
+                source="local",
+                title=f"Noise {i}",
+                artist="B",
+                genre="Pop",
+            ),
+        )
         upsert_embedding(conn, noise_id, list(query_vec))
     conn.commit()
 
@@ -509,8 +808,14 @@ def test_search_by_tag_genre_is_an_exact_filter_not_a_fuzzy_match(monkeypatch):
     conn = connect(":memory:")
     init_db(conn)
 
-    ska_id = upsert_track(conn, Track(external_id="ska", source="local", title="A", artist="X", genre="Ska"))
-    rock_id = upsert_track(conn, Track(external_id="rock", source="local", title="B", artist="Y", genre="Rock"))
+    ska_id = upsert_track(
+        conn,
+        Track(external_id="ska", source="local", title="A", artist="X", genre="Ska"),
+    )
+    rock_id = upsert_track(
+        conn,
+        Track(external_id="rock", source="local", title="B", artist="Y", genre="Rock"),
+    )
     conn.commit()
 
     vec = [0.0] * EMBEDDING_DIM
@@ -531,7 +836,9 @@ def test_search_by_tag_freeform_tag_matches_exact_token(monkeypatch):
     conn = connect(":memory:")
     init_db(conn)
 
-    track_id = upsert_track(conn, Track(external_id="a", source="local", title="A", artist="X"))
+    track_id = upsert_track(
+        conn, Track(external_id="a", source="local", title="A", artist="X")
+    )
     conn.commit()
     set_tags_list(conn, track_id, ["road trip", "live"])
     conn.commit()
@@ -569,9 +876,18 @@ def test_similar_prefers_same_era_track_over_equally_text_similar_different_era_
     # The same-era one should rank first once the numeric year factor is applied.
     conn = connect(":memory:")
     init_db(conn)
-    anchor = upsert_track(conn, Track(external_id="a", source="local", title="Anchor", artist="X", year=1986))
-    same_era = upsert_track(conn, Track(external_id="b", source="local", title="Same Era", artist="Y", year=1988))
-    far_era = upsert_track(conn, Track(external_id="c", source="local", title="Far Era", artist="Z", year=2015))
+    anchor = upsert_track(
+        conn,
+        Track(external_id="a", source="local", title="Anchor", artist="X", year=1986),
+    )
+    same_era = upsert_track(
+        conn,
+        Track(external_id="b", source="local", title="Same Era", artist="Y", year=1988),
+    )
+    far_era = upsert_track(
+        conn,
+        Track(external_id="c", source="local", title="Far Era", artist="Z", year=2015),
+    )
     conn.commit()
 
     shared_vec = [0.0] * EMBEDDING_DIM

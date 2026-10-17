@@ -23,7 +23,12 @@ def test_known_file_paths_reflects_existing_tracks():
     conn = connect(":memory:")
     init_db(conn)
 
-    upsert_track(conn, Track(external_id="plex:1", source="plex", file_path="C:/Music/a.mp3", title="A"))
+    upsert_track(
+        conn,
+        Track(
+            external_id="plex:1", source="plex", file_path="C:/Music/a.mp3", title="A"
+        ),
+    )
     conn.commit()
 
     paths = known_file_paths(conn)
@@ -47,8 +52,12 @@ def test_upsert_track_does_not_clobber_existing_genre_with_null():
     conn = connect(":memory:")
     init_db(conn)
 
-    upsert_track(conn, Track(external_id="local:1", source="local", title="A", genre="Rock"))
-    upsert_track(conn, Track(external_id="local:1", source="local", title="A", genre=None))
+    upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", genre="Rock")
+    )
+    upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A", genre=None)
+    )
     conn.commit()
 
     row = conn.execute("SELECT * FROM tracks WHERE external_id = 'local:1'").fetchone()
@@ -62,12 +71,22 @@ def test_upsert_track_does_not_revert_a_manually_corrected_artist():
     since upsert_track overwrote artist/title/album unconditionally."""
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="Various Artists"))
+    track_id = upsert_track(
+        conn,
+        Track(
+            external_id="local:1", source="local", title="A", artist="Various Artists"
+        ),
+    )
     conn.commit()
     set_artist(conn, track_id, "The Rolling Stones")
     conn.commit()
 
-    upsert_track(conn, Track(external_id="local:1", source="local", title="A", artist="Various Artists"))
+    upsert_track(
+        conn,
+        Track(
+            external_id="local:1", source="local", title="A", artist="Various Artists"
+        ),
+    )
     conn.commit()
 
     row = conn.execute("SELECT * FROM tracks WHERE external_id = 'local:1'").fetchone()
@@ -75,8 +94,13 @@ def test_upsert_track_does_not_revert_a_manually_corrected_artist():
 
 
 def test_remap_plex_path_translates_nas_prefix_to_local_share(monkeypatch):
-    monkeypatch.setattr("backend.ingest.plex_source.settings.plex_remote_music_path", "/volume1/plexdata/music")
-    monkeypatch.setattr("backend.ingest.plex_source.settings.shared_drive_path", "Z:\\music")
+    monkeypatch.setattr(
+        "backend.ingest.plex_source.settings.plex_remote_music_path",
+        "/volume1/plexdata/music",
+    )
+    monkeypatch.setattr(
+        "backend.ingest.plex_source.settings.shared_drive_path", "Z:\\music"
+    )
 
     result = remap_plex_path("/volume1/plexdata/music/Artist/Album/01 - Song.flac")
 
@@ -84,8 +108,13 @@ def test_remap_plex_path_translates_nas_prefix_to_local_share(monkeypatch):
 
 
 def test_remap_plex_path_leaves_unmatched_paths_untouched(monkeypatch):
-    monkeypatch.setattr("backend.ingest.plex_source.settings.plex_remote_music_path", "/volume1/plexdata/music")
-    monkeypatch.setattr("backend.ingest.plex_source.settings.shared_drive_path", "Z:\\music")
+    monkeypatch.setattr(
+        "backend.ingest.plex_source.settings.plex_remote_music_path",
+        "/volume1/plexdata/music",
+    )
+    monkeypatch.setattr(
+        "backend.ingest.plex_source.settings.shared_drive_path", "Z:\\music"
+    )
 
     result = remap_plex_path("/volume2/other/Artist/Song.flac")
 
@@ -95,7 +124,10 @@ def test_remap_plex_path_leaves_unmatched_paths_untouched(monkeypatch):
 def test_path_to_id_map_keys_by_normalized_path():
     conn = connect(":memory:")
     init_db(conn)
-    track_id = upsert_track(conn, Track(external_id="local:1", source="local", file_path="Z:\\music\\a.flac"))
+    track_id = upsert_track(
+        conn,
+        Track(external_id="local:1", source="local", file_path="Z:\\music\\a.flac"),
+    )
     conn.commit()
 
     mapping = path_to_id_map(conn)
@@ -107,14 +139,26 @@ def test_merge_plex_metadata_preserves_id_and_audio_features():
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(
-        conn, Track(external_id="local:1", source="local", title="Song", file_path="Z:\\music\\a.flac")
+        conn,
+        Track(
+            external_id="local:1",
+            source="local",
+            title="Song",
+            file_path="Z:\\music\\a.flac",
+        ),
     )
     set_audio_features(conn, track_id, tempo=120.0, energy=0.5, musical_key="C")
     conn.commit()
 
     plex_track = Track(
-        external_id="plex:99", source="plex", plex_rating_key="99",
-        title="Song", artist="Artist", album="Album", genre="Rock", year=1999,
+        external_id="plex:99",
+        source="plex",
+        plex_rating_key="99",
+        title="Song",
+        artist="Artist",
+        album="Album",
+        genre="Rock",
+        year=1999,
         file_path="Z:\\music\\a.flac",
     )
     merge_plex_metadata(conn, track_id, plex_track)
@@ -132,16 +176,27 @@ def test_merge_plex_metadata_does_not_revert_a_manually_corrected_artist():
     conn = connect(":memory:")
     init_db(conn)
     track_id = upsert_track(
-        conn, Track(external_id="local:1", source="local", title="Song", artist="Various Artists",
-                     file_path="Z:\\music\\a.flac")
+        conn,
+        Track(
+            external_id="local:1",
+            source="local",
+            title="Song",
+            artist="Various Artists",
+            file_path="Z:\\music\\a.flac",
+        ),
     )
     conn.commit()
     set_artist(conn, track_id, "The Rolling Stones")
     conn.commit()
 
     plex_track = Track(
-        external_id="plex:99", source="plex", plex_rating_key="99",
-        title="Song", artist="Various Artists", album="Album", file_path="Z:\\music\\a.flac",
+        external_id="plex:99",
+        source="plex",
+        plex_rating_key="99",
+        title="Song",
+        artist="Various Artists",
+        album="Album",
+        file_path="Z:\\music\\a.flac",
     )
     merge_plex_metadata(conn, track_id, plex_track)
     conn.commit()
@@ -156,13 +211,17 @@ def test_set_ai_background_persists_and_defaults_to_null():
     track_id = upsert_track(conn, Track(external_id="a", source="local", title="Song"))
     conn.commit()
 
-    before = conn.execute("SELECT ai_background FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    before = conn.execute(
+        "SELECT ai_background FROM tracks WHERE id = ?", (track_id,)
+    ).fetchone()
     assert before["ai_background"] is None
 
     set_ai_background(conn, track_id, "Some interesting trivia.")
     conn.commit()
 
-    after = conn.execute("SELECT ai_background FROM tracks WHERE id = ?", (track_id,)).fetchone()
+    after = conn.execute(
+        "SELECT ai_background FROM tracks WHERE id = ?", (track_id,)
+    ).fetchone()
     assert after["ai_background"] == "Some interesting trivia."
 
 
@@ -194,7 +253,9 @@ def test_migrate_adds_ai_background_to_a_pre_existing_tracks_table():
 
     init_db(conn)
 
-    columns = {row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()}
+    columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(tracks)").fetchall()
+    }
     assert "ai_background" in columns
 
 
@@ -220,10 +281,14 @@ def test_migrate_adds_identity_source_defaulting_to_auto():
             tag_source TEXT NOT NULL DEFAULT 'none'
         );
     """)
-    conn.execute("INSERT INTO tracks (external_id, source, title) VALUES ('local:1', 'local', 'Song')")
+    conn.execute(
+        "INSERT INTO tracks (external_id, source, title) VALUES ('local:1', 'local', 'Song')"
+    )
     conn.commit()
 
     init_db(conn)
 
-    row = conn.execute("SELECT identity_source FROM tracks WHERE external_id = 'local:1'").fetchone()
+    row = conn.execute(
+        "SELECT identity_source FROM tracks WHERE external_id = 'local:1'"
+    ).fetchone()
     assert row["identity_source"] == "auto"

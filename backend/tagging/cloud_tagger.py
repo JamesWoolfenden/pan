@@ -50,7 +50,9 @@ def _tag_batch(client: anthropic.Anthropic, rows: list[sqlite3.Row]) -> list[dic
         # before any visible output - with a tight budget that can truncate the JSON answer
         # entirely. This task needs no multi-step reasoning, so turn thinking off.
         thinking={"type": "between_tools"},
-        messages=[{"role": "user", "content": PROMPT.format(tracks_json=json.dumps(payload))}],
+        messages=[
+            {"role": "user", "content": PROMPT.format(tracks_json=json.dumps(payload))}
+        ],
     )
     text = "".join(block.text for block in message.content if block.type == "text")
     try:
@@ -80,19 +82,23 @@ def suggest_tags(row: sqlite3.Row) -> dict:
         log.info("ANTHROPIC_API_KEY not configured - cannot suggest tags")
         return empty
 
-    track_json = json.dumps({
-        "title": row["title"],
-        "artist": row["artist"],
-        "album": row["album"],
-        "current_genre": row["genre"],
-        "current_mood": row["mood"],
-    })
+    track_json = json.dumps(
+        {
+            "title": row["title"],
+            "artist": row["artist"],
+            "album": row["album"],
+            "current_genre": row["genre"],
+            "current_mood": row["mood"],
+        }
+    )
     client = _client()
     message = client.messages.create(
         model=MODEL,
         max_tokens=512,
         thinking={"type": "between_tools"},
-        messages=[{"role": "user", "content": SUGGEST_PROMPT.format(track_json=track_json)}],
+        messages=[
+            {"role": "user", "content": SUGGEST_PROMPT.format(track_json=track_json)}
+        ],
     )
     text = "".join(block.text for block in message.content if block.type == "text")
     try:
@@ -103,7 +109,9 @@ def suggest_tags(row: sqlite3.Row) -> dict:
     return {"genres": parsed.get("genres") or [], "moods": parsed.get("moods") or []}
 
 
-def tag_with_cloud(conn: sqlite3.Connection, rows: list[sqlite3.Row], max_tracks: int | None = None) -> int:
+def tag_with_cloud(
+    conn: sqlite3.Connection, rows: list[sqlite3.Row], max_tracks: int | None = None
+) -> int:
     """Tag up to `max_tracks` rows (default: settings.cloud_tagging_max_per_run) via the
     Claude API, batched. Returns the number of tracks actually tagged."""
     if not settings.anthropic_api_key:
