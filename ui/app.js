@@ -1330,31 +1330,51 @@ const QUEUE_STATE_KEY = "pan_queue_state";
 let lastPersistedTime = 0;
 
 function persistQueueState() {
+  const state = {
+    queue,
+    currentIndex,
+    shuffle,
+    repeatMode,
+    currentPlaylistId,
+    currentPlaylistName,
+    currentTime: queuePlayer.currentTime || 0,
+    updatedAt: Date.now(),
+  };
   try {
-    localStorage.setItem(
-      QUEUE_STATE_KEY,
-      JSON.stringify({
-        queue,
-        currentIndex,
-        shuffle,
-        repeatMode,
-        currentPlaylistId,
-        currentPlaylistName,
-        currentTime: queuePlayer.currentTime || 0,
-      })
-    );
+    localStorage.setItem(QUEUE_STATE_KEY, JSON.stringify(state));
   } catch {
     // localStorage unavailable (private browsing etc) - the queue just won't survive a refresh
   }
+  // Also synced server-side (not just localStorage) so "what was I listening to" follows you
+  // between devices, not just between reloads of the same browser - see /now-playing.
+  fetch("/now-playing", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  }).catch(() => {});
 }
 
-function restoreQueueState() {
-  let saved;
+async function restoreQueueState() {
+  let local = null;
   try {
-    saved = JSON.parse(localStorage.getItem(QUEUE_STATE_KEY));
+    local = JSON.parse(localStorage.getItem(QUEUE_STATE_KEY));
   } catch {
-    return;
+    local = null;
   }
+
+  let remote = null;
+  try {
+    const res = await fetch("/now-playing");
+    const data = await res.json();
+    remote = data.state;
+  } catch {
+    remote = null;
+  }
+
+  // Whichever side is actually newer wins - e.g. you played something on your phone after
+  // last using this device, so the phone's state (now on the server) should take over here.
+  const saved =
+    remote && (!local || (remote.updatedAt || 0) > (local.updatedAt || 0)) ? remote : local;
   if (!saved || !Array.isArray(saved.queue) || !saved.queue.length) return;
 
   queue = saved.queue;

@@ -11,6 +11,7 @@ wheels/
 
 # App state
 .env
+.env.nas
 *.db
 
 # Self-signed TLS cert for LAN HTTPS (machine-specific - regenerate per host, see Makefile)

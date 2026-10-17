@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#1f8a6f" />
   <title>pan</title>
-  <link rel="manifest" href="/static/manifest.json" />
+  <!-- crossorigin="use-credentials": the manifest fetch omits credentials by default per spec,
+       even though it's same-origin - without this, Basic Auth makes it 401 and Chrome silently
+       refuses to offer "Add to Home Screen" even though the page itself loads fine. -->
+  <link rel="manifest" href="/static/manifest.json" crossorigin="use-credentials" />
   <link rel="icon" href="/static/icons/icon-192.png" />
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png" />
   <link rel="stylesheet" href="/static/style.css" />

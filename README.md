@@ -61,5 +61,82 @@ the filesystem, or the Claude API.
 
 ## Deploying elsewhere
 
-A `Dockerfile` is included for running this on a home server later — `docker build` it and
-mount your shared drive + a volume for `pan.db`, passing the same env vars as `.env`.
+### Synology NAS, reachable outside the LAN via Tailscale
+
+`docker-compose.yml` runs `pan` alongside a `tailscale` sidecar container, so the app gets a
+private HTTPS address on your tailnet (`https://pan.<your-tailnet>.ts.net`) reachable from your
+phone or laptop from anywhere — no port-forwarding, no public exposure. Tailscale terminates
+TLS with a real (not self-signed) cert, so none of the LAN-only `certs/`/`make run` setup is
+needed for this path.
+
+1. Install **Container Manager** from Synology Package Center (DSM 7+) if not already present.
+2. In the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys), generate
+   a reusable auth key.
+3. Create an empty `tailscale-state` folder next to `docker-compose.yml` on the NAS before the
+   first build — Synology's Docker doesn't auto-create bind-mount directories that don't
+   already exist, unlike most Docker setups, and the build fails with "Bind mount failed" if
+   it's missing.
+4. Copy this repo onto the NAS. If you're using File Station rather than `git clone` over SSH,
+   zip/archive it with something that writes POSIX-style forward-slash paths (`tar`, 7-Zip) —
+   PowerShell's `Compress-Archive` writes backslashes into zip entries on Windows, which
+   Synology's (Linux) extractor treats as literal characters in a filename instead of a
+   directory separator, silently flattening `backend/app.py` into a file named
+   `backend\app.py` sitting at the top level. `docker build` then fails with something like
+   `COPY failed: file not found in build context: stat backend: file does not exist`.
+5. `cp .env.example .env` and fill it in:
+   - The usual Plex/shared-drive/Claude vars.
+   - `SHARED_DRIVE_PATH=/music` — the path as `pan` sees it *inside the container* (not the
+     NAS host path). Keep this `.env` separate from any local dev `.env` you have elsewhere —
+     the same variable name means a different thing in each.
+   - `NAS_MUSIC_PATH=/volume1/music` (or wherever your music actually lives on the NAS) — the
+     host-side path `docker-compose.yml` bind-mounts to `/music`.
+   - `TS_AUTHKEY=` the key from step 2.
+   - `PAN_AUTH_USER` / `PAN_AUTH_PASSWORD` — required for this path (see above): once `pan` is
+     reachable beyond the LAN, nothing else stops a visitor from browsing your library or
+     triggering a Claude-billed reindex.
+6. Build and start, either via Container Manager's "Project" import or over SSH:
+   ```sh
+   docker compose up -d --build
+   ```
+   The `tailscale` service runs in **userspace networking mode** (`TS_USERSPACE=true` in
+   `docker-compose.yml`) rather than the usual kernel TUN device — some Synology models don't
+   expose `/dev/net/tun` to Docker at all, and userspace mode works fine for this setup since we
+   only need inbound access via `tailscale serve` to a localhost port, not full tailnet routing
+   (no downside here, but it's why the compose file looks different from most Tailscale sidecar
+   examples you'll find online). Pin the image to `tailscale/tailscale:stable` rather than
+   `:latest` — `:latest` has a window where Docker Hub is mid-rebuild and pulling it fails with
+   "no matching manifest", which otherwise looks like an architecture mismatch but usually isn't.
+7. Point the app at a tailnet HTTPS address — first time only, since the exact MagicDNS domain
+   (`pan.<your-tailnet>.ts.net`) isn't known until the node registers:
+   ```sh
+   docker compose exec tailscale tailscale serve --bg http://127.0.0.1:8000
+   docker compose exec tailscale tailscale serve status   # prints the https://pan.<tailnet>.ts.net URL
+   ```
+   This alone does **not** survive the `pan`/`tailscale` containers being recreated (torn down
+   and rebuilt, not just restarted) — only the tailnet identity persists via the `tailscale-state`
+   volume, not the serve routing. Make it permanent instead: run
+   `docker compose exec tailscale tailscale serve status --json`, save that output as
+   `tailscale-config/serve.json` (already present in this repo, with the domain above baked in —
+   update it if your tailnet name differs), and `docker-compose.yml` sets
+   `TS_SERVE_CONFIG=/config/serve.json` so it's reapplied automatically on every container start
+   from here on, with no manual step.
+8. Install [Tailscale](https://tailscale.com/download) on your phone/laptop and sign in to the
+   same tailnet. The URL from step 7 now works from anywhere, not just the LAN.
+
+Chromecast casting still only works on the LAN (Cast discovery is LAN-multicast and the
+receiver hardware can't authenticate anyway) — unaffected by any of this, since `/stream/*` is
+exempt from the auth gate and the sidecar doesn't change how the NAS sits on your home network.
+
+**Updating the deployed app**: don't just re-extract a fresh copy of everything — `pan.db` and
+`.env` on the NAS are now the live state (play counts, favorites, Chromecast history, your
+filled-in secrets), and your local copies of those two files are stale forks of them. Only
+redeploy code/config (`backend/`, `ui/`, `scripts/`, `Dockerfile`, `docker-compose.yml`,
+`pyproject.toml`, `uv.lock`), and in Container Manager use the project's explicit **Build**
+action afterward, not just Start/Restart — restarting alone reuses the already-built image and
+won't pick up source changes.
+
+### Plain Docker, LAN-only
+
+The `Dockerfile` alone also works standalone — `docker build` it and mount your shared drive +
+a volume for `pan.db`, passing the same env vars as `.env`, if you just want it on the LAN
+without remote access.

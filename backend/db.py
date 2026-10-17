@@ -72,6 +72,15 @@ CREATE TABLE IF NOT EXISTS play_events (
     percent_listened REAL NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_play_events_track ON play_events(track_id);
+
+-- Single-row (id=1) table, not per-device: the point is one shared "what was I listening to"
+-- state that follows you between devices, not independent state per device. Whichever device
+-- last wrote wins; a device picks it up on load if it's newer than what it has locally.
+CREATE TABLE IF NOT EXISTS now_playing (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    state TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -470,4 +479,18 @@ def record_play_event(conn: sqlite3.Connection, track_id: int, percent_listened:
     conn.execute(
         "INSERT INTO play_events (track_id, percent_listened) VALUES (?, ?)",
         (track_id, percent_listened),
+    )
+
+
+def get_now_playing(conn: sqlite3.Connection) -> sqlite3.Row | None:
+    return conn.execute("SELECT state, updated_at FROM now_playing WHERE id = 1").fetchone()
+
+
+def set_now_playing(conn: sqlite3.Connection, state_json: str) -> None:
+    conn.execute(
+        """
+        INSERT INTO now_playing (id, state, updated_at) VALUES (1, ?, datetime('now'))
+        ON CONFLICT (id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
+        """,
+        (state_json,),
     )

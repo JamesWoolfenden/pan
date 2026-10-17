@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import base64
+import json
 import logging
+import secrets
 import threading
 from pathlib import Path
 
@@ -10,11 +13,13 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 from backend.art import extract_album_art
+from backend.config import settings
 from backend.db import (
     add_track_to_playlist,
     connection,
     create_playlist,
     delete_playlist,
+    get_now_playing,
     get_playlist,
     get_track,
     init_db,
@@ -26,6 +31,7 @@ from backend.db import (
     set_artist,
     set_favorite,
     set_lyrics,
+    set_now_playing,
     set_playlist_tracks,
     set_tags,
     set_tags_list,
@@ -63,6 +69,31 @@ MEDIA_TYPE_OVERRIDES = {
 }
 
 app = FastAPI(title="pan")
+
+
+@app.middleware("http")
+async def require_auth(request, call_next):
+    """Single-user HTTP Basic auth gate - a no-op when PAN_AUTH_USER/PASSWORD aren't set, so
+    LAN-only use (`make run`) is unaffected. Once the app is reachable beyond the LAN (e.g. over
+    Tailscale), set both so a visitor can't browse the library or trigger the Claude-billed
+    reindex. /stream/* is exempt: Chromecast's receiver fetches it directly and can't supply
+    credentials, and it's already LAN-trust-only per the Makefile's port-8080 plain-HTTP path."""
+    if settings.pan_auth_user and settings.pan_auth_password and not request.url.path.startswith("/stream/"):
+        valid = False
+        header = request.headers.get("authorization", "")
+        if header.startswith("Basic "):
+            try:
+                decoded = base64.b64decode(header[6:]).decode("utf-8")
+                user, _, password = decoded.partition(":")
+                valid = secrets.compare_digest(user, settings.pan_auth_user) and secrets.compare_digest(
+                    password, settings.pan_auth_password
+                )
+            except Exception:
+                valid = False
+        if not valid:
+            return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="pan"'})
+    return await call_next(request)
+
 
 _reindex_lock = threading.Lock()
 _reindex_status = {"running": False, "last_result": None, "error": None}
@@ -270,6 +301,23 @@ def recently_added_endpoint(limit: int = 25):
 def favorites_endpoint(limit: int = 200):
     with connection() as conn:
         return {"results": favorites(conn, limit)}
+
+
+@app.get("/now-playing")
+def now_playing_endpoint():
+    with connection() as conn:
+        row = get_now_playing(conn)
+    if row is None:
+        return {"state": None, "updated_at": None}
+    return {"state": json.loads(row["state"]), "updated_at": row["updated_at"]}
+
+
+@app.put("/now-playing")
+def update_now_playing_endpoint(state: dict):
+    with connection() as conn:
+        set_now_playing(conn, json.dumps(state))
+        conn.commit()
+    return {"status": "ok"}
 
 
 @app.post("/admin/reindex")

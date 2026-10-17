@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     cloud_tagging_max_per_run: int = 200
     db_path: str = "pan.db"
     embedding_model: str = "all-MiniLM-L6-v2"
+    # HTTP Basic Auth gate (backend/app.py) - leave both blank for LAN-only use where the
+    # network itself is the trust boundary (e.g. `make run`). Set both once the app is reachable
+    # beyond the LAN (e.g. over Tailscale), since otherwise nothing stops a visitor from
+    # triggering the Claude-billed reindex or browsing the library.
+    pan_auth_user: str = ""
+    pan_auth_password: str = ""
 
     @property
     def db_file(self) -> Path:

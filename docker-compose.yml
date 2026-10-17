@@ -1,0 +1,55 @@
+# Synology (Container Manager) deployment: pan + a Tailscale sidecar, so the app gets a
+# private HTTPS address on your tailnet (https://pan.<your-tailnet>.ts.net) reachable from
+# your phone/laptop anywhere, with no port-forwarding and no public exposure. See README.md
+# "Deploying elsewhere" for setup steps.
+services:
+  tailscale:
+    image: tailscale/tailscale:stable
+    hostname: pan
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY}
+      - TS_STATE_DIR=/var/lib/tailscale
+      # Userspace networking: tailscaled never touches /dev/net/tun, since some Synology
+      # kernels don't expose the tun module to Docker. We only need inbound access via
+      # `tailscale serve` to a localhost port (handled fine in this mode) - not full tailnet
+      # routing - so this has no downside for this deployment.
+      - TS_USERSPACE=true
+      # Applies tailscale-config/serve.json on every startup, so `tailscale serve` never needs
+      # to be run by hand again after a container recreate.
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale-state:/var/lib/tailscale
+      # Mounted as a directory, not a single file - Tailscale watches the directory for changes
+      # to pick up edits, which doesn't work reliably against a single-file bind mount.
+      - ./tailscale-config:/config
+    # tailscaled does an internal process handoff while starting up (different PID than the
+    # container's initial process), so a plain `depends_on` isn't enough - pan can grab a
+    # network-namespace reference to a PID that's about to disappear, failing with "unable to
+    # create new parent process: ... no such file or directory" on next start. Waiting for this
+    # healthcheck (not just container start) means pan only attaches once tailscaled has
+    # actually settled.
+    healthcheck:
+      test: ["CMD", "tailscale", "status"]
+      interval: 5s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
+  pan:
+    build: .
+    # Shares the tailscale container's network namespace, so pan is only reachable via the
+    # tailnet address (or locally on the NAS) - never via the NAS's own LAN ports.
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    env_file:
+      - .env
+    volumes:
+      - ./pan.db:/app/pan.db
+      # NAS_MUSIC_PATH (set in .env) is the host-side path to your music share; SHARED_DRIVE_PATH
+      # in .env must then be set to /music (the path as pan sees it inside the container) -
+      # these are deliberately two different variables, see README.
+      - ${NAS_MUSIC_PATH}:/music:ro
+    restart: unless-stopped
