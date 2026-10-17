@@ -420,15 +420,34 @@ function buildPlaylistPickerPanel(trackIdsSource) {
         btn.addEventListener("click", async () => {
           // Sequential, not Promise.all, so tracks land in the playlist in the same order
           // they're shown in the results.
+          const failed = [];
           for (const id of await trackIds()) {
-            await fetch(`/playlists/${p.id}/tracks`, {
+            const res = await fetch(`/playlists/${p.id}/tracks`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ track_id: id }),
             });
+            if (!res.ok) failed.push(id);
           }
           loadPlaylists();
           panel.hidden = true;
+          if (failed.length) {
+            alert(`Couldn't add ${failed.length} track(s) to "${p.name}" - try again.`);
+          }
+          // If this playlist is the one currently loaded in the queue, pull in the track(s)
+          // just added - otherwise "add to the playlist I'm playing" silently only updates the
+          // saved playlist, not what's actually queued, which looks like the add didn't work.
+          if (p.id === currentPlaylistId) {
+            const res = await fetch(`/playlists/${p.id}`);
+            const data = await res.json();
+            const queuedIds = new Set(queue.map((t) => t.id));
+            const newTracks = data.results.filter((t) => t.file_path && !queuedIds.has(t.id));
+            if (newTracks.length) {
+              queue = queue.concat(newTracks.map(toQueueEntry));
+              renderQueue();
+              persistQueueState();
+            }
+          }
         });
         listEl.appendChild(btn);
       }
@@ -1142,7 +1161,10 @@ function buildEditPanel(r, tagsEl, editBtn) {
       }),
     });
     saveBtn.disabled = false;
-    if (!res.ok) return;
+    if (!res.ok) {
+      alert(`Couldn't save: ${res.status} ${res.statusText}`);
+      return;
+    }
     const updated = await res.json();
     const identityChanged = r.artist !== updated.artist || r.title !== updated.title || r.album !== updated.album;
     r.title = updated.title;
@@ -1732,12 +1754,46 @@ async function playAt(i) {
 // Shared by the local <audio> "ended" event and the Chromecast receiver's IDLE/FINISHED state,
 // so repeat-one/repeat-all/shuffle behave the same regardless of where playback is happening.
 function advanceOnEnded() {
+  logClient("ended", { willAdvance: repeatMode === "one" || nextQueueIndex(currentIndex) !== -1 });
   if (repeatMode === "one") {
     playAt(currentIndex);
     return;
   }
   const next = nextQueueIndex(currentIndex);
   if (next !== -1) playAt(next);
+}
+
+// Diagnostic sink for mobile playback issues (e.g. "stops after ~5 minutes locked") that can't
+// be reproduced with devtools attached - lands in the pan container's own log output via
+// POST /client-log. Fire-and-forget: never throws, never blocks playback if the request fails.
+function logClient(event, detail = {}) {
+  try {
+    navigator.sendBeacon?.(
+      "/client-log",
+      new Blob(
+        [
+          JSON.stringify({
+            event,
+            detail: {
+              ...detail,
+              hidden: document.hidden,
+              trackId: queue[currentIndex]?.id ?? null,
+              currentTime: queuePlayer.currentTime,
+              readyState: queuePlayer.readyState,
+            },
+          }),
+        ],
+        { type: "application/json" }
+      )
+    );
+  } catch {
+    // Best-effort only.
+  }
+}
+
+document.addEventListener("visibilitychange", () => logClient("visibilitychange"));
+for (const evt of ["stalled", "suspend", "waiting", "error"]) {
+  queuePlayer.addEventListener(evt, () => logClient(evt));
 }
 
 // Lock-screen/notification playback controls on phones - without this, backgrounding the
@@ -1760,11 +1816,13 @@ if ("mediaSession" in navigator) {
 }
 
 queuePlayer.addEventListener("play", () => {
+  logClient("play");
   playPauseBtn.innerHTML = "&#10074;&#10074;";
   pauseOtherPlayers(queuePlayer);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
 });
 queuePlayer.addEventListener("pause", () => {
+  logClient("pause");
   playPauseBtn.innerHTML = "&#9654;";
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   persistQueueState();
@@ -1978,6 +2036,74 @@ document.getElementById("missing-metadata-btn").addEventListener("click", async 
   renderResults(lastResults);
   setContextBanner(`Needs attention (${data.results.length})`, restorePreviousResults);
 });
+
+const clientLogsPanel = document.getElementById("client-logs-panel");
+const clientLogsOutput = document.getElementById("client-logs-output");
+document.getElementById("client-logs-btn").addEventListener("click", async () => {
+  clientLogsPanel.hidden = !clientLogsPanel.hidden;
+  if (clientLogsPanel.hidden) return;
+  clientLogsOutput.textContent = "Loading...";
+  const res = await fetch("/admin/client-logs");
+  const data = await res.json();
+  clientLogsOutput.textContent = data.logs.length
+    ? data.logs.map((l) => `${l.created_at}  ${l.event}  ${JSON.stringify(l.detail)}`).join("\n")
+    : "No client logs yet.";
+});
+
+const recommendationsPanel = document.getElementById("recommendations-panel");
+document.getElementById("recommendations-btn").addEventListener("click", async () => {
+  recommendationsPanel.hidden = !recommendationsPanel.hidden;
+  if (recommendationsPanel.hidden) return;
+  recommendationsPanel.textContent = "Loading...";
+  const res = await fetch("/admin/recommendations");
+  const data = await res.json();
+  renderRecommendations(data);
+});
+
+// Refreshed as part of reindex (backend/recommend.py), not on demand from here - this just
+// displays whatever the most recent reindex produced.
+function renderRecommendations(data) {
+  recommendationsPanel.innerHTML = "";
+  if (!data.recommendations.length) {
+    recommendationsPanel.textContent = "No recommendations yet - needs some listening history and a reindex (with ANTHROPIC_API_KEY configured) first.";
+    return;
+  }
+
+  const generated = document.createElement("div");
+  generated.className = "recommendations-generated";
+  generated.textContent = `From the ${data.generated_at} reindex`;
+  recommendationsPanel.appendChild(generated);
+
+  const gapFill = data.recommendations.filter((r) => r.category === "gap_fill");
+  const discovery = data.recommendations.filter((r) => r.category === "discovery");
+
+  if (gapFill.length) {
+    const heading = document.createElement("strong");
+    heading.textContent = "Fill out artists you already love";
+    recommendationsPanel.appendChild(heading);
+    const list = document.createElement("ul");
+    for (const r of gapFill) {
+      const li = document.createElement("li");
+      const albums = (r.detail?.missing_albums || []).join(", ");
+      li.innerHTML = `<strong>${escapeHtml(r.artist)}</strong> — ${escapeHtml(albums)}<br><span class="recommendation-reasoning">${escapeHtml(r.reasoning || "")}</span>`;
+      list.appendChild(li);
+    }
+    recommendationsPanel.appendChild(list);
+  }
+
+  if (discovery.length) {
+    const heading = document.createElement("strong");
+    heading.textContent = "New artists to try";
+    recommendationsPanel.appendChild(heading);
+    const list = document.createElement("ul");
+    for (const r of discovery) {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${escapeHtml(r.artist)}</strong><br><span class="recommendation-reasoning">${escapeHtml(r.reasoning || "")}</span>`;
+      list.appendChild(li);
+    }
+    recommendationsPanel.appendChild(list);
+  }
+}
 
 function escapeHtml(str) {
   const div = document.createElement("div");

@@ -1,3 +1,7 @@
+import sys
+
+import pytest
+
 from backend.db import (
     Track,
     connect,
@@ -12,7 +16,15 @@ from backend.ingest.local_source import normalize_path
 from backend.ingest.merge import known_file_paths, path_to_id_map
 from backend.ingest.plex_source import remap_plex_path
 
+# See tests/test_paths.py's windows_only marker - normalize_path's separator-insensitivity
+# relies on pathlib treating "\" as a path separator, which only Windows does.
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="exercises Windows-style path separator normalization",
+)
 
+
+@windows_only
 def test_normalize_path_is_case_and_slash_insensitive():
     a = normalize_path("C:/Music/Song.mp3")
     b = normalize_path("c:\\Music\\Song.mp3")
@@ -121,6 +133,7 @@ def test_remap_plex_path_leaves_unmatched_paths_untouched(monkeypatch):
     assert result == "/volume2/other/Artist/Song.flac"
 
 
+@windows_only
 def test_path_to_id_map_keys_by_normalized_path():
     conn = connect(":memory:")
     init_db(conn)

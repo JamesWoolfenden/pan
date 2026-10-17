@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     plex_remote_music_path: str = ""
     anthropic_api_key: str = ""
     cloud_tagging_max_per_run: int = 200
+    # Grounds backend/recommend.py's discovery suggestions in real listener co-occurrence data
+    # (Last.fm's artist.getSimilar) instead of purely Claude's own associations. Free, instant
+    # signup at https://www.last.fm/api/account/create. Recommendations still work without it -
+    # falls back to asking Claude directly, see recommend.py.
+    lastfm_api_key: str = ""
     db_path: str = "pan.db"
     embedding_model: str = "all-MiniLM-L6-v2"
     # HTTP Basic Auth gate (backend/app.py) - leave both blank for LAN-only use where the

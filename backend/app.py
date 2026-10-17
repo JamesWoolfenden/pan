@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from backend.art import extract_album_art
 from backend.config import settings
 from backend.db import (
+    add_client_log,
     add_track_to_playlist,
     connection,
     create_playlist,
@@ -23,7 +24,9 @@ from backend.db import (
     get_playlist,
     get_track,
     init_db,
+    list_client_logs,
     list_playlists,
+    list_recommendations,
     record_play_event,
     rename_playlist,
     set_ai_background,
@@ -339,6 +342,79 @@ def update_now_playing_endpoint(state: dict):
         set_now_playing(conn, json.dumps(state))
         conn.commit()
     return {"status": "ok"}
+
+
+client_log = logging.getLogger("client")
+
+
+@app.post("/client-log")
+def client_log_endpoint(entry: dict):
+    """Diagnostic sink for the player's own event log (see ui/app.js's logClient). Persisted
+    (not just printed to the container's own log output) since reaching that on a NAS deployment
+    means hunting through Container Manager - the admin panel's "Client logs" button reads this
+    same table directly instead. Fire-and-forget on the client side; never blocks or breaks
+    playback if this fails."""
+    event = entry.get("event", "?")
+    detail = entry.get("detail", {})
+    client_log.info("%s %s", event, detail)
+    with connection() as conn:
+        add_client_log(conn, event, json.dumps(detail))
+        conn.commit()
+    return {"status": "ok"}
+
+
+@app.get("/admin/client-logs")
+def client_logs_endpoint(limit: int = 500):
+    with connection() as conn:
+        rows = list_client_logs(conn, limit)
+    return {
+        "logs": [
+            {
+                "id": row["id"],
+                "created_at": row["created_at"],
+                "event": row["event"],
+                "detail": json.loads(row["detail"]) if row["detail"] else {},
+            }
+            for row in rows
+        ]
+    }
+
+
+@app.get("/admin/client-logs/download")
+def download_client_logs():
+    with connection() as conn:
+        rows = list_client_logs(conn, limit=5000)
+    # Chronological (oldest first) for the download, unlike the viewer's newest-first list -
+    # that's the order a log file is normally read in.
+    lines = [
+        f"{row['created_at']}  {row['event']}  {row['detail']}"
+        for row in reversed(rows)
+    ]
+    return Response(
+        content="\n".join(lines),
+        media_type="text/plain",
+        headers={"Content-Disposition": "attachment; filename=pan-client-logs.txt"},
+    )
+
+
+@app.get("/admin/recommendations")
+def recommendations_endpoint():
+    """Library-improvement suggestions (backend/recommend.py) from the most recent reindex -
+    there's no separate refresh here; see that module's docstring for why."""
+    with connection() as conn:
+        rows = list_recommendations(conn)
+    return {
+        "generated_at": rows[0]["created_at"] if rows else None,
+        "recommendations": [
+            {
+                "category": row["category"],
+                "artist": row["artist"],
+                "reasoning": row["reasoning"],
+                "detail": json.loads(row["detail"]) if row["detail"] else None,
+            }
+            for row in rows
+        ],
+    }
 
 
 @app.post("/admin/reindex")

@@ -21,6 +21,13 @@
       <button id="reindex-btn">Reindex library</button>
       <span id="reindex-status"></span>
       <button id="missing-metadata-btn" title="Tracks with no title/artist - unfindable by search">Needs attention</button>
+      <button id="client-logs-btn" title="Recent player events (play/pause/ended/stalled/...) - for debugging playback issues">Client logs</button>
+      <div id="client-logs-panel" hidden>
+        <a id="client-logs-download" href="/admin/client-logs/download" download="pan-client-logs.txt">Download</a>
+        <pre id="client-logs-output"></pre>
+      </div>
+      <button id="recommendations-btn" title="Library-improvement suggestions from your listening history, refreshed each reindex">Recommendations</button>
+      <div id="recommendations-panel" hidden></div>
     </div>
   </header>
 

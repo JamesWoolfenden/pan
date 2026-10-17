@@ -81,7 +81,35 @@ CREATE TABLE IF NOT EXISTS now_playing (
     state TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+-- Player event log (ui/app.js's logClient -> POST /client-log), for debugging playback issues
+-- that only show up on a device there's no devtools access to (e.g. a locked phone). Pruned to
+-- the most recent rows on insert so this can't grow unbounded.
+CREATE TABLE IF NOT EXISTS client_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    event TEXT NOT NULL,
+    detail TEXT
+);
+
+-- Library-improvement suggestions (backend/recommend.py), refreshed as the last step of a
+-- reindex rather than on a separate schedule - "regularly" means "whenever you reindex", no
+-- extra scheduling needed. Append-only (run_id groups one refresh's rows) rather than wholesale
+-- replaced, so past runs stay queryable - that history is what keeps later runs from suggesting
+-- the same artists over and over (see backend/recommend.py's seed rotation/exclusion logic).
+-- The UI only ever shows the latest run_id's rows.
+CREATE TABLE IF NOT EXISTS recommendations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    category TEXT NOT NULL,  -- 'gap_fill' | 'discovery'
+    artist TEXT NOT NULL,
+    reasoning TEXT,
+    detail TEXT  -- JSON, e.g. {"missing_albums": [...]} for gap_fill
+);
 """
+
+CLIENT_LOGS_MAX_ROWS = 2000
 
 
 @dataclass
@@ -153,6 +181,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if "identity_source" not in existing_columns:
         conn.execute(
             "ALTER TABLE tracks ADD COLUMN identity_source TEXT NOT NULL DEFAULT 'auto'"
+        )
+
+    recommendations_columns = {
+        row["name"]
+        for row in conn.execute("PRAGMA table_info(recommendations)").fetchall()
+    }
+    if recommendations_columns and "run_id" not in recommendations_columns:
+        conn.execute(
+            "ALTER TABLE recommendations ADD COLUMN run_id INTEGER NOT NULL DEFAULT 0"
         )
 
 
@@ -557,3 +594,128 @@ def set_now_playing(conn: sqlite3.Connection, state_json: str) -> None:
         """,
         (state_json,),
     )
+
+
+def add_client_log(conn: sqlite3.Connection, event: str, detail_json: str) -> None:
+    conn.execute(
+        "INSERT INTO client_logs (event, detail) VALUES (?, ?)", (event, detail_json)
+    )
+    conn.execute(
+        """
+        DELETE FROM client_logs WHERE id NOT IN (
+            SELECT id FROM client_logs ORDER BY id DESC LIMIT ?
+        )
+        """,
+        (CLIENT_LOGS_MAX_ROWS,),
+    )
+
+
+def list_client_logs(conn: sqlite3.Connection, limit: int = 500) -> list[sqlite3.Row]:
+    """Most recent first, matching how a log viewer is actually read."""
+    return conn.execute(
+        "SELECT id, created_at, event, detail FROM client_logs ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+
+
+def top_loved_artists(
+    conn: sqlite3.Connection, min_plays: int = 3, limit: int = 20
+) -> list[dict]:
+    """Ranks artists by a "love score" (play count x average completion), not just raw play
+    count - an artist sampled often but always skipped early (a dislike signal) should rank
+    below one played less often but nearly always finished. min_plays filters out noise from
+    one-off plays that happen to have landed at 100% or 0%."""
+    rows = conn.execute(
+        """
+        SELECT t.artist AS artist, COUNT(*) AS plays, AVG(pe.percent_listened) AS avg_pct
+        FROM play_events pe JOIN tracks t ON t.id = pe.track_id
+        WHERE t.artist IS NOT NULL AND t.artist != '' AND t.artist != 'Various Artists'
+        GROUP BY t.artist
+        HAVING plays >= ?
+        ORDER BY plays * avg_pct DESC
+        LIMIT ?
+        """,
+        (min_plays, limit),
+    ).fetchall()
+    return [
+        {"artist": row["artist"], "plays": row["plays"], "avg_pct": row["avg_pct"]}
+        for row in rows
+    ]
+
+
+def artist_albums(conn: sqlite3.Connection, artist: str) -> list[str]:
+    rows = conn.execute(
+        "SELECT DISTINCT album FROM tracks WHERE artist = ? AND album IS NOT NULL AND album != ''",
+        (artist,),
+    ).fetchall()
+    return [row["album"] for row in rows]
+
+
+def top_genres_moods(conn: sqlite3.Connection, limit: int = 10) -> dict:
+    genres = conn.execute(
+        "SELECT genre, COUNT(*) AS n FROM tracks WHERE genre IS NOT NULL AND genre != '' "
+        "GROUP BY genre ORDER BY n DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    moods = conn.execute(
+        "SELECT mood, COUNT(*) AS n FROM tracks WHERE mood IS NOT NULL AND mood != '' "
+        "GROUP BY mood ORDER BY n DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return {
+        "genres": [row["genre"] for row in genres],
+        "moods": [row["mood"] for row in moods],
+    }
+
+
+def distinct_artists(conn: sqlite3.Connection) -> set[str]:
+    rows = conn.execute(
+        "SELECT DISTINCT artist FROM tracks WHERE artist IS NOT NULL AND artist != ''"
+    ).fetchall()
+    return {row["artist"].strip().lower() for row in rows}
+
+
+def next_recommendation_run_id(conn: sqlite3.Connection) -> int:
+    row = conn.execute(
+        "SELECT COALESCE(MAX(run_id), 0) + 1 AS n FROM recommendations"
+    ).fetchone()
+    return row["n"]
+
+
+def add_recommendation_run(
+    conn: sqlite3.Connection, run_id: int, items: list[dict]
+) -> None:
+    """Append-only - see the table's own comment in SCHEMA for why."""
+    conn.executemany(
+        "INSERT INTO recommendations (run_id, category, artist, reasoning, detail) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [
+            (
+                run_id,
+                item["category"],
+                item["artist"],
+                item.get("reasoning"),
+                item.get("detail"),
+            )
+            for item in items
+        ],
+    )
+
+
+def list_recommendations(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Only the latest run - history exists for find_gap_fill/find_discovery's own exclusion
+    logic (see backend/recommend.py), not to show stale suggestions in the UI."""
+    return conn.execute(
+        "SELECT id, created_at, category, artist, reasoning, detail FROM recommendations "
+        "WHERE run_id = (SELECT MAX(run_id) FROM recommendations) ORDER BY category, id"
+    ).fetchall()
+
+
+def previously_recommended_artists(conn: sqlite3.Connection, category: str) -> set[str]:
+    """Every artist ever recommended under this category, across all past runs - not just the
+    latest - so a rotating seed (see backend/recommend.py) doesn't just re-surface the same
+    suggestion every few runs once it cycles back around."""
+    rows = conn.execute(
+        "SELECT DISTINCT artist FROM recommendations WHERE category = ?", (category,)
+    ).fetchall()
+    return {row["artist"].strip().lower() for row in rows}

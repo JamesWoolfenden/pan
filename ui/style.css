@@ -121,7 +121,78 @@ header h1 {
 #admin-panel {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+#client-logs-panel {
+  flex-basis: 100%;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+}
+
+#client-logs-download {
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  color: var(--accent);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+#client-logs-download:hover {
+  text-decoration: underline;
+}
+
+#client-logs-output {
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#recommendations-panel {
+  flex-basis: 100%;
+  background: var(--surface-alt);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+#recommendations-panel strong {
+  display: block;
+  margin: 0.6rem 0 0.3rem;
+}
+
+#recommendations-panel strong:first-of-type {
+  margin-top: 0;
+}
+
+.recommendations-generated {
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+}
+
+#recommendations-panel ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+#recommendations-panel li {
+  margin-bottom: 0.5rem;
+}
+
+.recommendation-reasoning {
+  color: var(--text-muted);
+  font-size: 0.8rem;
 }
 
 #search-form {

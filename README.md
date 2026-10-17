@@ -8,6 +8,8 @@ below.
 ![pan: a natural-language search ("upbeat but not metal") against a local library, with queue,
 playlists and stats panels](docs/screenshot.jpg)
 
+![pan installed as a PWA on a phone, mid-queue with genre/mood tags showing](docs/screenshot2.jpg)
+
 ## Cataloging
 
 - **Ingests** your catalog from Plex (`python-plexapi`) and scans a shared drive for anything

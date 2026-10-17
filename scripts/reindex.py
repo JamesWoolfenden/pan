@@ -8,14 +8,17 @@ import logging
 import time
 
 from backend.db import (
+    add_recommendation_run,
     all_tracks,
     connection,
     init_db,
+    next_recommendation_run_id,
     set_audio_features,
     tracks_missing_tags,
 )
 from backend.ingest.merge import run_ingest
 from backend.paths import resolve as resolve_file_path
+from backend.recommend import refresh_recommendations
 from backend.search.embeddings import reindex_embeddings
 from backend.tagging.audio_features import extract_features
 from backend.tagging.cloud_tagger import tag_with_cloud
@@ -100,6 +103,16 @@ def main() -> None:
 
         indexed = reindex_embeddings(conn, all_tracks(conn))
         log.info("Rebuilt embeddings for %d tracks", indexed)
+
+        # "Regularly" just means "on this same cadence" - no separate schedule to maintain.
+        # Only meaningful once there's enough play history to rank anything (see
+        # refresh_recommendations), so early runs on a fresh library correctly produce nothing.
+        recommendations = refresh_recommendations(conn)
+        if recommendations:
+            add_recommendation_run(
+                conn, next_recommendation_run_id(conn), recommendations
+            )
+        conn.commit()
 
 
 if __name__ == "__main__":

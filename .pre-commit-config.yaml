@@ -41,6 +41,12 @@ repos:
         types: [yaml]
   - repo: local
     hooks:
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        types: [python]
       - id: holden
         name: holden scan
         entry: holden scan

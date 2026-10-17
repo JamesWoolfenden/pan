@@ -1,7 +1,18 @@
+import sys
+
+import pytest
+
 from backend.db import Track, connect, init_db, upsert_track
 from scripts.migrate_relative_paths import migrate
 
+# See tests/test_paths.py's windows_only marker - the Windows-style absolute path here only
+# converts to the asserted relative form on an OS where pathlib treats "\" as a separator.
+windows_only = pytest.mark.skipif(
+    sys.platform != "win32", reason="exercises Windows-style absolute path splitting"
+)
 
+
+@windows_only
 def test_migrate_converts_absolute_paths_under_root():
     conn = connect(":memory:")
     init_db(conn)
