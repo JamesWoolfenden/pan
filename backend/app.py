@@ -39,11 +39,13 @@ from backend.db import (
     set_tags,
     set_tags_list,
     set_title,
+    set_youtube_video_id,
     tags_list,
     tracks_missing_identity,
 )
 from backend.info import get_track_background
 from backend.lyrics import get_lyrics
+from backend.youtube import find_match as find_youtube_match
 from backend.paths import resolve as resolve_file_path
 from backend.search.embeddings import reindex_embeddings
 from backend.search.engine import album_tracks as run_album_tracks
@@ -636,6 +638,38 @@ def track_lyrics(track_id: int, refresh: bool = False):
             set_lyrics(conn, track_id, text or "", synced)
             conn.commit()
         return {"text": text, "cached": False, "source": source, "synced": synced}
+
+
+@app.get("/track/{track_id}/video")
+def track_video(track_id: int, refresh: bool = False):
+    """Cached indefinitely once looked up (youtube_video_id column: NULL = not yet looked up,
+    '' = looked up, the text search itself found nothing) - refresh bypasses that cache to retry,
+    e.g. after a mislabeled artist/title got corrected."""
+    with connection() as conn:
+        row = get_track(conn, track_id)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        if row["youtube_video_id"] is not None and not refresh:
+            return {"video_id": row["youtube_video_id"] or None, "cached": True}
+
+        video_id = find_youtube_match(row)
+        set_youtube_video_id(conn, track_id, video_id)
+        conn.commit()
+        return {"video_id": video_id or None, "cached": False}
+
+
+@app.delete("/track/{track_id}/video")
+def dismiss_track_video(track_id: int):
+    """Marks this track as having no good YouTube match - the same state find_match reaches on
+    its own when the text search finds nothing, so a dismissed match behaves identically to that:
+    video mode falls back to audio and won't retry on its own. Doesn't search for the
+    next-best candidate; GET with refresh=true if you want to search again from scratch."""
+    with connection() as conn:
+        if get_track(conn, track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        set_youtube_video_id(conn, track_id, "")
+        conn.commit()
+    return {"status": "ok"}
 
 
 class LyricsUpdate(BaseModel):

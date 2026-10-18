@@ -40,6 +40,9 @@ const prevBtn = document.getElementById("queue-prev");
 const playPauseBtn = document.getElementById("queue-playpause");
 const nextBtn = document.getElementById("queue-next");
 const repeatBtn = document.getElementById("queue-repeat");
+const videoModeBtn = document.getElementById("queue-video-mode");
+const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
+const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const saveBtn = document.getElementById("queue-save");
 const cloneBtn = document.getElementById("queue-clone");
 const addToPlaylistBtn = document.getElementById("queue-add-to-playlist");
@@ -65,6 +68,12 @@ wireCollapseToggle(playlistsToggleBtn, playlistsListEl);
 
 let queue = []; // [{id, title, artist, file_path}]
 let currentIndex = -1;
+// Video mode: not persisted across reloads (a session-only preference, unlike shuffle/repeat) -
+// re-enable it each time rather than complicate queue-state restore with a third playback mode.
+let videoModeEnabled = false;
+let playingViaVideo = false; // true only while the current track is actually showing as video
+let ytPlayer = null;
+let ytApiReadyPromise = null;
 let currentPlaylistId = null; // set when the queue was loaded from a saved playlist (see playTrackList)
 let currentPlaylistName = null;
 let lastResults = [];
@@ -186,7 +195,11 @@ async function showRelated(track, endpointPath, bannerText) {
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
   loadMoreBtn.hidden = true;
-  lastResults = data.results;
+  // Similar/Versions search the whole library with no awareness of what's already queued -
+  // suggesting a track you've already got lined up (e.g. elsewhere in the playlist you're
+  // looking at) isn't useful, so filter those out client-side.
+  const queuedIds = new Set(queue.map((t) => t.id));
+  lastResults = data.results.filter((r) => r.id !== track.id && !queuedIds.has(r.id));
   renderResults(lastResults);
   setContextBanner(bannerText, restorePreviousResults);
 }
@@ -595,16 +608,24 @@ function buildInfoPanel(r) {
   lyricsSaveBtn.className = "save-btn";
   lyricsSaveBtn.hidden = true;
 
-  // No API key needed (unlike the AI/lyrics lookups) - just a YouTube search for artist+title,
-  // same free/keyless spirit as the lrclib fallback. A search results page, not a guaranteed
-  // exact official video, but that's a fine tradeoff for not managing another API key/quota.
+  // Checks for a cached match first (backend/youtube.py) and opens that video directly; falls
+  // back to a plain search (no YOUTUBE_API_KEY configured, or the text search itself found
+  // nothing) rather than leaving the button dead.
   const videoBtn = document.createElement("button");
   videoBtn.textContent = "📺 Video";
-  videoBtn.title = "Search YouTube for this track";
-  videoBtn.addEventListener("click", () => {
-    const query = `${r.artist || ""} ${r.title || ""}`.trim();
-    const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-    window.open(url, "_blank", "noopener");
+  videoBtn.title = "Open this track on YouTube";
+  videoBtn.addEventListener("click", async () => {
+    videoBtn.disabled = true;
+    try {
+      const res = await fetch(`/track/${r.id}/video`);
+      const data = await res.json();
+      const url = data.video_id
+        ? `https://www.youtube.com/watch?v=${data.video_id}`
+        : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${r.artist || ""} ${r.title || ""}`.trim())}`;
+      window.open(url, "_blank", "noopener");
+    } finally {
+      videoBtn.disabled = false;
+    }
   });
 
   // Both buttons sit in a row together - without this, the block-level aboutEl/lyricsEl divs
@@ -1348,6 +1369,139 @@ repeatBtn.addEventListener("click", () => {
   persistQueueState();
 });
 
+videoModeBtn.addEventListener("click", () => {
+  videoModeEnabled = !videoModeEnabled;
+  videoModeBtn.classList.toggle("is-active", videoModeEnabled);
+  videoModeBtn.setAttribute("aria-pressed", String(videoModeEnabled));
+  if (!videoModeEnabled) {
+    stopVideoPlayback();
+  } else if (currentIndex !== -1 && !isCasting()) {
+    playAt(currentIndex); // re-triggers so the current track picks up video mode immediately
+  }
+});
+
+// Loaded lazily (only once video mode is actually used) rather than unconditionally in
+// index.html, so people who never touch video mode don't pay for the extra script.
+function ensureYtApi() {
+  if (ytApiReadyPromise) return ytApiReadyPromise;
+  ytApiReadyPromise = new Promise((resolve) => {
+    if (window.YT && window.YT.Player) return resolve();
+    window.onYouTubeIframeAPIReady = resolve;
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+  return ytApiReadyPromise;
+}
+
+async function ensureYtPlayer() {
+  await ensureYtApi();
+  if (ytPlayer) return ytPlayer;
+  return new Promise((resolve) => {
+    ytPlayer = new YT.Player("youtube-player", {
+      height: "100%",
+      width: "100%",
+      playerVars: { playsinline: 1 },
+      events: {
+        onReady: () => resolve(ytPlayer),
+        onStateChange: onYtStateChange,
+        onError: onYtError,
+      },
+    });
+  });
+}
+
+// Mirrors the <audio> "ended"/"play"/"pause" listeners further down, so repeat/shuffle and the
+// play/pause button icon + Media Session state behave the same regardless of playback mode.
+function onYtStateChange(event) {
+  if (event.data === YT.PlayerState.ENDED) {
+    advanceOnEnded();
+  } else if (event.data === YT.PlayerState.PLAYING) {
+    // Only reveal the video here, on an actual confirmed-playing state - not the moment we start
+    // trying (see tryPlayVideo). A video that's going to hit an embed error (onYtError) usually
+    // does so before ever reaching PLAYING, so waiting for this avoids a flash of a video that's
+    // about to be yanked away and replaced with audio a moment later.
+    if (playingViaVideo) {
+      queuePlayer.hidden = true;
+      youtubePlayerWrap.hidden = false;
+    }
+    playPauseBtn.innerHTML = "&#10074;&#10074;";
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+  } else if (event.data === YT.PlayerState.PAUSED) {
+    playPauseBtn.innerHTML = "&#9654;";
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  }
+}
+
+// The YouTube Data API's "embeddable" flag (used when picking a match - see backend/youtube.py)
+// isn't fully reliable for some official/label-managed uploads: it can say true while the
+// actual player still refuses to play it. There's no way to know this in advance short of
+// actually trying to embed it, so self-heal here instead - 100/101/150 all mean "can never play
+// this here" (removed/private, or embedding disallowed by the owner under one of two historical
+// error codes for the same thing), so dismiss it the same as the manual button and fall back.
+function onYtError(event) {
+  if ([100, 101, 150].includes(event.data)) {
+    logClient("video_error", { youtubeErrorCode: event.data });
+    dismissCurrentVideo();
+  }
+}
+
+function stopVideoPlayback() {
+  playingViaVideo = false;
+  youtubePlayerWrap.hidden = true;
+  queuePlayer.hidden = false;
+  if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+}
+
+// Returns true if this track is now playing as video (caller should skip its normal audio
+// playback), false if video mode found nothing to play at all (caller should fall back).
+async function tryPlayVideo(track) {
+  if (!videoModeEnabled) return false;
+  let data;
+  try {
+    const res = await fetch(`/track/${track.id}/video`);
+    data = await res.json();
+  } catch {
+    return false;
+  }
+  if (!data.video_id) return false;
+
+  const player = await ensureYtPlayer();
+  queuePlayer.pause(); // stop the old track's audio now; the new video/audio choice reveals
+  // itself once we know which one actually works (see onYtStateChange's PLAYING branch)
+  playingViaVideo = true;
+  player.loadVideoById(data.video_id);
+  return true;
+}
+
+// Marks the current track as having no good match (backend remembers it, won't offer this video
+// again) and drops straight to audio - at roughly the same position when there's a real position
+// to resume from (the manual "Not this" button), or from the start when the video never actually
+// played (an onError auto-dismiss, where getCurrentTime() wouldn't mean anything useful).
+async function dismissCurrentVideo() {
+  if (currentIndex === -1 || !queue[currentIndex]) return;
+  const track = queue[currentIndex];
+  const resumeAt = ytPlayer && ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
+  fetch(`/track/${track.id}/video`, { method: "DELETE" }).catch(() => {});
+  stopVideoPlayback();
+  queuePlayer.src = `/stream/${track.id}`;
+  if (resumeAt) {
+    queuePlayer.addEventListener(
+      "loadedmetadata",
+      () => {
+        queuePlayer.currentTime = resumeAt;
+      },
+      { once: true }
+    );
+  }
+  queuePlayer.play();
+  schedulePrefetch(queue[nextQueueIndex(currentIndex)]);
+}
+
+videoDismissBtn.addEventListener("click", () => {
+  dismissCurrentVideo();
+});
+
 const QUEUE_STATE_KEY = "pan_queue_state";
 let lastPersistedTime = 0;
 
@@ -1457,6 +1611,7 @@ function renderQueue() {
   playPauseBtn.disabled = !hasQueue;
   nextBtn.disabled = !hasQueue;
   repeatBtn.disabled = !hasQueue;
+  videoModeBtn.disabled = !hasQueue;
   saveBtn.disabled = !hasQueue;
   cloneBtn.disabled = !hasQueue;
   addToPlaylistBtn.disabled = !hasQueue;
@@ -1503,9 +1658,13 @@ function schedulePrefetch(track) {
 function recordCurrentPlayProgress() {
   if (currentIndex === -1 || !queue[currentIndex]) return;
   const track = queue[currentIndex];
-  const duration = queuePlayer.duration;
+  // When the current track played as video, queuePlayer never actually moved - read progress
+  // from the YouTube player instead, or this would wrongly log it as barely listened to.
+  const usingYt = playingViaVideo && ytPlayer && ytPlayer.getDuration;
+  const duration = usingYt ? ytPlayer.getDuration() : queuePlayer.duration;
   if (!duration || !isFinite(duration)) return;
-  const percentListened = queuePlayer.currentTime / duration;
+  const currentTime = usingYt ? ytPlayer.getCurrentTime() : queuePlayer.currentTime;
+  const percentListened = currentTime / duration;
   fetch(`/track/${track.id}/play-event`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1548,6 +1707,7 @@ function isCasting() {
 // the real transport buttons (prev/play/next) already branch on isCasting() and work correctly.
 function updateCastUi() {
   const casting = isCasting();
+  if (casting) stopVideoPlayback(); // video mode and casting can't both be showing at once
   queuePlayer.hidden = casting;
   castStatusEl.hidden = !casting;
   castVolumeControlsEl.hidden = !casting;
@@ -1720,6 +1880,17 @@ async function playAt(i) {
     return;
   }
 
+  if (await tryPlayVideo(track)) {
+    nowPlayingEl.innerHTML = "";
+    nowPlayingEl.appendChild(buildTrackTitleLine(track));
+    renderNowPlayingActions(track);
+    renderQueue();
+    updateMediaSessionMetadata(track);
+    schedulePrefetch(queue[nextQueueIndex(i)]);
+    return;
+  }
+  stopVideoPlayback();
+
   let src = `/stream/${track.id}`;
   if (nextPrefetch && nextPrefetch.id === track.id) {
     const prefetched = nextPrefetch;
@@ -1809,8 +1980,16 @@ function updateMediaSessionMetadata(track) {
 }
 
 if ("mediaSession" in navigator) {
-  navigator.mediaSession.setActionHandler("play", () => (isCasting() ? castController.playOrPause() : queuePlayer.play()));
-  navigator.mediaSession.setActionHandler("pause", () => (isCasting() ? castController.playOrPause() : queuePlayer.pause()));
+  navigator.mediaSession.setActionHandler("play", () => {
+    if (isCasting()) castController.playOrPause();
+    else if (playingViaVideo && ytPlayer) ytPlayer.playVideo();
+    else queuePlayer.play();
+  });
+  navigator.mediaSession.setActionHandler("pause", () => {
+    if (isCasting()) castController.playOrPause();
+    else if (playingViaVideo && ytPlayer) ytPlayer.pauseVideo();
+    else queuePlayer.pause();
+  });
   navigator.mediaSession.setActionHandler("previoustrack", () => playAt(prevQueueIndex(currentIndex)));
   navigator.mediaSession.setActionHandler("nexttrack", () => playAt(nextQueueIndex(currentIndex)));
 }
@@ -1845,6 +2024,9 @@ playPauseBtn.addEventListener("click", () => {
     playAt(0);
   } else if (isCasting()) {
     castController.playOrPause();
+  } else if (playingViaVideo && ytPlayer) {
+    if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+    else ytPlayer.playVideo();
   } else if (queuePlayer.paused) {
     queuePlayer.play();
   } else {

@@ -345,7 +345,8 @@ header h1 {
 }
 
 #queue-shuffle.is-active,
-#queue-repeat.is-active {
+#queue-repeat.is-active,
+#queue-video-mode.is-active {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: var(--accent-soft);
@@ -369,6 +370,37 @@ header h1 {
   width: 100%;
   height: 32px;
   margin-top: 0.6rem;
+}
+
+#youtube-player-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-top: 0.6rem;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #000;
+}
+
+#youtube-player {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#video-dismiss-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+#video-dismiss-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 #cast-status {

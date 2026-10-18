@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS tracks (
                          -- whenever `lyrics` is NULL/'' too, no separate "looked up" state needed
     tags TEXT,  -- comma-separated freeform tags, manually added - separate from genre/mood, which
                 -- are single-value fields filled by the local/cloud tagger
+    youtube_video_id TEXT,  -- cached YouTube match (backend/youtube.py): NULL = not yet looked
+                            -- up, '' = looked up, the text search itself found nothing - same NULL/''
+                            -- convention as lyrics, so it's only ever looked up once
     favorited_at TEXT,  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
                        -- can be listed most-recently-favorited first
     identity_source TEXT NOT NULL DEFAULT 'auto'  -- 'auto' | 'manual' - 'manual' once title/artist/
@@ -182,6 +185,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute(
             "ALTER TABLE tracks ADD COLUMN identity_source TEXT NOT NULL DEFAULT 'auto'"
         )
+    if "youtube_video_id" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN youtube_video_id TEXT")
 
     recommendations_columns = {
         row["name"]
@@ -329,6 +334,14 @@ def set_audio_features(
 
 def set_ai_background(conn: sqlite3.Connection, track_id: int, text: str) -> None:
     conn.execute("UPDATE tracks SET ai_background=? WHERE id=?", (text, track_id))
+
+
+def set_youtube_video_id(
+    conn: sqlite3.Connection, track_id: int, video_id: str
+) -> None:
+    conn.execute(
+        "UPDATE tracks SET youtube_video_id=? WHERE id=?", (video_id, track_id)
+    )
 
 
 def set_lyrics(

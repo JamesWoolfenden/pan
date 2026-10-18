@@ -36,6 +36,20 @@ playlists and stats panels](docs/screenshot.jpg)
   recently played/added) built from actual play events, not just a counter.
 - Per-track **lyrics** (synced where available) and an AI-generated **"tell me more"**
   background writeup, both cached after first lookup.
+- **Video mode**: toggle the queue to play a YouTube video instead of the local audio file,
+  for whichever tracks have a match. Picks whichever of the top text-search results has a
+  duration closest to the track's own known duration — any plausible mix/edit of the right song
+  beats finding nothing, but this still rules out a wrong video entirely (a cover, a reaction
+  video) landing closer by coincidence. Falls back to normal audio for any track without one.
+  Needs `YOUTUBE_API_KEY` (optional; free Google Cloud key, YouTube Data API v3 enabled — see
+  `.env.example`), looked up lazily per-track like lyrics,
+  never backfilled in bulk (10,000 free quota units/day, a lookup costs 100 — roughly 100
+  tracks/day).
+- **Recommendations**: gap-fill (missing studio albums for artists you already love) and
+  discovery (new adjacent artists) suggestions, refreshed each reindex from actual listening
+  behavior (play count × completion rate, not just genre tags). Discovery is grounded in real
+  Last.fm listener co-occurrence data when `LASTFM_API_KEY` is set (optional, also free),
+  otherwise falls back to asking Claude directly. Viewable/downloadable from the admin panel.
 - **Installable as a PWA** on a phone's home screen, with offline-friendly static assets via a
   service worker.
 

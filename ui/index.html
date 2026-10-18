@@ -43,6 +43,7 @@
           <button id="queue-playpause" disabled>&#9654;</button>
           <button id="queue-next" disabled>&#9654;&#9654;</button>
           <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
+          <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
           <google-cast-launcher id="cast-button"></google-cast-launcher>
           <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
           <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
@@ -52,6 +53,10 @@
       </div>
       <div id="queue-now-playing-actions" hidden></div>
       <audio id="queue-player" controls></audio>
+      <div id="youtube-player-wrap" hidden>
+        <div id="youtube-player"></div>
+        <button id="video-dismiss-btn" title="Not the right video - play audio instead">&#10006; Not this</button>
+      </div>
       <div id="cast-status" hidden></div>
       <div id="cast-progress-controls" hidden>
         <span id="cast-time-current">0:00</span>

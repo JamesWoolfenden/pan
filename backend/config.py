@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     # signup at https://www.last.fm/api/account/create. Recommendations still work without it -
     # falls back to asking Claude directly, see recommend.py.
     lastfm_api_key: str = ""
+    # Grounds backend/youtube.py's video-mode matching in a real duration check rather than
+    # trusting the top text-search result. Free Google Cloud API key with YouTube Data API v3
+    # enabled - note its free quota is 10,000 units/day and a search costs 100, so ~100 track
+    # lookups/day. Looked up lazily per-track (like lyrics/AI background), not backfilled.
+    youtube_api_key: str = ""
     db_path: str = "pan.db"
     embedding_model: str = "all-MiniLM-L6-v2"
     # HTTP Basic Auth gate (backend/app.py) - leave both blank for LAN-only use where the
