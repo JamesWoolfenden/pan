@@ -189,9 +189,13 @@ exempt from the auth gate and the sidecar doesn't change how the NAS sits on you
 `.env` on the NAS are now the live state (play counts, favorites, Chromecast history, your
 filled-in secrets), and your local copies of those two files are stale forks of them. Only
 redeploy code/config (`backend/`, `ui/`, `scripts/`, `Dockerfile`, `docker-compose.yml`,
-`pyproject.toml`, `uv.lock`), and in Container Manager use the project's explicit **Build**
-action afterward, not just Start/Restart — restarting alone reuses the already-built image and
-won't pick up source changes.
+`pyproject.toml`, `uv.lock`, `VERSION`), and in Container Manager use the project's explicit
+**Build** action afterward, not just Start/Restart — restarting alone reuses the already-built
+image and won't pick up source changes. Before packaging, write the current commit into
+`VERSION` (`git rev-parse --short HEAD > VERSION`) so the deployed app can prove which build
+it's actually running — check `curl https://pan.<your-tailnet>.ts.net/version` (no auth needed,
+deliberately) or the small version string next to the "pan" logo in the UI, rather than guessing
+from symptoms whether a deploy actually took.
 
 ### Plain Docker, LAN-only
 

@@ -19,6 +19,7 @@ RUN uv sync --frozen --no-dev
 COPY backend ./backend
 COPY scripts ./scripts
 COPY ui ./ui
+COPY VERSION ./VERSION
 
 EXPOSE 8000
 CMD ["uv", "run", "uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]

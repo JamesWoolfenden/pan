@@ -83,6 +83,15 @@ MEDIA_TYPE_OVERRIDES = {
 
 app = FastAPI(title="pan")
 
+# Read once at startup, not per-request - this only changes on a redeploy, which restarts the
+# process anyway. A short git SHA (plus commit date), written into VERSION by the deploy
+# packaging step - see README "Updating the deployed app" - not anything derived from git at
+# runtime, since a from-archive deployment has no .git directory to read.
+try:
+    VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+except OSError:
+    VERSION = "unknown"
+
 
 @app.middleware("http")
 async def require_auth(request, call_next):
@@ -90,11 +99,14 @@ async def require_auth(request, call_next):
     LAN-only use (`make run`) is unaffected. Once the app is reachable beyond the LAN (e.g. over
     Tailscale), set both so a visitor can't browse the library or trigger the Claude-billed
     reindex. /stream/* is exempt: Chromecast's receiver fetches it directly and can't supply
-    credentials, and it's already LAN-trust-only per the Makefile's port-8080 plain-HTTP path."""
+    credentials, and it's already LAN-trust-only per the Makefile's port-8080 plain-HTTP path.
+    /version is exempt too - harmless to expose, and needs to be checkable without logging in,
+    the whole point being to confirm a deploy actually updated before chasing a phantom bug."""
     if (
         settings.pan_auth_user
         and settings.pan_auth_password
         and not request.url.path.startswith("/stream/")
+        and request.url.path != "/version"
     ):
         valid = False
         header = request.headers.get("authorization", "")
@@ -112,6 +124,11 @@ async def require_auth(request, call_next):
                 status_code=401, headers={"WWW-Authenticate": 'Basic realm="pan"'}
             )
     return await call_next(request)
+
+
+@app.get("/version")
+def version_endpoint():
+    return {"version": VERSION}
 
 
 _reindex_lock = threading.Lock()

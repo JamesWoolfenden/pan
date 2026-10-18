@@ -112,6 +112,12 @@ header h1 {
   font-size: 0.85rem;
 }
 
+#app-version {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  font-family: monospace;
+}
+
 #admin-toggle {
   min-width: 2.2rem;
   padding: 0.35rem 0.6rem;

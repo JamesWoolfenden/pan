@@ -22,6 +22,16 @@ adminToggleBtn.addEventListener("click", () => {
   adminToggleBtn.setAttribute("aria-expanded", String(!adminPanelEl.hidden));
 });
 
+// /version is exempt from auth (see backend/app.py) specifically so this works without a
+// login prompt - the whole point is confirming a deploy actually updated before chasing what
+// looks like a bug but is really just stale code still running.
+fetch("/version")
+  .then((res) => res.json())
+  .then((data) => {
+    document.getElementById("app-version").textContent = data.version;
+  })
+  .catch(() => {});
+
 const queuePlayer = document.getElementById("queue-player");
 const castStatusEl = document.getElementById("cast-status");
 const castVolumeControlsEl = document.getElementById("cast-volume-controls");
