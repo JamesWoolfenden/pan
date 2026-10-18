@@ -65,17 +65,22 @@ def _get(path: str, **params) -> dict:
         return json.loads(resp.read())
 
 
-def find_match(row: sqlite3.Row) -> str:
-    """Returns a video id, or "" only when there's genuinely nothing to go on (no
-    YOUTUBE_API_KEY configured, no artist/title to search with, the text search itself returned
-    zero results, or the lookup failed) - logged, never raised, since this is enrichment for an
-    optional UI feature, not something that should break playback."""
+def rank_matches(row: sqlite3.Row) -> list[str]:
+    """Returns candidate video ids ranked best-first, or [] only when there's genuinely nothing
+    to go on (no YOUTUBE_API_KEY configured, no artist/title to search with, the text search
+    itself returned zero results, or the lookup failed) - logged, never raised, since this is
+    enrichment for an optional UI feature, not something that should break playback.
+
+    Returns the full ranking (not just the winner) because the YouTube Data API's "embeddable"
+    flag isn't fully reliable - a candidate that looks fine can still fail to actually play once
+    embedded. Callers cache the runner-ups (see db.set_youtube_video_id) so a dismiss can try the
+    next-best one without another search.list call (quota is scarce: 100/day on the free tier)."""
     if not settings.youtube_api_key:
-        return ""
+        return []
 
     query = f"{row['artist'] or ''} {row['title'] or ''}".strip()
     if not query:
-        return ""
+        return []
 
     try:
         # A larger pool than strictly needed, since the embeddable filter below can eliminate
@@ -84,22 +89,22 @@ def find_match(row: sqlite3.Row) -> str:
         search = _get("search", part="snippet", type="video", maxResults=8, q=query)
         candidate_ids = [item["id"]["videoId"] for item in search.get("items", [])]
         if not candidate_ids:
-            return ""
+            return []
         details = _get(
             "videos", part="snippet,contentDetails,status", id=",".join(candidate_ids)
         )
     except Exception as exc:
         log.warning("YouTube lookup failed for track %s: %s", row["id"], exc)
-        return ""
+        return []
 
     items = details.get("items", [])
     if not items:
-        return ""
+        return []
 
     # Many official/label-managed uploads (especially the "- Topic" auto-generated channels)
     # have embedding disabled - they play fine on youtube.com but show "Video unavailable"
-    # inside video mode's iframe. Prefer embeddable candidates; only fall back to a
-    # non-embeddable one (still useful for the Info panel's "open on YouTube" button, and video
+    # inside video mode's iframe. Prefer embeddable candidates; only fall back to
+    # non-embeddable ones (still useful for the Info panel's "open on YouTube" button, and video
     # mode's dismiss button is the escape hatch if it turns out broken anyway) when none qualify.
     embeddable = [
         item for item in items if item.get("status", {}).get("embeddable", True)
@@ -108,13 +113,13 @@ def find_match(row: sqlite3.Row) -> str:
 
     # Duration ranks candidates when this track's own duration is known - otherwise (rare: a
     # track whose audio features/metadata extraction hasn't run) there's nothing to rank by, so
-    # just trust the text search's own top result (within the embeddable-preferred pool) rather
+    # just trust the text search's own ordering (within the embeddable-preferred pool) rather
     # than finding nothing.
     if not row["duration_ms"]:
-        return pool[0]["id"]
+        return [item["id"] for item in pool]
 
     target_seconds = row["duration_ms"] / 1000
-    best_id, best_score = pool[0]["id"], float("inf")
+    scored = []
     for item in pool:
         seconds = _parse_duration_seconds(item["contentDetails"]["duration"])
         if seconds is None:
@@ -122,6 +127,6 @@ def find_match(row: sqlite3.Row) -> str:
         score = abs(seconds - target_seconds)
         if _is_official_video(item):
             score -= OFFICIAL_VIDEO_BONUS_SECONDS
-        if score < best_score:
-            best_id, best_score = item["id"], score
-    return best_id
+        scored.append((score, item["id"]))
+    scored.sort(key=lambda pair: pair[0])
+    return [video_id for _, video_id in scored]

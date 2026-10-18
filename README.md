@@ -83,8 +83,14 @@ Edit `.env`:
 ```powershell
 make install   # uv sync
 make reindex   # pull Plex + shared drive, extract features, tag, build search index
-make run       # start the web app at http://localhost:8000
+make run       # start the dev server at https://<your LAN IP>:8000 (self-signed cert)
 ```
+
+This is a **dev/test environment**, not where you'd actually listen day to day once deployed
+(see "Deploying elsewhere" below) — it's fast to iterate against (no NAS round-trip, doesn't
+touch a deployment's live database) but LAN-only. `HOST_IP` is auto-detected fresh on every
+`make run` (the real LAN-facing interface, not a Tailscale/VPN virtual one), so it keeps working
+through DHCP renewals with no manual config.
 
 Or trigger a reindex from the UI itself ("Reindex library" button) — it runs in the
 background and the button shows progress.

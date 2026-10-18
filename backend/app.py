@@ -36,6 +36,7 @@ from backend.db import (
     set_lyrics,
     set_now_playing,
     set_playlist_tracks,
+    set_recommendation_status,
     set_tags,
     set_tags_list,
     set_title,
@@ -45,7 +46,7 @@ from backend.db import (
 )
 from backend.info import get_track_background
 from backend.lyrics import get_lyrics
-from backend.youtube import find_match as find_youtube_match
+from backend.youtube import rank_matches as rank_youtube_matches
 from backend.paths import resolve as resolve_file_path
 from backend.search.embeddings import reindex_embeddings
 from backend.search.engine import album_tracks as run_album_tracks
@@ -294,39 +295,39 @@ def play_event_endpoint(track_id: int, event: PlayEvent):
 
 
 @app.get("/stats/most-played")
-def most_played_endpoint(limit: int = 25):
+def most_played_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": most_played(conn, limit)}
+        return {"results": most_played(conn, limit, offset)}
 
 
 @app.get("/stats/never-played")
-def never_played_endpoint(limit: int = 25):
+def never_played_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": never_played(conn, limit)}
+        return {"results": never_played(conn, limit, offset)}
 
 
 @app.get("/stats/most-skipped")
-def most_skipped_endpoint(limit: int = 25):
+def most_skipped_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": most_skipped(conn, limit)}
+        return {"results": most_skipped(conn, limit, offset)}
 
 
 @app.get("/stats/recently-played")
-def recently_played_endpoint(limit: int = 25):
+def recently_played_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": recently_played(conn, limit)}
+        return {"results": recently_played(conn, limit, offset)}
 
 
 @app.get("/stats/recently-added")
-def recently_added_endpoint(limit: int = 25):
+def recently_added_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": recently_added(conn, limit)}
+        return {"results": recently_added(conn, limit, offset)}
 
 
 @app.get("/stats/favorites")
-def favorites_endpoint(limit: int = 200):
+def favorites_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
-        return {"results": favorites(conn, limit)}
+        return {"results": favorites(conn, limit, offset)}
 
 
 @app.get("/now-playing")
@@ -409,14 +410,30 @@ def recommendations_endpoint():
         "generated_at": rows[0]["created_at"] if rows else None,
         "recommendations": [
             {
+                "id": row["id"],
                 "category": row["category"],
                 "artist": row["artist"],
                 "reasoning": row["reasoning"],
                 "detail": json.loads(row["detail"]) if row["detail"] else None,
+                "status": row["status"],
             }
             for row in rows
         ],
     }
+
+
+class RecommendationStatusUpdate(BaseModel):
+    status: str
+
+
+@app.put("/admin/recommendations/{rec_id}/status")
+def update_recommendation_status(rec_id: int, body: RecommendationStatusUpdate):
+    if body.status not in ("pending", "accepted", "dismissed"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    with connection() as conn:
+        set_recommendation_status(conn, rec_id, body.status)
+        conn.commit()
+    return {"ok": True}
 
 
 @app.post("/admin/reindex")
@@ -644,32 +661,52 @@ def track_lyrics(track_id: int, refresh: bool = False):
 def track_video(track_id: int, refresh: bool = False):
     """Cached indefinitely once looked up (youtube_video_id column: NULL = not yet looked up,
     '' = looked up, the text search itself found nothing) - refresh bypasses that cache to retry,
-    e.g. after a mislabeled artist/title got corrected."""
+    e.g. after a mislabeled artist/title got corrected.
+
+    video_id is for video mode's embedded player - may go empty over time as dismiss works
+    through youtube_candidates (some tracks have every candidate blocked from embedding by a
+    rights holder's Content ID policy, undetectable in advance). watch_id is the original best
+    match regardless, for a direct link to the right video on youtube.com even once video_id
+    has given up - embedding restrictions don't affect watching on YouTube's own site."""
     with connection() as conn:
         row = get_track(conn, track_id)
         if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
         if row["youtube_video_id"] is not None and not refresh:
-            return {"video_id": row["youtube_video_id"] or None, "cached": True}
+            return {
+                "video_id": row["youtube_video_id"] or None,
+                "watch_id": row["youtube_watch_id"] or None,
+                "cached": True,
+            }
 
-        video_id = find_youtube_match(row)
-        set_youtube_video_id(conn, track_id, video_id)
+        ranked = rank_youtube_matches(row)
+        video_id = ranked[0] if ranked else ""
+        set_youtube_video_id(
+            conn, track_id, video_id, json.dumps(ranked[1:]), watch_id=video_id
+        )
         conn.commit()
-        return {"video_id": video_id or None, "cached": False}
+        return {
+            "video_id": video_id or None,
+            "watch_id": video_id or None,
+            "cached": False,
+        }
 
 
 @app.delete("/track/{track_id}/video")
 def dismiss_track_video(track_id: int):
-    """Marks this track as having no good YouTube match - the same state find_match reaches on
-    its own when the text search finds nothing, so a dismissed match behaves identically to that:
-    video mode falls back to audio and won't retry on its own. Doesn't search for the
-    next-best candidate; GET with refresh=true if you want to search again from scratch."""
+    """The current match's actual embed turned out broken (the YouTube API's "embeddable" flag
+    isn't fully reliable - see backend/youtube.py) - tries the next-best candidate from that same
+    lookup (cached in youtube_candidates, so this costs no extra search.list call), or settles on
+    "no good match" once those run out too."""
     with connection() as conn:
-        if get_track(conn, track_id) is None:
+        row = get_track(conn, track_id)
+        if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
-        set_youtube_video_id(conn, track_id, "")
+        candidates = json.loads(row["youtube_candidates"] or "[]")
+        next_id = candidates[0] if candidates else ""
+        set_youtube_video_id(conn, track_id, next_id, json.dumps(candidates[1:]))
         conn.commit()
-    return {"status": "ok"}
+    return {"video_id": next_id or None}
 
 
 class LyricsUpdate(BaseModel):

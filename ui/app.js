@@ -84,10 +84,17 @@ let shuffledOrder = []; // indices into queue, in shuffled playback order (only 
 let repeatMode = "none"; // "none" -> "all" -> "one" -> "none"
 
 const SEARCH_PAGE_SIZE = 25;
+const STATS_PAGE_SIZE = 25;
 let lastQuery = "";
 let searchOffset = 0;
 let searchHasMore = false;
 let previousSearchHasMore = false;
+// Fetches and appends the next page onto whatever's currently in lastResults - set to null
+// for views with no pagination (Similar, Discography, Suggestions, ...), or to loadMoreSearch/
+// a showStats closure for ones that do. Saved/restored alongside previousResults so "back"
+// resumes the right pagination rather than always falling back to search's.
+let loadMoreHandler = null;
+let previousLoadMoreHandler = null;
 
 const HISTORY_KEY = "pan_search_history";
 const MAX_HISTORY = 12;
@@ -164,10 +171,11 @@ form.addEventListener("submit", async (e) => {
   searchOffset = data.results.length;
   searchHasMore = data.results.length === SEARCH_PAGE_SIZE;
   renderResults(lastResults);
+  loadMoreHandler = searchHasMore ? loadMoreSearch : null;
   loadMoreBtn.hidden = !searchHasMore;
 });
 
-loadMoreBtn.addEventListener("click", async () => {
+async function loadMoreSearch() {
   loadMoreBtn.disabled = true;
   loadMoreBtn.textContent = "Loading...";
   const res = await fetch(`/search?q=${encodeURIComponent(lastQuery)}&limit=${SEARCH_PAGE_SIZE}&offset=${searchOffset}`);
@@ -178,7 +186,12 @@ loadMoreBtn.addEventListener("click", async () => {
   renderResults(lastResults);
   loadMoreBtn.disabled = false;
   loadMoreBtn.textContent = "Load more";
+  loadMoreHandler = searchHasMore ? loadMoreSearch : null;
   loadMoreBtn.hidden = !searchHasMore;
+}
+
+loadMoreBtn.addEventListener("click", () => {
+  if (loadMoreHandler) loadMoreHandler();
 });
 
 function showSimilar(track) {
@@ -194,6 +207,8 @@ async function showRelated(track, endpointPath, bannerText) {
   const data = await res.json();
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
+  loadMoreHandler = null;
   loadMoreBtn.hidden = true;
   // Similar/Versions search the whole library with no awareness of what's already queued -
   // suggesting a track you've already got lined up (e.g. elsewhere in the playlist you're
@@ -209,6 +224,8 @@ async function showDiscography(artist) {
   const data = await res.json();
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
+  loadMoreHandler = null;
   loadMoreBtn.hidden = true;
   resultsHeaderEl.hidden = true;
   renderAlbums(data.albums, artist);
@@ -220,6 +237,7 @@ function restorePreviousResults() {
   previousResults = null;
   contextBannerEl.hidden = true;
   searchHasMore = previousSearchHasMore;
+  loadMoreHandler = previousLoadMoreHandler;
   loadMoreBtn.hidden = !searchHasMore;
   renderResults(lastResults);
 }
@@ -497,6 +515,8 @@ async function fetchAlbumTrackIds(artist, album) {
 function playTrackList(results, bannerText, sourcePlaylist = null) {
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
+  loadMoreHandler = null;
   loadMoreBtn.hidden = true;
   lastResults = results;
   renderResults(lastResults);
@@ -619,8 +639,12 @@ function buildInfoPanel(r) {
     try {
       const res = await fetch(`/track/${r.id}/video`);
       const data = await res.json();
-      const url = data.video_id
-        ? `https://www.youtube.com/watch?v=${data.video_id}`
+      // watch_id survives even once video mode has exhausted every embeddable candidate (some
+      // tracks have every one blocked by a rights holder's Content ID policy) - still the right
+      // video to open directly, since that restriction doesn't apply to youtube.com itself.
+      const id = data.watch_id || data.video_id;
+      const url = id
+        ? `https://www.youtube.com/watch?v=${id}`
         : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${r.artist || ""} ${r.title || ""}`.trim())}`;
       window.open(url, "_blank", "noopener");
     } finally {
@@ -937,6 +961,8 @@ async function showByTag(field, value) {
   const data = await res.json();
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
+  loadMoreHandler = null;
   loadMoreBtn.hidden = true;
   lastResults = data.results;
   renderResults(lastResults);
@@ -1453,6 +1479,14 @@ function stopVideoPlayback() {
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
 }
 
+async function loadVideoInPlayer(videoId) {
+  const player = await ensureYtPlayer();
+  queuePlayer.pause(); // stop the old track's audio now; the new video/audio choice reveals
+  // itself once we know which one actually works (see onYtStateChange's PLAYING branch)
+  playingViaVideo = true;
+  player.loadVideoById(videoId);
+}
+
 // Returns true if this track is now playing as video (caller should skip its normal audio
 // playback), false if video mode found nothing to play at all (caller should fall back).
 async function tryPlayVideo(track) {
@@ -1465,24 +1499,34 @@ async function tryPlayVideo(track) {
     return false;
   }
   if (!data.video_id) return false;
-
-  const player = await ensureYtPlayer();
-  queuePlayer.pause(); // stop the old track's audio now; the new video/audio choice reveals
-  // itself once we know which one actually works (see onYtStateChange's PLAYING branch)
-  playingViaVideo = true;
-  player.loadVideoById(data.video_id);
+  await loadVideoInPlayer(data.video_id);
   return true;
 }
 
-// Marks the current track as having no good match (backend remembers it, won't offer this video
-// again) and drops straight to audio - at roughly the same position when there's a real position
-// to resume from (the manual "Not this" button), or from the start when the video never actually
-// played (an onError auto-dismiss, where getCurrentTime() wouldn't mean anything useful).
+// The current match's actual embed turned out broken - tries the next-best candidate from that
+// same lookup (the backend keeps the runner-ups cached, no extra search cost - see the DELETE
+// endpoint), only falling back to audio once there's truly nothing left to try. The fallback
+// resumes at roughly the same position when there's a real one to resume from (the manual "Not
+// this" button on an actually-playing video); starts from the beginning when the video never
+// actually played (an onError auto-dismiss, where getCurrentTime() wouldn't mean anything).
 async function dismissCurrentVideo() {
   if (currentIndex === -1 || !queue[currentIndex]) return;
   const track = queue[currentIndex];
   const resumeAt = ytPlayer && ytPlayer.getCurrentTime ? ytPlayer.getCurrentTime() : 0;
-  fetch(`/track/${track.id}/video`, { method: "DELETE" }).catch(() => {});
+
+  let data;
+  try {
+    const res = await fetch(`/track/${track.id}/video`, { method: "DELETE" });
+    data = await res.json();
+  } catch {
+    data = { video_id: null };
+  }
+
+  if (data.video_id) {
+    await loadVideoInPlayer(data.video_id);
+    return;
+  }
+
   stopVideoPlayback();
   queuePlayer.src = `/stream/${track.id}`;
   if (resumeAt) {
@@ -2178,6 +2222,8 @@ async function showPlaylistSuggestions(id, name) {
   const data = await res.json();
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
+  loadMoreHandler = null;
   loadMoreBtn.hidden = true;
   lastResults = data.results;
   renderResults(lastResults);
@@ -2189,13 +2235,35 @@ updateShuffleRepeatButtons();
 restoreQueueState();
 
 async function showStats(endpointPath, label) {
-  const res = await fetch(`/stats/${endpointPath}`);
-  const data = await res.json();
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
   loadMoreBtn.hidden = true;
+
+  let statsOffset = 0;
+  const loadMoreStats = async () => {
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.textContent = "Loading...";
+    const res = await fetch(`/stats/${endpointPath}?limit=${STATS_PAGE_SIZE}&offset=${statsOffset}`);
+    const data = await res.json();
+    lastResults = lastResults.concat(data.results);
+    statsOffset += data.results.length;
+    searchHasMore = data.results.length === STATS_PAGE_SIZE;
+    renderResults(lastResults);
+    loadMoreBtn.disabled = false;
+    loadMoreBtn.textContent = "Load more";
+    loadMoreHandler = searchHasMore ? loadMoreStats : null;
+    loadMoreBtn.hidden = !searchHasMore;
+  };
+
+  const res = await fetch(`/stats/${endpointPath}?limit=${STATS_PAGE_SIZE}&offset=0`);
+  const data = await res.json();
   lastResults = data.results;
+  statsOffset = data.results.length;
+  searchHasMore = data.results.length === STATS_PAGE_SIZE;
   renderResults(lastResults);
+  loadMoreHandler = searchHasMore ? loadMoreStats : null;
+  loadMoreBtn.hidden = !searchHasMore;
   setContextBanner(label, restorePreviousResults);
 }
 
@@ -2213,6 +2281,8 @@ document.getElementById("missing-metadata-btn").addEventListener("click", async 
   const data = await res.json();
   previousResults = lastResults;
   previousSearchHasMore = searchHasMore;
+  previousLoadMoreHandler = loadMoreHandler;
+  loadMoreHandler = null;
   loadMoreBtn.hidden = true;
   lastResults = data.results;
   renderResults(lastResults);
@@ -2265,10 +2335,10 @@ function renderRecommendations(data) {
     recommendationsPanel.appendChild(heading);
     const list = document.createElement("ul");
     for (const r of gapFill) {
-      const li = document.createElement("li");
       const albums = (r.detail?.missing_albums || []).join(", ");
-      li.innerHTML = `<strong>${escapeHtml(r.artist)}</strong> — ${escapeHtml(albums)}<br><span class="recommendation-reasoning">${escapeHtml(r.reasoning || "")}</span>`;
-      list.appendChild(li);
+      list.appendChild(
+        buildRecommendationItem(r, `<strong>${escapeHtml(r.artist)}</strong> — ${escapeHtml(albums)}`)
+      );
     }
     recommendationsPanel.appendChild(list);
   }
@@ -2279,12 +2349,39 @@ function renderRecommendations(data) {
     recommendationsPanel.appendChild(heading);
     const list = document.createElement("ul");
     for (const r of discovery) {
-      const li = document.createElement("li");
-      li.innerHTML = `<strong>${escapeHtml(r.artist)}</strong><br><span class="recommendation-reasoning">${escapeHtml(r.reasoning || "")}</span>`;
-      list.appendChild(li);
+      list.appendChild(buildRecommendationItem(r, `<strong>${escapeHtml(r.artist)}</strong>`));
     }
     recommendationsPanel.appendChild(list);
   }
+}
+
+function buildRecommendationItem(r, headlineHtml) {
+  const li = document.createElement("li");
+  li.className = `recommendation-item recommendation-${r.status}`;
+  li.innerHTML = `
+    <div class="recommendation-main">
+      ${headlineHtml}<br><span class="recommendation-reasoning">${escapeHtml(r.reasoning || "")}</span>
+    </div>
+    <div class="recommendation-actions">
+      <button class="recommendation-accept" title="Added to library / agree">✓</button>
+      <button class="recommendation-dismiss" title="Not interested">✕</button>
+    </div>`;
+  li.querySelector(".recommendation-accept").addEventListener("click", () =>
+    setRecommendationStatus(r.id, "accepted", li)
+  );
+  li.querySelector(".recommendation-dismiss").addEventListener("click", () =>
+    setRecommendationStatus(r.id, "dismissed", li)
+  );
+  return li;
+}
+
+async function setRecommendationStatus(id, status, li) {
+  await fetch(`/admin/recommendations/${id}/status`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  li.className = `recommendation-item recommendation-${status}`;
 }
 
 function escapeHtml(str) {

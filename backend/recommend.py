@@ -26,6 +26,7 @@ import anthropic
 from backend.config import settings
 from backend.db import (
     artist_albums,
+    decided_recommendation_artists,
     distinct_artists,
     previously_recommended_artists,
     top_genres_moods,
@@ -134,8 +135,10 @@ def _rotate_seed(
     first doesn't matter here, so just rank order) once the unexplored pool runs out - at that
     point everything loved has been covered at least once, which is fine."""
     already = previously_recommended_artists(conn, category)
-    fresh = [c for c in loved if c["artist"].strip().lower() not in already]
-    covered = [c for c in loved if c["artist"].strip().lower() in already]
+    decided = decided_recommendation_artists(conn, category)
+    pool = [c for c in loved if c["artist"].strip().lower() not in decided]
+    fresh = [c for c in pool if c["artist"].strip().lower() not in already]
+    covered = [c for c in pool if c["artist"].strip().lower() in already]
     random.shuffle(fresh)
     return (fresh + covered)[:n]
 

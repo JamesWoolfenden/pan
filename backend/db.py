@@ -41,6 +41,19 @@ CREATE TABLE IF NOT EXISTS tracks (
     youtube_video_id TEXT,  -- cached YouTube match (backend/youtube.py): NULL = not yet looked
                             -- up, '' = looked up, the text search itself found nothing - same NULL/''
                             -- convention as lyrics, so it's only ever looked up once
+    youtube_candidates TEXT,  -- JSON array of runner-up video ids from that same lookup, ranked
+                              -- best-first, excluding youtube_video_id itself. Lets a dismiss
+                              -- (the current pick's actual embed turned out broken - common, since
+                              -- the YouTube API's "embeddable" flag isn't fully reliable) try the
+                              -- next-best candidate instead of just giving up, with no extra
+                              -- search.list call (quota is scarce: 100/day on the free tier)
+    youtube_watch_id TEXT,  -- the original best match from the initial lookup, set once and never
+                            -- touched by a dismiss (unlike youtube_video_id, which advances/empties
+                            -- as video mode works through youtube_candidates). Some tracks have
+                            -- every embeddable candidate blocked by a rights-holder's Content ID
+                            -- policy (undetectable in advance - see backend/youtube.py) - this
+                            -- still gives the Info panel's "Video" button a direct link to the
+                            -- right video on youtube.com even once video mode has given up on it
     favorited_at TEXT,  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
                        -- can be listed most-recently-favorited first
     identity_source TEXT NOT NULL DEFAULT 'auto'  -- 'auto' | 'manual' - 'manual' once title/artist/
@@ -108,7 +121,8 @@ CREATE TABLE IF NOT EXISTS recommendations (
     category TEXT NOT NULL,  -- 'gap_fill' | 'discovery'
     artist TEXT NOT NULL,
     reasoning TEXT,
-    detail TEXT  -- JSON, e.g. {"missing_albums": [...]} for gap_fill
+    detail TEXT,  -- JSON, e.g. {"missing_albums": [...]} for gap_fill
+    status TEXT NOT NULL DEFAULT 'pending'  -- 'pending' | 'accepted' | 'dismissed'
 );
 """
 
@@ -187,6 +201,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
         )
     if "youtube_video_id" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN youtube_video_id TEXT")
+    if "youtube_candidates" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN youtube_candidates TEXT")
+    if "youtube_watch_id" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN youtube_watch_id TEXT")
 
     recommendations_columns = {
         row["name"]
@@ -195,6 +213,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if recommendations_columns and "run_id" not in recommendations_columns:
         conn.execute(
             "ALTER TABLE recommendations ADD COLUMN run_id INTEGER NOT NULL DEFAULT 0"
+        )
+    if recommendations_columns and "status" not in recommendations_columns:
+        conn.execute(
+            "ALTER TABLE recommendations ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'"
         )
 
 
@@ -337,11 +359,26 @@ def set_ai_background(conn: sqlite3.Connection, track_id: int, text: str) -> Non
 
 
 def set_youtube_video_id(
-    conn: sqlite3.Connection, track_id: int, video_id: str
+    conn: sqlite3.Connection,
+    track_id: int,
+    video_id: str,
+    candidates_json: str = "[]",
+    watch_id: str | None = None,
 ) -> None:
-    conn.execute(
-        "UPDATE tracks SET youtube_video_id=? WHERE id=?", (video_id, track_id)
-    )
+    """watch_id is only passed on a fresh lookup (not a dismiss's advance through
+    youtube_candidates) - see youtube_watch_id's own comment in SCHEMA for why it's a separate,
+    never-overwritten field once set."""
+    if watch_id is not None:
+        conn.execute(
+            "UPDATE tracks SET youtube_video_id=?, youtube_candidates=?, youtube_watch_id=? "
+            "WHERE id=?",
+            (video_id, candidates_json, watch_id, track_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE tracks SET youtube_video_id=?, youtube_candidates=? WHERE id=?",
+            (video_id, candidates_json, track_id),
+        )
 
 
 def set_lyrics(
@@ -719,9 +756,15 @@ def list_recommendations(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     """Only the latest run - history exists for find_gap_fill/find_discovery's own exclusion
     logic (see backend/recommend.py), not to show stale suggestions in the UI."""
     return conn.execute(
-        "SELECT id, created_at, category, artist, reasoning, detail FROM recommendations "
+        "SELECT id, created_at, category, artist, reasoning, detail, status FROM recommendations "
         "WHERE run_id = (SELECT MAX(run_id) FROM recommendations) ORDER BY category, id"
     ).fetchall()
+
+
+def set_recommendation_status(
+    conn: sqlite3.Connection, rec_id: int, status: str
+) -> None:
+    conn.execute("UPDATE recommendations SET status=? WHERE id=?", (status, rec_id))
 
 
 def previously_recommended_artists(conn: sqlite3.Connection, category: str) -> set[str]:
@@ -730,5 +773,16 @@ def previously_recommended_artists(conn: sqlite3.Connection, category: str) -> s
     suggestion every few runs once it cycles back around."""
     rows = conn.execute(
         "SELECT DISTINCT artist FROM recommendations WHERE category = ?", (category,)
+    ).fetchall()
+    return {row["artist"].strip().lower() for row in rows}
+
+
+def decided_recommendation_artists(conn: sqlite3.Connection, category: str) -> set[str]:
+    """Artists explicitly accepted or dismissed under this category - excluded from future
+    candidate generation entirely (see backend/recommend.py's _rotate_seed), unlike a merely
+    "already suggested" artist which can still resurface once the fresh pool runs dry."""
+    rows = conn.execute(
+        "SELECT DISTINCT artist FROM recommendations WHERE category = ? AND status != 'pending'",
+        (category,),
     ).fetchall()
     return {row["artist"].strip().lower() for row in rows}

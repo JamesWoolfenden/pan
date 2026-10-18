@@ -166,12 +166,12 @@ header h1 {
   font-size: 0.85rem;
 }
 
-#recommendations-panel strong {
+#recommendations-panel > strong {
   display: block;
   margin: 0.6rem 0 0.3rem;
 }
 
-#recommendations-panel strong:first-of-type {
+#recommendations-panel > strong:first-of-type {
   margin-top: 0;
 }
 
@@ -190,9 +190,62 @@ header h1 {
   margin-bottom: 0.5rem;
 }
 
+.recommendation-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.recommendation-main {
+  flex: 1;
+}
+
 .recommendation-reasoning {
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+.recommendation-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.recommendation-actions button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 4px;
+  width: 1.6rem;
+  height: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.recommendation-accept:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.recommendation-dismiss:hover {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.recommendation-item.recommendation-accepted .recommendation-accept {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.recommendation-item.recommendation-dismissed {
+  opacity: 0.5;
+}
+
+.recommendation-item.recommendation-dismissed .recommendation-dismiss {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
 }
 
 #search-form {
