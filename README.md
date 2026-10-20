@@ -197,6 +197,27 @@ it's actually running — check `curl https://pan.<your-tailnet>.ts.net/version`
 deliberately) or the small version string next to the "pan" logo in the UI, rather than guessing
 from symptoms whether a deploy actually took.
 
+Pushing files over `scp`/`rsync` to `/volume1/docker/pan/` (once SSH access is set up, see below)
+works fine as an alternative to File Station for this — just keep the same exclusions (`pan.db`,
+`.env`).
+
+**If you enable DSM's firewall on this NAS**: create your rules under an interface-specific
+profile (e.g. the physical LAN NIC), not the default **"All interfaces"** one. DSM evaluates
+"All interfaces" rules first, and a catch-all Deny there also blocks Docker's own bridge/NAT
+traffic - not just inbound LAN connections - which breaks the `tailscale` container's outbound
+connectivity to Tailscale's DERP/control-plane servers. Symptom: Container Manager's Build fails
+with `failed to start: container is unhealthy` (the `pan` service depends on `tailscale` passing
+its healthcheck, which never happens), and `pan`'s own container log goes silent since it never
+gets to start. Fix is just moving the rules to the LAN-specific interface profile instead.
+
+**SSH access to the NAS itself** (for the above, or general admin) is a separate, deliberate
+step - DSM's SSH toggle alone doesn't restrict who can connect or how. If you set it up: key-only
+auth (`PasswordAuthentication no` in `/etc/ssh/sshd_config`, test the key *before* disabling
+passwords so you don't lock yourself out), and restrict port 22 in the firewall to your LAN
+subnet rather than leaving it open to everything - the NAS host isn't a Tailscale node itself in
+this setup (only the `tailscale` sidecar container is, scoped to its own container), so a
+Tailscale-only restriction on SSH would block it entirely, not just narrow it.
+
 ### Plain Docker, LAN-only
 
 The `Dockerfile` alone also works standalone — `docker build` it and mount your shared drive +
