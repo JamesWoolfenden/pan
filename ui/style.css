@@ -62,7 +62,7 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   max-width: 760px;
   margin: 0 auto;
-  padding: 2rem 1.25rem 4rem;
+  padding: 0 1rem 4rem;
   background: var(--bg);
   color: var(--text);
   line-height: 1.4;
@@ -97,7 +97,12 @@ header {
   display: flex;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 1.75rem;
+  padding: 1rem 0 0.75rem;
+  margin-bottom: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg);
 }
 
 header h1 {
@@ -289,7 +294,7 @@ header h1 {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.4rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   font-size: 0.8rem;
   color: var(--text-faint);
 }
@@ -324,14 +329,14 @@ header h1 {
 
 #queue-panel {
   position: sticky;
-  top: 0;
+  top: 3.25rem;
   z-index: 20;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 1.75rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
 }
 
 #queue-header {
@@ -553,8 +558,8 @@ header h1 {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 0.75rem 1.1rem;
-  margin-bottom: 1.75rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
 }
 
 #playlists-header {
@@ -573,8 +578,9 @@ header h1 {
 #stats-panel {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
 }
 
 #stats-panel > strong {
@@ -604,6 +610,25 @@ header h1 {
 
 #playlists-list li:hover {
   background: var(--surface-alt);
+}
+
+#playlists-list li.is-hidden-playlist {
+  opacity: 0.55;
+  font-style: italic;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  padding: 0.2rem 0.1rem;
+}
+
+.link-btn:hover {
+  color: var(--accent);
+  border: none;
 }
 
 .playlist-actions {
@@ -711,30 +736,40 @@ header h1 {
   font-weight: 600;
 }
 
+/* Dense, border-divided rows in one bordered list (not a stack of individually-boxed/shadowed
+   cards with gaps between them) - the same "pack more rows into the same height" shape as
+   #queue-list/#playlists-list below, just applied to the far more frequently scrolled results
+   list, where the per-card borders/shadows/gaps were costing a full extra row or two per screen
+   on a phone for no readability benefit. */
 #results {
   list-style: none;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 #results li {
   position: relative;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.8rem 2.2rem 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.65rem 2.2rem 0.65rem 1rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem 1rem;
-  transition: border-color 0.15s ease;
+  gap: 0.4rem 1rem;
+  transition: background 0.15s ease;
+}
+
+#results li:last-child {
+  border-bottom: none;
 }
 
 #results li:hover {
-  border-color: var(--accent);
+  background: var(--surface-alt);
 }
 
 #results li > .track-info {
@@ -769,6 +804,19 @@ header h1 {
 .favorite-btn.is-favorite {
   color: var(--danger);
   border-color: var(--danger);
+}
+
+.dislike-btn {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.55rem;
+  color: var(--text-faint);
+  opacity: 0.5;
+}
+
+.dislike-btn.is-disliked {
+  color: var(--danger);
+  border-color: var(--danger);
+  opacity: 1;
 }
 
 .queue-btn.is-queued {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import logging
 import secrets
@@ -8,8 +9,8 @@ import threading
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.art import extract_album_art
@@ -27,26 +28,30 @@ from backend.db import (
     list_client_logs,
     list_playlists,
     list_recommendations,
+    record_app_event,
     record_play_event,
+    record_startup,
     rename_playlist,
     set_ai_background,
     set_album,
     set_artist,
+    set_dislike,
     set_favorite,
     set_lyrics,
     set_now_playing,
+    set_playlist_hidden,
     set_playlist_tracks,
     set_recommendation_status,
     set_tags,
     set_tags_list,
     set_title,
+    set_year,
     set_youtube_video_id,
     tags_list,
     tracks_missing_identity,
 )
 from backend.info import get_track_background
 from backend.lyrics import get_lyrics
-from backend.youtube import rank_matches as rank_youtube_matches
 from backend.paths import resolve as resolve_file_path
 from backend.search.embeddings import reindex_embeddings
 from backend.search.engine import album_tracks as run_album_tracks
@@ -59,6 +64,7 @@ from backend.search.engine import similar as run_similar
 from backend.search.engine import suggest_for_playlist as run_suggest_for_playlist
 from backend.search.engine import versions as run_versions
 from backend.stats import (
+    dislikes,
     favorites,
     most_played,
     most_skipped,
@@ -67,6 +73,7 @@ from backend.stats import (
     recently_played,
 )
 from backend.tagging.cloud_tagger import suggest_tags
+from backend.youtube import rank_matches as rank_youtube_matches
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -117,7 +124,8 @@ async def require_auth(request, call_next):
                 valid = secrets.compare_digest(
                     user, settings.pan_auth_user
                 ) and secrets.compare_digest(password, settings.pan_auth_password)
-            except Exception:
+            except (binascii.Error, UnicodeDecodeError):
+                # The only ways b64decode/.decode("utf-8") can fail on a malformed header.
                 valid = False
         if not valid:
             return Response(
@@ -128,7 +136,7 @@ async def require_auth(request, call_next):
 
 @app.get("/version")
 def version_endpoint():
-    return {"version": VERSION}
+    return {"version": VERSION, **_startup_info}
 
 
 _reindex_lock = threading.Lock()
@@ -137,6 +145,13 @@ _reindex_status = {"running": False, "last_result": None, "error": None}
 
 with connection() as _conn:
     init_db(_conn)
+    _startup_info = record_startup(_conn)
+
+
+@app.on_event("shutdown")
+def _on_shutdown():
+    with connection() as conn:
+        record_app_event(conn, "shutdown")
 
 
 @app.get("/search")
@@ -203,9 +218,9 @@ class PlaylistRename(BaseModel):
 
 
 @app.get("/playlists")
-def list_playlists_endpoint():
+def list_playlists_endpoint(include_hidden: bool = False):
     with connection() as conn:
-        rows = list_playlists(conn)
+        rows = list_playlists(conn, include_hidden=include_hidden)
         return {"playlists": [dict(row) for row in rows]}
 
 
@@ -287,6 +302,20 @@ def rename_playlist_endpoint(playlist_id: int, body: PlaylistRename):
     return {"id": playlist_id, "name": name}
 
 
+class PlaylistHiddenUpdate(BaseModel):
+    hidden: bool
+
+
+@app.patch("/playlists/{playlist_id}/hidden")
+def set_playlist_hidden_endpoint(playlist_id: int, body: PlaylistHiddenUpdate):
+    with connection() as conn:
+        if get_playlist(conn, playlist_id) is None:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        set_playlist_hidden(conn, playlist_id, body.hidden)
+        conn.commit()
+    return {"id": playlist_id, "hidden": body.hidden}
+
+
 @app.delete("/playlists/{playlist_id}")
 def delete_playlist_endpoint(playlist_id: int):
     with connection() as conn:
@@ -345,6 +374,12 @@ def recently_added_endpoint(limit: int = 25, offset: int = 0):
 def favorites_endpoint(limit: int = 25, offset: int = 0):
     with connection() as conn:
         return {"results": favorites(conn, limit, offset)}
+
+
+@app.get("/stats/dislikes")
+def dislikes_endpoint(limit: int = 25, offset: int = 0):
+    with connection() as conn:
+        return {"results": dislikes(conn, limit, offset)}
 
 
 @app.get("/now-playing")
@@ -462,6 +497,8 @@ def trigger_reindex():
         with _reindex_lock:
             _reindex_status["running"] = True
             _reindex_status["error"] = None
+            with connection() as conn:
+                record_app_event(conn, "reindex_start")
             try:
                 from scripts.reindex import main as reindex_main
 
@@ -504,6 +541,7 @@ def missing_metadata_endpoint():
                     "file_path": row["file_path"],
                     "plex_rating_key": row["plex_rating_key"],
                     "favorite": bool(row["favorited_at"]),
+                    "dislike": bool(row["disliked_at"]),
                 }
                 for row in rows
             ]
@@ -537,6 +575,20 @@ def update_favorite(track_id: int, update: FavoriteUpdate):
         set_favorite(conn, track_id, update.favorite)
         conn.commit()
     return {"id": track_id, "favorite": update.favorite}
+
+
+class DislikeUpdate(BaseModel):
+    dislike: bool
+
+
+@app.patch("/track/{track_id}/dislike")
+def update_dislike(track_id: int, update: DislikeUpdate):
+    with connection() as conn:
+        if get_track(conn, track_id) is None:
+            raise HTTPException(status_code=404, detail="Track not found")
+        set_dislike(conn, track_id, update.dislike)
+        conn.commit()
+    return {"id": track_id, "dislike": update.dislike}
 
 
 @app.get("/track/{track_id}/art")
@@ -603,6 +655,7 @@ def track_detail(track_id: int):
         "mood": row["mood"],
         "tags": tags_list(row),
         "favorite": bool(row["favorited_at"]),
+        "dislike": bool(row["disliked_at"]),
         "tag_source": row["tag_source"],
         "tempo": row["tempo"],
         "energy": row["energy"],
@@ -627,9 +680,15 @@ def track_about(track_id: int, refresh: bool = False):
         if row["ai_background"] and not refresh:
             return {"text": row["ai_background"], "cached": True}
 
-        text = get_track_background(row)
+        text, inferred_year = get_track_background(row)
         if text:
             set_ai_background(conn, track_id, text)
+            # The catalog's own `year` only comes from file/Plex metadata (backend/ingest/*),
+            # which is frequently missing - if this writeup was confident enough to state one
+            # (see info.py's YEAR_LINE_RE), backfill it so it's not left stranded in prose where
+            # nothing else (the results list's "(year) · source" line, search, etc.) can see it.
+            if inferred_year and row["year"] is None:
+                set_year(conn, track_id, inferred_year)
             conn.commit()
         return {"text": text, "cached": False}
 

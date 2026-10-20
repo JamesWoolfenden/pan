@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 import struct
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 import sqlite_vec
 
@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS tracks (
                             -- right video on youtube.com even once video mode has given up on it
     favorited_at TEXT,  -- NULL = not a favorite; a timestamp (not just a boolean) so "Favorites"
                        -- can be listed most-recently-favorited first
+    disliked_at TEXT,  -- the opposite of favorited_at, same reasoning - mutually exclusive with
+                       -- it (setting one clears the other), enforced in set_favorite/set_dislike
     identity_source TEXT NOT NULL DEFAULT 'auto'  -- 'auto' | 'manual' - 'manual' once title/artist/
                        -- album has been corrected by hand (or a migration script), so a later
                        -- Plex/local rescan doesn't silently revert it back to the source's own
@@ -67,7 +69,9 @@ CREATE INDEX IF NOT EXISTS idx_tracks_genre ON tracks(genre);
 CREATE TABLE IF NOT EXISTS playlists (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    hidden_at TEXT  -- set to hide a playlist from the default list (e.g. one-off/rarely-used
+                     -- playlists cluttering the panel) without deleting it - see list_playlists
 );
 CREATE TABLE IF NOT EXISTS playlist_tracks (
     playlist_id INTEGER NOT NULL,
@@ -123,6 +127,16 @@ CREATE TABLE IF NOT EXISTS recommendations (
     reasoning TEXT,
     detail TEXT,  -- JSON, e.g. {"missing_albums": [...]} for gap_fill
     status TEXT NOT NULL DEFAULT 'pending'  -- 'pending' | 'accepted' | 'dismissed'
+);
+
+-- Startup/shutdown/reindex-start events, so a gap in uptime (e.g. the NAS deployment going
+-- unreachable) can be diagnosed - was the previous process stopped cleanly or killed, and was a
+-- reindex running at the time - without cross-referencing the container's raw stdout/stderr log
+-- in Container Manager.
+CREATE TABLE IF NOT EXISTS app_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event TEXT NOT NULL,  -- 'startup' | 'shutdown' | 'reindex_start'
+    at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
@@ -205,6 +219,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN youtube_candidates TEXT")
     if "youtube_watch_id" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN youtube_watch_id TEXT")
+    if "disliked_at" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN disliked_at TEXT")
+
+    playlists_columns = {
+        row["name"] for row in conn.execute("PRAGMA table_info(playlists)").fetchall()
+    }
+    if playlists_columns and "hidden_at" not in playlists_columns:
+        conn.execute("ALTER TABLE playlists ADD COLUMN hidden_at TEXT")
 
     recommendations_columns = {
         row["name"]
@@ -335,9 +357,26 @@ def set_album(conn: sqlite3.Connection, track_id: int, album: str) -> None:
 
 
 def set_favorite(conn: sqlite3.Connection, track_id: int, favorite: bool) -> None:
+    # Mutually exclusive with dislike: liking a previously-disliked track clears the dislike,
+    # same as un-liking just clears favorited_at and leaves any dislike alone.
     conn.execute(
-        "UPDATE tracks SET favorited_at = ? WHERE id = ?",
-        (datetime.now(timezone.utc).isoformat() if favorite else None, track_id),
+        "UPDATE tracks SET favorited_at = ?, disliked_at = CASE WHEN ? THEN NULL ELSE disliked_at END WHERE id = ?",
+        (
+            datetime.now(UTC).isoformat() if favorite else None,
+            favorite,
+            track_id,
+        ),
+    )
+
+
+def set_dislike(conn: sqlite3.Connection, track_id: int, dislike: bool) -> None:
+    conn.execute(
+        "UPDATE tracks SET disliked_at = ?, favorited_at = CASE WHEN ? THEN NULL ELSE favorited_at END WHERE id = ?",
+        (
+            datetime.now(UTC).isoformat() if dislike else None,
+            dislike,
+            track_id,
+        ),
     )
 
 
@@ -356,6 +395,10 @@ def set_audio_features(
 
 def set_ai_background(conn: sqlite3.Connection, track_id: int, text: str) -> None:
     conn.execute("UPDATE tracks SET ai_background=? WHERE id=?", (text, track_id))
+
+
+def set_year(conn: sqlite3.Connection, track_id: int, year: int) -> None:
+    conn.execute("UPDATE tracks SET year=? WHERE id=?", (year, track_id))
 
 
 def set_youtube_video_id(
@@ -585,16 +628,29 @@ def add_track_to_playlist(
     )
 
 
-def list_playlists(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+def list_playlists(
+    conn: sqlite3.Connection, include_hidden: bool = False
+) -> list[sqlite3.Row]:
+    where = "" if include_hidden else "WHERE p.hidden_at IS NULL"
     return conn.execute(
-        """
-        SELECT p.id, p.name, p.created_at, COUNT(pt.track_id) AS track_count
+        f"""
+        SELECT p.id, p.name, p.created_at, p.hidden_at, COUNT(pt.track_id) AS track_count
         FROM playlists p
         LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+        {where}
         GROUP BY p.id
         ORDER BY p.created_at DESC
         """
     ).fetchall()
+
+
+def set_playlist_hidden(
+    conn: sqlite3.Connection, playlist_id: int, hidden: bool
+) -> None:
+    conn.execute(
+        "UPDATE playlists SET hidden_at = ? WHERE id = ?",
+        (datetime.now(UTC).isoformat() if hidden else None, playlist_id),
+    )
 
 
 def get_playlist(conn: sqlite3.Connection, playlist_id: int) -> sqlite3.Row | None:
@@ -668,18 +724,55 @@ def list_client_logs(conn: sqlite3.Connection, limit: int = 500) -> list[sqlite3
     ).fetchall()
 
 
+def record_app_event(conn: sqlite3.Connection, event: str) -> None:
+    conn.execute("INSERT INTO app_events (event) VALUES (?)", (event,))
+    conn.commit()
+
+
+def record_startup(conn: sqlite3.Connection) -> dict:
+    """Insert a startup event, reporting whether the previous process shut down cleanly and how
+    long it was down for - lets /version surface unexpected downtime without anyone having to
+    export and read the container's own log."""
+    prev = conn.execute(
+        "SELECT event, at FROM app_events ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    now = datetime.now(UTC)
+    record_app_event(conn, "startup")
+    if prev is None:
+        return {"clean_previous_shutdown": None, "downtime_seconds": None}
+    prev_at = datetime.fromisoformat(prev["at"]).replace(tzinfo=UTC)
+    return {
+        "clean_previous_shutdown": prev["event"] == "shutdown",
+        "downtime_seconds": (now - prev_at).total_seconds(),
+    }
+
+
+def recent_app_events(conn: sqlite3.Connection, limit: int = 20) -> list[sqlite3.Row]:
+    """Most recent first, matching how a log viewer is actually read."""
+    return conn.execute(
+        "SELECT event, at FROM app_events ORDER BY id DESC LIMIT ?", (limit,)
+    ).fetchall()
+
+
 def top_loved_artists(
     conn: sqlite3.Connection, min_plays: int = 3, limit: int = 20
 ) -> list[dict]:
     """Ranks artists by a "love score" (play count x average completion), not just raw play
-    count - an artist sampled often but always skipped early (a dislike signal) should rank
-    below one played less often but nearly always finished. min_plays filters out noise from
-    one-off plays that happen to have landed at 100% or 0%."""
+    count - an artist sampled often but always skipped early (an implicit dislike signal) should
+    rank below one played less often but nearly always finished. min_plays filters out noise from
+    one-off plays that happen to have landed at 100% or 0%. An artist with an explicit dislike
+    on any track is excluded outright - that's a stronger, deliberate signal than a low
+    completion rate, and recommend.py uses this list to seed both gap_fill (suggesting more of
+    an artist's catalog) and discovery (using these artists as the taste-profile anchor), neither
+    of which should be anchored on someone the listener has said they don't like."""
     rows = conn.execute(
         """
         SELECT t.artist AS artist, COUNT(*) AS plays, AVG(pe.percent_listened) AS avg_pct
         FROM play_events pe JOIN tracks t ON t.id = pe.track_id
         WHERE t.artist IS NOT NULL AND t.artist != '' AND t.artist != 'Various Artists'
+            AND t.artist NOT IN (
+                SELECT DISTINCT artist FROM tracks WHERE disliked_at IS NOT NULL
+            )
         GROUP BY t.artist
         HAVING plays >= ?
         ORDER BY plays * avg_pct DESC

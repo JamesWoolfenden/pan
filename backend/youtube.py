@@ -93,7 +93,8 @@ def rank_matches(row: sqlite3.Row) -> list[str]:
         details = _get(
             "videos", part="snippet,contentDetails,status", id=",".join(candidate_ids)
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - network/API/shape errors are all "this lookup
+        # didn't work", and a video match is best-effort enrichment, never worth crashing over.
         log.warning("YouTube lookup failed for track %s: %s", row["id"], exc)
         return []
 

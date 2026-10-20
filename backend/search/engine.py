@@ -499,5 +499,6 @@ def _to_result(row: sqlite3.Row, distance: float) -> dict:
         "file_path": row["file_path"],
         "plex_rating_key": row["plex_rating_key"],
         "favorite": bool(row["favorited_at"]),
+        "dislike": bool(row["disliked_at"]),
         "score": 1 - distance,
     }

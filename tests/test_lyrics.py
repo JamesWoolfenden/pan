@@ -93,7 +93,7 @@ def test_fetch_online_lyrics_retries_with_normalized_artist_after_404(monkeypatc
 
     monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
 
-    text, synced, transient_error = fetch_online_lyrics("Beatles, The", "Some Song")
+    text, _synced, transient_error = fetch_online_lyrics("Beatles, The", "Some Song")
 
     assert text == "lyrics text"
     assert transient_error is False
@@ -109,7 +109,7 @@ def test_fetch_online_lyrics_does_not_retry_when_artist_not_inverted(monkeypatch
 
     monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
 
-    text, synced, transient_error = fetch_online_lyrics("Radiohead", "Some Song")
+    text, _synced, _transient_error = fetch_online_lyrics("Radiohead", "Some Song")
 
     assert text is None
     assert calls == ["Radiohead"]
@@ -124,7 +124,7 @@ def test_fetch_online_lyrics_does_not_retry_on_transient_error(monkeypatch):
 
     monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
 
-    text, synced, transient_error = fetch_online_lyrics("Beatles, The", "Some Song")
+    _text, _synced, transient_error = fetch_online_lyrics("Beatles, The", "Some Song")
 
     assert transient_error is True
     assert calls == ["Beatles, The"]
@@ -145,7 +145,7 @@ def test_fetch_online_lyrics_retries_without_album_after_404(monkeypatch):
 
     monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
 
-    text, synced, transient_error = fetch_online_lyrics(
+    text, _synced, transient_error = fetch_online_lyrics(
         "The Beach Boys", "Wouldn't It Be Nice", "Safari", 146137
     )
 
@@ -187,7 +187,7 @@ def test_fetch_online_lyrics_stops_retrying_once_track_positively_identified(
 
     monkeypatch.setattr("backend.lyrics._lrclib_get", fake_lrclib_get)
 
-    text, synced, transient_error = fetch_online_lyrics(
+    text, _synced, transient_error = fetch_online_lyrics(
         "Some Artist", "Some Title", "Some Album", 100000
     )
 

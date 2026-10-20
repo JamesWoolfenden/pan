@@ -82,6 +82,17 @@ let currentIndex = -1;
 // re-enable it each time rather than complicate queue-state restore with a third playback mode.
 let videoModeEnabled = false;
 let playingViaVideo = false; // true only while the current track is actually showing as video
+// Locking the phone pauses queuePlayer with no code of ours calling .pause() - confirmed via the
+// client log (a "pause" mid-track, then currentTime frozen through several hidden/visible cycles
+// until a manual tap). pauseQueuePlayer() marks our own deliberate pauses (button, track-switch,
+// cast handoff, ...) so the native "pause" listener below can tell those apart from the OS's and
+// only auto-resume the latter once the page is actually foregrounded again.
+let deliberatePause = false;
+let awaitingBackgroundResume = false;
+function pauseQueuePlayer() {
+  deliberatePause = true;
+  queuePlayer.pause();
+}
 let ytPlayer = null;
 let ytApiReadyPromise = null;
 let currentPlaylistId = null; // set when the queue was loaded from a saved playlist (see playTrackList)
@@ -714,6 +725,7 @@ function buildInfoPanel(r) {
       return el;
     });
 
+    let lastActiveIndex = -1;
     syncTimeupdateHandler = () => {
       if (queue[currentIndex] !== r) return;
       const t = queuePlayer.currentTime;
@@ -722,8 +734,19 @@ function buildInfoPanel(r) {
         if (lines[i].time <= t) activeIndex = i;
         else break;
       }
+      if (activeIndex === lastActiveIndex) return;
+      lastActiveIndex = activeIndex;
       lineEls.forEach((el, i) => el.classList.toggle("active", i === activeIndex));
-      if (activeIndex >= 0) lineEls[activeIndex].scrollIntoView({ block: "center", behavior: "smooth" });
+      if (activeIndex < 0) return;
+      // scrollIntoView walks every scrollable ancestor, including the whole page - that was
+      // yanking the page back to the lyrics box on every line change and fighting any attempt to
+      // scroll away (e.g. to keep browsing search results) until the track ended. Scroll just the
+      // lyrics panel itself instead.
+      const activeEl = lineEls[activeIndex];
+      lyricsEl.scrollTo({
+        top: activeEl.offsetTop - lyricsEl.clientHeight / 2 + activeEl.clientHeight / 2,
+        behavior: "smooth",
+      });
     };
     queuePlayer.addEventListener("timeupdate", syncTimeupdateHandler);
   }
@@ -1058,8 +1081,42 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
     favoriteBtn.title = r.favorite ? "Remove from favorites" : "Add to favorites";
     favoriteBtn.textContent = r.favorite ? "♥" : "♡";
     favoriteBtn.classList.toggle("is-favorite", r.favorite);
+    // Mirrors the server's mutual-exclusion: favoriting clears dislike and vice versa.
+    if (r.favorite && r.dislike) {
+      r.dislike = false;
+      dislikeBtn.title = "Dislike";
+      dislikeBtn.classList.remove("is-disliked");
+    }
   });
   buttonHost.appendChild(favoriteBtn);
+
+  const dislikeBtn = document.createElement("button");
+  dislikeBtn.className = "dislike-btn";
+  dislikeBtn.title = r.dislike ? "Remove dislike" : "Dislike";
+  dislikeBtn.textContent = "\u{1F44E}";
+  dislikeBtn.classList.toggle("is-disliked", !!r.dislike);
+  dislikeBtn.addEventListener("click", async () => {
+    const next = !r.dislike;
+    dislikeBtn.disabled = true;
+    const res = await fetch(`/track/${r.id}/dislike`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dislike: next }),
+    });
+    dislikeBtn.disabled = false;
+    if (!res.ok) return;
+    r.dislike = next;
+    dislikeBtn.title = r.dislike ? "Remove dislike" : "Dislike";
+    dislikeBtn.classList.toggle("is-disliked", r.dislike);
+    // Mirrors the server's mutual-exclusion: disliking clears favorite and vice versa.
+    if (r.dislike && r.favorite) {
+      r.favorite = false;
+      favoriteBtn.title = "Add to favorites";
+      favoriteBtn.textContent = "♡";
+      favoriteBtn.classList.remove("is-favorite");
+    }
+  });
+  buttonHost.appendChild(dislikeBtn);
 
   const similarBtn = document.createElement("button");
   similarBtn.textContent = "Similar";
@@ -1278,7 +1335,7 @@ function pauseOtherPlayers(current) {
   for (const audio of resultsEl.querySelectorAll("audio")) {
     if (audio !== current) audio.pause();
   }
-  if (current !== queuePlayer) queuePlayer.pause();
+  if (current !== queuePlayer) pauseQueuePlayer();
 }
 
 playAllBtn.addEventListener("click", () => {
@@ -1491,7 +1548,7 @@ function stopVideoPlayback() {
 
 async function loadVideoInPlayer(videoId) {
   const player = await ensureYtPlayer();
-  queuePlayer.pause(); // stop the old track's audio now; the new video/audio choice reveals
+  pauseQueuePlayer(); // stop the old track's audio now; the new video/audio choice reveals
   // itself once we know which one actually works (see onYtStateChange's PLAYING branch)
   playingViaVideo = true;
   player.loadVideoById(videoId);
@@ -1679,7 +1736,7 @@ function removeFromQueue(i) {
   if (nextPrefetch && queue[i] && queue[i].id === nextPrefetch.id) cancelPrefetch();
   queue.splice(i, 1);
   if (i === currentIndex) {
-    queuePlayer.pause();
+    pauseQueuePlayer();
     currentIndex = -1;
     nowPlayingEl.textContent = "";
     renderNowPlayingActions(null);
@@ -1853,7 +1910,7 @@ function castCurrentTrack() {
   session.loadMedia(new chrome.cast.media.LoadRequest(mediaInfo))
     .then(() => {
       castTrackActive = true;
-      queuePlayer.pause();
+      pauseQueuePlayer();
     })
     .catch((err) => {
       // A rejected loadMedia (receiver can't decode this format/file, or a network hiccup
@@ -2016,7 +2073,17 @@ function logClient(event, detail = {}) {
   }
 }
 
-document.addEventListener("visibilitychange", () => logClient("visibilitychange"));
+document.addEventListener("visibilitychange", () => {
+  logClient("visibilitychange");
+  // The flip side of the "pause" listener's bookkeeping above: once an involuntary (OS-driven)
+  // pause has happened, wait for the page to actually come back to the foreground before trying
+  // to resume - a bare .play() call the instant it's paused tends to be rejected anyway, and this
+  // mirrors the one thing that reliably un-sticks it today (unlocking the phone).
+  if (!document.hidden && awaitingBackgroundResume && queuePlayer.paused) {
+    awaitingBackgroundResume = false;
+    queuePlayer.play().catch(() => logClient("auto_resume_blocked"));
+  }
+});
 for (const evt of ["stalled", "suspend", "waiting", "error"]) {
   queuePlayer.addEventListener(evt, () => logClient(evt));
 }
@@ -2042,7 +2109,7 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("pause", () => {
     if (isCasting()) castController.playOrPause();
     else if (playingViaVideo && ytPlayer) ytPlayer.pauseVideo();
-    else queuePlayer.pause();
+    else pauseQueuePlayer();
   });
   navigator.mediaSession.setActionHandler("previoustrack", () => playAt(prevQueueIndex(currentIndex)));
   navigator.mediaSession.setActionHandler("nexttrack", () => playAt(nextQueueIndex(currentIndex)));
@@ -2053,12 +2120,15 @@ queuePlayer.addEventListener("play", () => {
   playPauseBtn.innerHTML = "&#10074;&#10074;";
   pauseOtherPlayers(queuePlayer);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+  awaitingBackgroundResume = false;
 });
 queuePlayer.addEventListener("pause", () => {
   logClient("pause");
   playPauseBtn.innerHTML = "&#9654;";
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   persistQueueState();
+  if (!deliberatePause && currentIndex !== -1) awaitingBackgroundResume = true;
+  deliberatePause = false;
 });
 queuePlayer.addEventListener("ended", advanceOnEnded);
 
@@ -2084,7 +2154,7 @@ playPauseBtn.addEventListener("click", () => {
   } else if (queuePlayer.paused) {
     queuePlayer.play();
   } else {
-    queuePlayer.pause();
+    pauseQueuePlayer();
   }
 });
 prevBtn.addEventListener("click", () => playAt(prevQueueIndex(currentIndex)));
@@ -2131,7 +2201,7 @@ addToPlaylistBtn.addEventListener("click", () => {
 
 clearBtn.addEventListener("click", () => {
   recordCurrentPlayProgress();
-  queuePlayer.pause();
+  pauseQueuePlayer();
   queuePlayer.removeAttribute("src");
   cancelPrefetch();
   if (activeBlobUrl) {
@@ -2151,20 +2221,29 @@ clearBtn.addEventListener("click", () => {
   }
 });
 
+// Session-only, like videoModeEnabled - reopens collapsed each load rather than persisting a
+// "show clutter" preference across visits.
+let showHiddenPlaylists = false;
+
 async function loadPlaylists() {
-  const res = await fetch("/playlists");
+  // Always fetch the full set (not just when showHiddenPlaylists is on) so the "N hidden" count
+  // below is available without a second round-trip when the toggle is clicked.
+  const res = await fetch("/playlists?include_hidden=true");
   const data = await res.json();
   renderPlaylists(data.playlists);
 }
 
 function renderPlaylists(playlists) {
   playlistsListEl.innerHTML = "";
-  if (!playlists.length) {
+  const hidden = playlists.filter((p) => p.hidden_at);
+  const visible = showHiddenPlaylists ? playlists : playlists.filter((p) => !p.hidden_at);
+
+  if (!visible.length) {
     playlistsListEl.innerHTML = "<li>No saved playlists yet.</li>";
-    return;
   }
-  for (const p of playlists) {
+  for (const p of visible) {
     const li = document.createElement("li");
+    if (p.hidden_at) li.classList.add("is-hidden-playlist");
 
     const label = document.createElement("span");
     label.textContent = `${p.name} (${p.track_count} track${p.track_count === 1 ? "" : "s"})`;
@@ -2180,6 +2259,20 @@ function renderPlaylists(playlists) {
     suggestBtn.title = `Find more tracks like "${p.name}"`;
     suggestBtn.addEventListener("click", () => showPlaylistSuggestions(p.id, p.name));
     actions.appendChild(suggestBtn);
+
+    const hideBtn = document.createElement("button");
+    hideBtn.textContent = p.hidden_at ? "\u{1F441}‍\u{1F5E8}" : "\u{1F441}";
+    hideBtn.title = p.hidden_at ? "Unhide playlist" : "Hide playlist from this list";
+    hideBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await fetch(`/playlists/${p.id}/hidden`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hidden: !p.hidden_at }),
+      });
+      loadPlaylists();
+    });
+    actions.appendChild(hideBtn);
 
     const renameBtn = document.createElement("button");
     renameBtn.className = "rename-btn";
@@ -2215,6 +2308,21 @@ function renderPlaylists(playlists) {
     li.appendChild(actions);
 
     playlistsListEl.appendChild(li);
+  }
+
+  if (hidden.length) {
+    const toggleLi = document.createElement("li");
+    const toggleBtn = document.createElement("button");
+    toggleBtn.className = "link-btn";
+    toggleBtn.textContent = showHiddenPlaylists
+      ? "Hide hidden playlists"
+      : `Show ${hidden.length} hidden playlist${hidden.length === 1 ? "" : "s"}`;
+    toggleBtn.addEventListener("click", () => {
+      showHiddenPlaylists = !showHiddenPlaylists;
+      renderPlaylists(playlists);
+    });
+    toggleLi.appendChild(toggleBtn);
+    playlistsListEl.appendChild(toggleLi);
   }
 }
 
@@ -2280,6 +2388,7 @@ async function showStats(endpointPath, label) {
 document.getElementById("stats-recently-played").addEventListener("click", () => showStats("recently-played", "Recently played"));
 document.getElementById("stats-recently-added").addEventListener("click", () => showStats("recently-added", "Recently added"));
 document.getElementById("stats-favorites").addEventListener("click", () => showStats("favorites", "Favorites"));
+document.getElementById("stats-dislikes").addEventListener("click", () => showStats("dislikes", "Disliked"));
 document.getElementById("stats-most-played").addEventListener("click", () => showStats("most-played", "Most played"));
 document.getElementById("stats-most-skipped").addEventListener("click", () => showStats("most-skipped", "Most skipped"));
 document.getElementById("stats-never-played").addEventListener("click", () => showStats("never-played", "Never played"));

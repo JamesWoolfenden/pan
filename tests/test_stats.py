@@ -3,10 +3,13 @@ from backend.db import (
     connect,
     init_db,
     record_play_event,
+    set_dislike,
     set_favorite,
+    top_loved_artists,
     upsert_track,
 )
 from backend.stats import (
+    dislikes,
     favorites,
     most_played,
     most_skipped,
@@ -16,14 +19,14 @@ from backend.stats import (
 )
 
 
-def _track(conn, title, file_path="Z:\\music\\x.mp3"):
+def _track(conn, title, file_path="Z:\\music\\x.mp3", artist="Artist"):
     return upsert_track(
         conn,
         Track(
             external_id=title,
             source="local",
             title=title,
-            artist="Artist",
+            artist=artist,
             file_path=file_path,
         ),
     )
@@ -186,3 +189,62 @@ def test_set_favorite_can_be_toggled_off():
     conn.commit()
 
     assert favorites(conn) == []
+
+
+def test_dislikes_lists_only_disliked_tracks_most_recent_first():
+    conn = connect(":memory:")
+    init_db(conn)
+    disliked_first = _track(conn, "Disliked First")
+    disliked_second = _track(conn, "Disliked Second")
+    liked = _track(conn, "Liked")
+    conn.commit()
+    set_dislike(conn, disliked_first, True)
+    conn.commit()
+    set_dislike(conn, disliked_second, True)
+    conn.commit()
+
+    results = dislikes(conn)
+
+    ids = [r["id"] for r in results]
+    assert ids == [disliked_second, disliked_first]
+    assert liked not in ids
+    assert all(r["dislike"] for r in results)
+
+
+def test_favorite_and_dislike_are_mutually_exclusive():
+    conn = connect(":memory:")
+    init_db(conn)
+    track = _track(conn, "Track")
+    conn.commit()
+
+    set_favorite(conn, track, True)
+    conn.commit()
+    set_dislike(conn, track, True)
+    conn.commit()
+
+    assert favorites(conn) == []
+    assert len(dislikes(conn)) == 1
+
+    set_favorite(conn, track, True)
+    conn.commit()
+
+    assert dislikes(conn) == []
+    assert len(favorites(conn)) == 1
+
+
+def test_top_loved_artists_excludes_disliked_artists():
+    conn = connect(":memory:")
+    init_db(conn)
+    loved = _track(conn, "Loved Song", artist="Loved Artist")
+    disliked = _track(conn, "Disliked Song", artist="Disliked Artist")
+    conn.commit()
+    for _ in range(3):
+        record_play_event(conn, loved, 1.0)
+        record_play_event(conn, disliked, 1.0)
+    set_dislike(conn, disliked, True)
+    conn.commit()
+
+    results = top_loved_artists(conn, min_plays=3)
+
+    artists = [r["artist"] for r in results]
+    assert artists == ["Loved Artist"]

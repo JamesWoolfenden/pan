@@ -9,6 +9,7 @@ from backend.db import (
     init_db,
     list_playlists,
     rename_playlist,
+    set_playlist_hidden,
     set_playlist_tracks,
     upsert_track,
 )
@@ -134,6 +135,37 @@ def test_set_playlist_tracks_replaces_the_full_list_and_order():
     conn.commit()
 
     assert get_playlist_track_ids(conn, playlist_id) == [ids[3], ids[1]]
+
+
+def test_list_playlists_excludes_hidden_by_default():
+    conn = connect(":memory:")
+    init_db(conn)
+    create_playlist(conn, "Shown", [])
+    tucked_away = create_playlist(conn, "Tucked away", [])
+    conn.commit()
+    set_playlist_hidden(conn, tucked_away, True)
+    conn.commit()
+
+    names = {row["name"] for row in list_playlists(conn)}
+
+    assert names == {"Shown"}
+    all_names = {row["name"] for row in list_playlists(conn, include_hidden=True)}
+    assert all_names == {"Shown", "Tucked away"}
+
+
+def test_set_playlist_hidden_can_be_toggled_off():
+    conn = connect(":memory:")
+    init_db(conn)
+    playlist_id = create_playlist(conn, "Mix", [])
+    conn.commit()
+    set_playlist_hidden(conn, playlist_id, True)
+    conn.commit()
+    set_playlist_hidden(conn, playlist_id, False)
+    conn.commit()
+
+    names = {row["name"] for row in list_playlists(conn)}
+
+    assert names == {"Mix"}
 
 
 def test_set_playlist_tracks_can_empty_a_playlist():

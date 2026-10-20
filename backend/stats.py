@@ -22,6 +22,7 @@ def _to_stat_result(row: sqlite3.Row) -> dict:
         "avg_percent_listened": row["avg_percent"] if "avg_percent" in keys else None,
         "last_played_at": row["last_played_at"] if "last_played_at" in keys else None,
         "favorite": bool(row["favorited_at"]) if "favorited_at" in keys else False,
+        "dislike": bool(row["disliked_at"]) if "disliked_at" in keys else False,
         "tags": tags_list(row) if "tags" in keys else [],
     }
 
@@ -106,6 +107,16 @@ def favorites(
     rows = conn.execute(
         "SELECT * FROM tracks WHERE favorited_at IS NOT NULL "
         "ORDER BY favorited_at DESC, id DESC LIMIT ? OFFSET ?",
+        (limit, offset),
+    ).fetchall()
+    return [_to_stat_result(row) for row in rows]
+
+
+def dislikes(conn: sqlite3.Connection, limit: int = 200, offset: int = 0) -> list[dict]:
+    """Disliked tracks, most recently disliked first - mirrors favorites()."""
+    rows = conn.execute(
+        "SELECT * FROM tracks WHERE disliked_at IS NOT NULL "
+        "ORDER BY disliked_at DESC, id DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
     return [_to_stat_result(row) for row in rows]

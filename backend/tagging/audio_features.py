@@ -44,7 +44,9 @@ def extract_features(file_path: str | Path) -> dict | None:
     audio file. Returns None if the file can't be loaded (missing, corrupt, unreadable)."""
     try:
         y, sr = librosa.load(file_path, sr=22050, mono=True, duration=60)
-    except Exception:
+    except Exception:  # noqa: BLE001 - soundfile/audioread's failure modes aren't a stable,
+        # enumerable set (format/codec/corruption errors vary); the fallback below needs to run
+        # regardless of which one it was, and the final except below is the real backstop.
         try:
             y, sr = _load_with_audioread(file_path, sr=22050, mono=True, duration=60)
         except Exception:

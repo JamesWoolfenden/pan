@@ -38,7 +38,7 @@ def similar_artists(artist: str, limit: int = 10) -> list[dict]:
     try:
         with urllib.request.urlopen(f"{API_URL}?{params}", timeout=10) as resp:
             data = json.loads(resp.read())
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - deliberately broad, see docstring: never raised
         log.warning("Last.fm similar-artists lookup failed for %r: %s", artist, exc)
         return []
 
