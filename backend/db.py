@@ -618,13 +618,18 @@ def set_playlist_tracks(
 def add_track_to_playlist(
     conn: sqlite3.Connection, playlist_id: int, track_id: int
 ) -> None:
-    next_position = conn.execute(
-        "SELECT COALESCE(MAX(position) + 1, 0) AS n FROM playlist_tracks WHERE playlist_id = ?",
-        (playlist_id,),
-    ).fetchone()["n"]
+    # One statement, not a separate SELECT MAX(position) followed by an INSERT - two concurrent
+    # adds to the same playlist (e.g. clicking "+ Playlist" on two tracks in quick succession)
+    # could otherwise both read the same max position before either commits, then both try to
+    # insert it, tripping the (playlist_id, position) unique constraint with a 500. The subquery
+    # runs inside the INSERT's own implicit write transaction, so the read and write are atomic
+    # against another connection doing the same thing.
     conn.execute(
-        "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)",
-        (playlist_id, track_id, next_position),
+        """
+        INSERT INTO playlist_tracks (playlist_id, track_id, position)
+        SELECT ?, ?, COALESCE(MAX(position) + 1, 0) FROM playlist_tracks WHERE playlist_id = ?
+        """,
+        (playlist_id, track_id, playlist_id),
     )
 
 
