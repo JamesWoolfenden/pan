@@ -163,8 +163,36 @@ def _dedupe_by_song(rows: list[sqlite3.Row], limit: int) -> list[sqlite3.Row]:
     ]
 
 
+def _literal_title_matches(
+    conn: sqlite3.Connection, query: str, candidate_ids: set[int] | None
+) -> list[int]:
+    """Track ids whose title or artist literally contains the query text. track_text()
+    deliberately excludes title from what gets embedded (see embeddings.py), so a query that's
+    just a song's own title - especially a one-off invented word like "Baddadan" or a short
+    phrase like "Greece 2000" that doesn't also appear in the artist/album/genre/mood/tags text
+    - can have no real signal in the embedding and rank arbitrarily low. This catches those by
+    falling back to a plain substring match, used as a top-ranked supplement alongside the
+    semantic results rather than a replacement for them."""
+    query = query.strip()
+    if not query:
+        return []
+    sql = "SELECT id FROM tracks WHERE (title LIKE ? OR artist LIKE ?)"
+    params: list = [f"%{query}%", f"%{query}%"]
+    if candidate_ids is not None:
+        if not candidate_ids:
+            return []
+        sql += f" AND id IN ({','.join('?' * len(candidate_ids))})"
+        params.extend(candidate_ids)
+    return [row["id"] for row in conn.execute(sql, params).fetchall()]
+
+
 def _search_with_filter(
-    conn: sqlite3.Connection, filt: dict, semantic_query: str, limit: int, offset: int
+    conn: sqlite3.Connection,
+    filt: dict,
+    semantic_query: str,
+    limit: int,
+    offset: int,
+    literal_query: str | None = None,
 ) -> list[dict]:
     candidate_ids = _filtered_candidate_ids(conn, filt)
     query_embedding = embed_text(semantic_query)
@@ -182,6 +210,14 @@ def _search_with_filter(
         vector_limit = (offset + limit) * VECTOR_CANDIDATE_MULTIPLIER
         hits = search_embeddings(conn, query_embedding, limit=vector_limit)
 
+    if literal_query:
+        literal_ids = set(_literal_title_matches(conn, literal_query, candidate_ids))
+        if literal_ids:
+            # Sorted below so that among themselves they still rank by embedding distance, but
+            # ahead of -1.0 that puts every literal match ahead of any pure-semantic one.
+            rest = [(tid, dist) for tid, dist in hits if tid not in literal_ids]
+            hits = [(tid, -1.0) for tid in literal_ids] + rest
+
     ids_in_order = [track_id for track_id, _ in hits]
     distance_by_id = dict(hits)
     rows = get_tracks_by_ids(conn, ids_in_order)
@@ -195,7 +231,9 @@ def search(
     filt = parse_query(query) if is_complex_query(query) else {"semantic_query": query}
     filt = _apply_genre_aliases(query, filt)
     semantic_query = filt.get("semantic_query") or query
-    return _search_with_filter(conn, filt, semantic_query, limit, offset)
+    return _search_with_filter(
+        conn, filt, semantic_query, limit, offset, literal_query=query
+    )
 
 
 _TAG_FILTER_FIELDS = {
