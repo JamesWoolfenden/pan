@@ -596,8 +596,8 @@ header h1 {
 }
 
 .eq-preamp {
-  padding-right: 0.9rem;
-  border-right: 1px solid var(--border);
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--border);
 }
 
 .eq-preamp.collapsed {

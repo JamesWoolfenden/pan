@@ -134,13 +134,6 @@
           <button id="eq-more-toggle" class="link-btn" aria-expanded="false">Preamp/Balance &#9656;</button>
         </div>
         <div class="eq-main-row">
-          <!-- Overall level, not a frequency band - kept visually separate (own fader, no meter
-               column above it) from the EQ_BANDS-driven spectrum block to its right. -->
-          <div class="eq-band eq-preamp collapsed">
-            <span id="eq-preamp-value" class="eq-value">0 dB</span>
-            <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="0" />
-            <label for="eq-preamp">Pre</label>
-          </div>
           <div id="eq-spectrum-block">
             <!-- Live spectrum meter (one bar per EQ_BANDS frequency) and the gain faders below
                  it are both built by app.js's buildEqUi() from the same EQ_BANDS array, as
@@ -148,6 +141,15 @@
                  above its own fader without the two being hand-kept in sync here. -->
             <div id="eq-meter"></div>
             <div id="eq-faders"></div>
+          </div>
+          <!-- Overall level, not a frequency band - kept visually separate (own fader, no meter
+               column above it) from the EQ_BANDS-driven spectrum block to its left, and placed
+               after the bands (read the frequency curve first, then the overall trim applied
+               on top of it) rather than before. -->
+          <div class="eq-band eq-preamp collapsed">
+            <span id="eq-preamp-value" class="eq-value">0 dB</span>
+            <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="0" />
+            <label for="eq-preamp">Pre</label>
           </div>
         </div>
         <div id="eq-balance-row" class="collapsed">
