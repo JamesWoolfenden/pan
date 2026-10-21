@@ -218,6 +218,27 @@ subnet rather than leaving it open to everything - the NAS host isn't a Tailscal
 this setup (only the `tailscale` sidecar container is, scoped to its own container), so a
 Tailscale-only restriction on SSH would block it entirely, not just narrow it.
 
+**Container Manager's Build can go stale**: if `/version` keeps reporting an old commit even
+after Clean + Build, Container Manager is likely reusing its own cached project state rather than
+re-reading `/volume1/docker/pan` from disk - this isn't a Docker layer-cache issue (the
+Dockerfile's `COPY` layers invalidate correctly on content change). The fix is to delete the
+*project* in Container Manager (not the files - `pan.db`/`.env`/`tailscale-state/` live on disk
+independently of the project reference) and recreate it pointing at the same path, forcing a
+genuine rebuild from scratch.
+
+**Driving deploys over SSH without broad docker access**: `/var/run/docker.sock` is `root:root`
+mode `0660` - there's no separate `docker` group to join, so SSH-level `docker`/`docker compose`
+access means either full root-group membership (too broad for a key that's meant to stay
+narrowly scoped) or a `sudoers.d` rule limited to exactly the commands needed. If set up:
+
+```text
+woolfenden ALL=(root) NOPASSWD: /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build --no-cache, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml ps
+```
+
+in `/etc/sudoers.d/pan-deploy` (mode `0440`, validated with `sudo visudo -c`) lets that one SSH
+key run exactly those four commands as root - build, start, read logs, check status - with no
+shell access and no wildcard that could be widened into anything broader.
+
 ### Plain Docker, LAN-only
 
 The `Dockerfile` alone also works standalone — `docker build` it and mount your shared drive +
