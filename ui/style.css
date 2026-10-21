@@ -553,6 +553,11 @@ header h1 {
 
 #queue-volume-row .eq-value {
   min-height: 0; /* not in a .eq-band column stack, so the 2-line reservation doesn't apply here */
+  /* "0%"/"10%"/"100%" are 2-4 characters - without a reserved width, that difference changed this
+     span's own width, and since it shares a flex row with the <audio> scrubber (flex: 1), the
+     scrubber resized to compensate every time the percentage's digit count changed. */
+  display: inline-block;
+  min-width: 2.6em;
 }
 
 #eq-pane-header {
