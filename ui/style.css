@@ -596,16 +596,14 @@ header h1 {
   gap: 0.9rem;
 }
 
-.eq-preamp {
+.eq-preamp,
+.eq-balance {
   padding-left: 0.9rem;
   border-left: 1px solid var(--border);
 }
 
-.eq-preamp.collapsed {
-  display: none;
-}
-
-#eq-balance-row.collapsed {
+.eq-preamp.collapsed,
+.eq-balance.collapsed {
   display: none;
 }
 
@@ -615,24 +613,16 @@ header h1 {
   gap: 0.2rem;
 }
 
-#eq-balance-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.7rem;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  align-self: stretch;
-}
-
 /* Rotary pan/balance control - see the comment above #eq-balance-knob in index.html for why
    this is a custom dial rather than a native range input. -135deg/+135deg (set via JS, see
-   app.js's updateBalanceKnob) is the standard 270-degree sweep for a software knob, straight up
-   at center. */
+   app.js's setEqBalance) is the standard 270-degree sweep for a software knob, straight up at
+   center. Sits in its own .eq-band column (value/control/label, like every other band) rather
+   than a separate row, so it lines up with the rest of the main row instead of floating below it. */
 .eq-knob {
-  width: 2rem;
-  height: 2rem;
+  width: 1.8rem;
+  height: 1.8rem;
   flex-shrink: 0;
+  margin: 0.3rem 0;
   border-radius: 50%;
   background: var(--surface);
   border: 2px solid var(--border);
@@ -658,10 +648,6 @@ header h1 {
   height: 40%;
   background: var(--accent);
   transform: translateX(-50%);
-}
-
-#eq-balance-value {
-  width: 1.8rem;
 }
 
 /* Spectrum meter and faders are sibling rows of equal-width flex columns (see buildEqUi in
@@ -727,16 +713,132 @@ header h1 {
   text-align: center;
 }
 
-/* Rotates the native range input into a vertical fader - the modern, standards-based way to do
-   this (the older -webkit-appearance: slider-vertical has been deprecated in Chrome in favour of
-   this). direction: rtl puts the slider's max end (+12) at the top and min (-12) at the bottom,
-   matching a fader rather than running bottom-to-top. */
-.eq-band input[type="range"] {
-  writing-mode: vertical-lr;
-  direction: rtl;
+/* Vertical fader = a horizontal <input type="range"> rotated -90deg (CSS rotate is clockwise for
+   positive angles, so -90deg turns "max is on the right" into "max is on top", matching a fader
+   rather than needing direction: rtl). This replaced an earlier writing-mode: vertical-lr
+   attempt: that rotated the INPUT ELEMENT'S OWN box correctly (fine for the plain accent-color
+   thumb it shipped with), but once ::-webkit-slider-thumb/::-webkit-slider-runnable-track were
+   custom-styled, their width/height stopped mapping onto the rotated axes predictably - the thumb
+   rendered as a static blob disconnected from the actual value/position. Rotating via transform
+   instead keeps the input's internal layout genuinely horizontal (thumb/track styled with their
+   normal, predictable semantics) and only turns the rendered result vertical, which is the
+   standard reliable recipe for a custom-styled vertical slider.
+   --eq-fader-len is set once per .eq-fader-wrap (overridden for desktop further down) and read by
+   both the wrap's own height and the rotated input's pre-rotation width, so the two can't drift
+   out of sync at a breakpoint. */
+.eq-fader-wrap {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: var(--eq-fader-len, 64px);
+}
+
+/* Graduated scale beside the rail, independent of the thumb/track above - 5 marks (0/25/50/75/
+   100%) line up with -12/-6/0/+6/+12 dB since every band and the preamp run that same range. */
+.eq-fader-ticks {
+  width: 3px;
+  height: 100%;
+  flex-shrink: 0;
+  opacity: 0.6;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--text-faint) 0,
+    var(--text-faint) 1px,
+    transparent 1px,
+    transparent 25%
+  );
+}
+
+.eq-fader-rail {
+  position: relative;
   width: 6px;
-  height: 64px;
-  accent-color: var(--accent);
+  height: 100%;
+  flex-shrink: 0;
+}
+
+/* The groove, drawn on this real element rather than the input's own ::-webkit-slider-
+   runnable-track - that pseudo-element's background reliably failed to paint at all (tested with
+   solid red: still invisible) despite ::-webkit-slider-thumb working fine right below it, so a
+   plain div behind the (transparent-background) input sidesteps whatever that was. Sits behind
+   the input in the same stacking context (painted first, DOM order), the cap rendering on top. */
+.eq-fader-rail::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.eq-fader-rail input[type="range"] {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--eq-fader-len, 64px);
+  height: 6px;
+  margin: 0;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: grab;
+  accent-color: var(--accent); /* fallback if the custom track/thumb below aren't supported */
+}
+
+.eq-fader-rail input[type="range"]:active {
+  cursor: grabbing;
+}
+
+.eq-fader-rail input[type="range"]::-webkit-slider-runnable-track,
+.eq-fader-rail input[type="range"]::-moz-range-track {
+  background: transparent;
+}
+
+/* The cap: wider than the rail with its own accent-coloured indicator stripe baked into the
+   gradient (pseudo-elements can't nest inside ::-webkit-slider-thumb, so a separate stripe
+   element isn't an option) - a real mixing-console fader cap, not a plain round thumb. Fixed dark
+   tones regardless of theme, the same way a physical cap doesn't relabel itself for dark mode.
+   Pre-rotation, "along the rail" is this horizontal input's width (kept short, 9px) and "across
+   the rail" is its height (kept wide, 18px) - after the -90deg rotation above, those become the
+   cap's visual height and width respectively. */
+.eq-fader-rail input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 9px;
+  height: 18px;
+  margin-top: -7px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(
+    to right,
+    #6b6f74 0%,
+    #6b6f74 42%,
+    var(--accent) 42%,
+    var(--accent) 58%,
+    #3a3d40 58%,
+    #3a3d40 100%
+  );
+}
+
+.eq-fader-rail input[type="range"]::-moz-range-thumb {
+  width: 9px;
+  height: 18px;
+  border-radius: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(
+    to right,
+    #6b6f74 0%,
+    #6b6f74 42%,
+    var(--accent) 42%,
+    var(--accent) 58%,
+    #3a3d40 58%,
+    #3a3d40 100%
+  );
 }
 
 .eq-value {
@@ -1520,8 +1622,8 @@ header h1 {
     height: 110px;
   }
 
-  .eq-band input[type="range"] {
-    height: 180px;
+  .eq-fader-wrap {
+    --eq-fader-len: 180px;
   }
 
   .eq-value,

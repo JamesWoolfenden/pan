@@ -66,7 +66,7 @@ const eqBalanceValueEl = document.getElementById("eq-balance-value");
 const eqPreampToggleBtn = document.getElementById("eq-preamp-toggle");
 const eqBalanceToggleBtn = document.getElementById("eq-balance-toggle");
 const eqPreampColEl = document.querySelector(".eq-preamp");
-const eqBalanceRowEl = document.getElementById("eq-balance-row");
+const eqBalanceColEl = document.querySelector(".eq-balance");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const saveBtn = document.getElementById("queue-save");
@@ -234,10 +234,20 @@ function buildEqUi() {
     slider.value = "0";
     slider.id = `eq-band-${i}`;
     slider.dataset.index = String(i);
+    // See the .eq-fader-wrap comment in style.css for why this is a rail wrapped in a ticks +
+    // rotated-input structure rather than a bare <input>.
+    const faderWrap = document.createElement("div");
+    faderWrap.className = "eq-fader-wrap";
+    const ticks = document.createElement("div");
+    ticks.className = "eq-fader-ticks";
+    const rail = document.createElement("div");
+    rail.className = "eq-fader-rail";
+    rail.appendChild(slider);
+    faderWrap.append(ticks, rail);
     const label = document.createElement("label");
     label.setAttribute("for", slider.id);
     label.textContent = formatEqFreqLabel(freq);
-    band.append(value, slider, label);
+    band.append(value, faderWrap, label);
     eqFadersEl.appendChild(band);
     eqSliders.push(slider);
     eqValueEls.push(value);
@@ -365,7 +375,7 @@ function wireEqExtraToggle(toggleBtn, targetEl, label) {
   });
 }
 wireEqExtraToggle(eqPreampToggleBtn, eqPreampColEl, "Preamp");
-wireEqExtraToggle(eqBalanceToggleBtn, eqBalanceRowEl, "Balance");
+wireEqExtraToggle(eqBalanceToggleBtn, eqBalanceColEl, "Balance");
 
 // Octave-band edges as the geometric mean between each pair of neighbouring centre frequencies -
 // the standard way to split a spectrum into bands, so the meter's bins line up with what each
