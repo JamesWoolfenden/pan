@@ -841,7 +841,16 @@ header h1 {
   );
 }
 
+/* min-height reserves room for 2 lines always, even though most values ("0 dB", "+2 dB") fit on
+   one - a double-digit value ("+12 dB", "-12 dB") is wide enough to wrap in these narrow columns,
+   and without a reserved height that wrap shortens the label by a line, which pushes the whole
+   fader-wrap below it down by that same line height - looking exactly like "the slider drops" at
+   larger values, when actually the fader itself never moved and the label above it did. em-based
+   so it scales correctly with the desktop font-size override instead of needing a second one. */
 .eq-value {
+  display: block;
+  min-height: 2.4em;
+  line-height: 1.2;
   font-size: 0.65rem;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
