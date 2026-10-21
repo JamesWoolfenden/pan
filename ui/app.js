@@ -61,8 +61,10 @@ const eqSavePresetBtn = document.getElementById("eq-save-preset");
 const eqBypassBtn = document.getElementById("eq-bypass");
 const eqPreampSlider = document.getElementById("eq-preamp");
 const eqPreampValueEl = document.getElementById("eq-preamp-value");
-const eqBalanceSlider = document.getElementById("eq-balance");
-const eqMoreToggleBtn = document.getElementById("eq-more-toggle");
+const eqBalanceKnobEl = document.getElementById("eq-balance-knob");
+const eqBalanceValueEl = document.getElementById("eq-balance-value");
+const eqPreampToggleBtn = document.getElementById("eq-preamp-toggle");
+const eqBalanceToggleBtn = document.getElementById("eq-balance-toggle");
 const eqPreampColEl = document.querySelector(".eq-preamp");
 const eqBalanceRowEl = document.getElementById("eq-balance-row");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
@@ -128,6 +130,7 @@ let eqMeterRafId = null;
 // applyEqGains) - a quick A/B against "no EQ", not a second settings profile, so it isn't
 // persisted across reloads any more than videoModeEnabled is.
 let eqBypassed = false;
+let eqBalanceValue = 0; // -100 (full left) .. 100 (full right) - the knob's source of truth
 
 function formatEqFreqLabel(freq) {
   return freq >= 1000 ? `${freq / 1000}k` : String(freq);
@@ -160,8 +163,8 @@ function loadEqState() {
   return { bands: EQ_BANDS.map(() => 0), preamp: 0, balance: 0 };
 }
 
-// Always reads live DOM slider state rather than taking it as a parameter - a single source of
-// truth avoids every call site having to assemble the same object correctly.
+// Always reads live state rather than taking it as a parameter - a single source of truth
+// avoids every call site having to assemble the same object correctly.
 function saveEqState() {
   try {
     localStorage.setItem(
@@ -169,7 +172,7 @@ function saveEqState() {
       JSON.stringify({
         bands: currentBandGains(),
         preamp: Number(eqPreampSlider.value),
-        balance: Number(eqBalanceSlider.value) / 100,
+        balance: eqBalanceValue / 100,
       }),
     );
   } catch {
@@ -350,16 +353,19 @@ eqBypassBtn.addEventListener("click", () => {
   applyEqGains();
 });
 
-// One button hiding two otherwise-unrelated elements (the preamp fader lives in .eq-main-row
-// next to the spectrum block, the balance slider is its own row below) - used far less often
-// than the 10-band curve itself, so they start collapsed (see index.html) rather than always
-// taking up space.
-eqMoreToggleBtn.addEventListener("click", () => {
-  const collapsed = eqPreampColEl.classList.toggle("collapsed");
-  eqBalanceRowEl.classList.toggle("collapsed", collapsed);
-  eqMoreToggleBtn.setAttribute("aria-expanded", String(!collapsed));
-  eqMoreToggleBtn.innerHTML = collapsed ? "Preamp/Balance &#9656;" : "Preamp/Balance &#9662;";
-});
+// Independent toggles for two otherwise-unrelated controls (the preamp fader lives in
+// .eq-main-row next to the spectrum block, the balance knob is its own row below) - both used
+// far less often than the 10-band curve itself, so they start collapsed (see index.html) rather
+// than always taking up space, and showing one doesn't imply showing the other.
+function wireEqExtraToggle(toggleBtn, targetEl, label) {
+  toggleBtn.addEventListener("click", () => {
+    const collapsed = targetEl.classList.toggle("collapsed");
+    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
+    toggleBtn.innerHTML = collapsed ? `${label} &#9656;` : `${label} &#9662;`;
+  });
+}
+wireEqExtraToggle(eqPreampToggleBtn, eqPreampColEl, "Preamp");
+wireEqExtraToggle(eqBalanceToggleBtn, eqBalanceRowEl, "Balance");
 
 // Octave-band edges as the geometric mean between each pair of neighbouring centre frequencies -
 // the standard way to split a spectrum into bands, so the meter's bins line up with what each
@@ -408,7 +414,7 @@ function ensureEqGraph() {
   eqLimiterNode.release.value = 0.25;
 
   eqPannerNode = eqAudioCtx.createStereoPanner();
-  eqPannerNode.pan.value = Number(eqBalanceSlider.value) / 100;
+  eqPannerNode.pan.value = eqBalanceValue / 100;
 
   eqAnalyser = eqAudioCtx.createAnalyser();
   eqAnalyser.fftSize = 2048;
@@ -480,9 +486,58 @@ eqPreampSlider.addEventListener("input", () => {
   saveEqState();
 });
 
-eqBalanceSlider.addEventListener("input", () => {
-  if (eqPannerNode) eqPannerNode.pan.value = Number(eqBalanceSlider.value) / 100;
-  saveEqState();
+// -135deg/+135deg is the standard 270-degree sweep for a software knob (straight up at center).
+const EQ_BALANCE_ROTATION_DEGREES = 135;
+
+function setEqBalance(value, { save = true } = {}) {
+  eqBalanceValue = Math.max(-100, Math.min(100, Math.round(value / 5) * 5));
+  eqBalanceKnobEl.style.transform = `rotate(${(eqBalanceValue / 100) * EQ_BALANCE_ROTATION_DEGREES}deg)`;
+  eqBalanceKnobEl.setAttribute("aria-valuenow", String(eqBalanceValue));
+  eqBalanceValueEl.textContent =
+    eqBalanceValue === 0 ? "C" : eqBalanceValue < 0 ? `L${-eqBalanceValue}` : `R${eqBalanceValue}`;
+  if (eqPannerNode) eqPannerNode.pan.value = eqBalanceValue / 100;
+  if (save) saveEqState();
+}
+
+// Vertical drag rather than tracking the pointer's angle around the knob's center - simpler to
+// get right and the common convention for software knobs (turntable/mixer apps, DAWs) anyway.
+// setPointerCapture keeps move/up events targeting the knob even once the cursor leaves it
+// mid-drag, so a fast drag doesn't "lose" the control.
+let eqBalanceDragStartY = null;
+let eqBalanceDragStartValue = 0;
+
+eqBalanceKnobEl.addEventListener("pointerdown", (e) => {
+  if (eqBalanceKnobEl.tabIndex < 0) return; // disabled (see updateEqAvailability)
+  eqBalanceDragStartY = e.clientY;
+  eqBalanceDragStartValue = eqBalanceValue;
+  eqBalanceKnobEl.setPointerCapture(e.pointerId);
+});
+
+eqBalanceKnobEl.addEventListener("pointermove", (e) => {
+  if (eqBalanceDragStartY === null) return;
+  // 150px of drag covers the full -100..100 range.
+  const delta = eqBalanceDragStartY - e.clientY;
+  setEqBalance(eqBalanceDragStartValue + (delta / 150) * 200);
+});
+
+function endEqBalanceDrag() {
+  eqBalanceDragStartY = null;
+}
+eqBalanceKnobEl.addEventListener("pointerup", endEqBalanceDrag);
+eqBalanceKnobEl.addEventListener("pointercancel", endEqBalanceDrag);
+
+eqBalanceKnobEl.addEventListener("keydown", (e) => {
+  if (eqBalanceKnobEl.tabIndex < 0) return; // disabled (see updateEqAvailability)
+  if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+    e.preventDefault();
+    setEqBalance(eqBalanceValue + 5);
+  } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+    e.preventDefault();
+    setEqBalance(eqBalanceValue - 5);
+  } else if (e.key === "Home") {
+    e.preventDefault();
+    setEqBalance(0);
+  }
 });
 
 eqResetBtn.addEventListener("click", () => {
@@ -490,11 +545,10 @@ eqResetBtn.addEventListener("click", () => {
     s.value = 0;
   });
   eqPreampSlider.value = 0;
-  eqBalanceSlider.value = 0;
   renderEqValues(EQ_BANDS.map(() => 0));
   eqPreampValueEl.textContent = "0 dB";
   applyEqGains();
-  if (eqPannerNode) eqPannerNode.pan.value = 0;
+  setEqBalance(0, { save: false }); // saveEqState() below covers it, no need to double-save
   eqPresetSelectEl.value = "Flat";
   saveEqState();
 });
@@ -507,7 +561,7 @@ eqResetBtn.addEventListener("click", () => {
   renderEqValues(state.bands);
   eqPreampSlider.value = state.preamp;
   eqPreampValueEl.textContent = `${state.preamp > 0 ? "+" : ""}${state.preamp} dB`;
-  eqBalanceSlider.value = Math.round(state.balance * 100);
+  setEqBalance(Math.round(state.balance * 100), { save: false });
   populatePresetSelect(matchingPresetKey(state.bands));
 })();
 
@@ -524,10 +578,13 @@ function updateEqAvailability() {
     s.disabled = queuePlayer.hidden;
   });
   eqPreampSlider.disabled = queuePlayer.hidden;
-  eqBalanceSlider.disabled = queuePlayer.hidden;
   eqPresetSelectEl.disabled = queuePlayer.hidden;
   eqBypassBtn.disabled = queuePlayer.hidden;
   eqSavePresetBtn.disabled = queuePlayer.hidden;
+  // Not a native form control, so there's no .disabled - pointer-events is blocked by the
+  // #eq-panel.eq-unavailable CSS rule, and tabIndex -1 is what actually keeps it out of the
+  // Tab order and blocks the keydown handler below (see its own "disabled" check).
+  eqBalanceKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
 }
 
 let queue = []; // [{id, title, artist, file_path}]

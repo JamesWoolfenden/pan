@@ -558,7 +558,8 @@ header h1 {
   opacity: 0.5;
 }
 
-#eq-panel.eq-unavailable .eq-band input {
+#eq-panel.eq-unavailable .eq-band input,
+#eq-panel.eq-unavailable .eq-knob {
   pointer-events: none;
 }
 
@@ -624,10 +625,43 @@ header h1 {
   align-self: stretch;
 }
 
-#eq-balance {
-  flex: 1;
-  max-width: 14rem;
-  accent-color: var(--accent);
+/* Rotary pan/balance control - see the comment above #eq-balance-knob in index.html for why
+   this is a custom dial rather than a native range input. -135deg/+135deg (set via JS, see
+   app.js's updateBalanceKnob) is the standard 270-degree sweep for a software knob, straight up
+   at center. */
+.eq-knob {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+}
+
+.eq-knob:active {
+  cursor: grabbing;
+}
+
+.eq-knob:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.eq-knob-pointer {
+  position: absolute;
+  left: 50%;
+  top: 0.2rem;
+  width: 2px;
+  height: 40%;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+#eq-balance-value {
+  width: 1.8rem;
 }
 
 /* Spectrum meter and faders are sibling rows of equal-width flex columns (see buildEqUi in
