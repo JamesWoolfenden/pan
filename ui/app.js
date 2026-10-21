@@ -62,6 +62,9 @@ const eqBypassBtn = document.getElementById("eq-bypass");
 const eqPreampSlider = document.getElementById("eq-preamp");
 const eqPreampValueEl = document.getElementById("eq-preamp-value");
 const eqBalanceSlider = document.getElementById("eq-balance");
+const eqMoreToggleBtn = document.getElementById("eq-more-toggle");
+const eqPreampColEl = document.querySelector(".eq-preamp");
+const eqBalanceRowEl = document.getElementById("eq-balance-row");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const saveBtn = document.getElementById("queue-save");
@@ -345,6 +348,17 @@ eqBypassBtn.addEventListener("click", () => {
   eqBypassBtn.classList.toggle("is-active", eqBypassed);
   eqBypassBtn.textContent = eqBypassed ? "Bypassed" : "Bypass";
   applyEqGains();
+});
+
+// One button hiding two otherwise-unrelated elements (the preamp fader lives in .eq-main-row
+// next to the spectrum block, the balance slider is its own row below) - used far less often
+// than the 10-band curve itself, so they start collapsed (see index.html) rather than always
+// taking up space.
+eqMoreToggleBtn.addEventListener("click", () => {
+  const collapsed = eqPreampColEl.classList.toggle("collapsed");
+  eqBalanceRowEl.classList.toggle("collapsed", collapsed);
+  eqMoreToggleBtn.setAttribute("aria-expanded", String(!collapsed));
+  eqMoreToggleBtn.innerHTML = collapsed ? "Preamp/Balance &#9656;" : "Preamp/Balance &#9662;";
 });
 
 // Octave-band edges as the geometric mean between each pair of neighbouring centre frequencies -

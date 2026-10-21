@@ -600,6 +600,14 @@ header h1 {
   border-right: 1px solid var(--border);
 }
 
+.eq-preamp.collapsed {
+  display: none;
+}
+
+#eq-balance-row.collapsed {
+  display: none;
+}
+
 #eq-spectrum-block {
   display: flex;
   flex-direction: column;

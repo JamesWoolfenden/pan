@@ -127,11 +127,16 @@
                saved state, so toggling it off restores exactly what was set before - a quick
                A/B of "with EQ" vs "flat" rather than a second settings profile. -->
           <button id="eq-bypass" title="Bypass: compare against no EQ" aria-pressed="false">Bypass</button>
+          <!-- Both start collapsed (see index.html's .eq-preamp.collapsed/#eq-balance-row.collapsed
+               and app.js's eqMoreToggleBtn handler) - overall level and stereo balance are used far
+               less often than the 10-band curve itself, so they're a click away rather than always
+               taking up space in the pane. -->
+          <button id="eq-more-toggle" class="link-btn" aria-expanded="false">Preamp/Balance &#9656;</button>
         </div>
         <div class="eq-main-row">
           <!-- Overall level, not a frequency band - kept visually separate (own fader, no meter
                column above it) from the EQ_BANDS-driven spectrum block to its right. -->
-          <div class="eq-band eq-preamp">
+          <div class="eq-band eq-preamp collapsed">
             <span id="eq-preamp-value" class="eq-value">0 dB</span>
             <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="0" />
             <label for="eq-preamp">Pre</label>
@@ -145,7 +150,7 @@
             <div id="eq-faders"></div>
           </div>
         </div>
-        <div id="eq-balance-row">
+        <div id="eq-balance-row" class="collapsed">
           <span>L</span>
           <input id="eq-balance" type="range" min="-100" max="100" step="5" value="0" title="Balance" />
           <span>R</span>
