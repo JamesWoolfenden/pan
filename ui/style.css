@@ -430,10 +430,28 @@ header h1 {
   border-color: var(--accent);
 }
 
-#queue-player {
-  width: 100%;
-  height: 32px;
+#queue-player-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-top: 0.6rem;
+}
+
+#queue-player {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+}
+
+/* The native <audio controls> bar has its own built-in volume slider/mute button, which doesn't
+   know about #queue-volume-row's dial and can drift independently of it (we saw this: the dial
+   showing a stale/wrong percentage with no apparent cause) - hiding WebKit's internal parts here
+   leaves the dial as the single volume control for local playback, mirroring how #eq-panel etc.
+   already assume one source of truth per control. Chrome/WebKit-only (non-standard pseudo-
+   elements), but so is Cast support, so that's already the baseline here. */
+#queue-player::-webkit-media-controls-volume-slider,
+#queue-player::-webkit-media-controls-mute-button {
+  display: none;
 }
 
 #youtube-player-wrap {
@@ -519,6 +537,22 @@ header h1 {
   box-shadow: var(--shadow);
   padding: 0.65rem 1rem;
   margin-bottom: 1rem;
+}
+
+/* Hidden on mobile by default - see the @media (min-width: 1000px) override near the end of this
+   file. A phone has a physical volume rocker on its side that already does this job; a PC
+   doesn't, so it gets a dial instead (see the comment above #queue-volume-row in index.html). */
+#queue-volume-row {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+}
+
+#queue-volume-row .eq-value {
+  min-height: 0; /* not in a .eq-band column stack, so the 2-line reservation doesn't apply here */
 }
 
 #eq-pane-header {
@@ -886,6 +920,13 @@ header h1 {
   color: var(--text-muted);
   border-radius: 6px;
   cursor: pointer;
+  /* Each row is draggable (see renderQueue in app.js) for reordering - without this, starting a
+     drag from over the label text just selects it in some browsers instead. */
+  user-select: none;
+}
+
+#queue-list li.dragging {
+  opacity: 0.4;
 }
 
 #queue-list li:hover {
@@ -1614,6 +1655,10 @@ header h1 {
      #playlists-panel does, since this column has the width to spare. */
   #eq-pane {
     display: block;
+  }
+
+  #queue-volume-row {
+    display: flex;
   }
 
   #eq-panel {

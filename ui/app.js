@@ -67,6 +67,9 @@ const eqPreampToggleBtn = document.getElementById("eq-preamp-toggle");
 const eqBalanceToggleBtn = document.getElementById("eq-balance-toggle");
 const eqPreampColEl = document.querySelector(".eq-preamp");
 const eqBalanceColEl = document.querySelector(".eq-balance");
+const queueVolumeRowEl = document.getElementById("queue-volume-row");
+const queueVolumeKnobEl = document.getElementById("queue-volume-knob");
+const queueVolumeValueEl = document.getElementById("queue-volume-value");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const saveBtn = document.getElementById("queue-save");
@@ -512,41 +515,187 @@ function setEqBalance(value, { save = true } = {}) {
 // Vertical drag rather than tracking the pointer's angle around the knob's center - simpler to
 // get right and the common convention for software knobs (turntable/mixer apps, DAWs) anyway.
 // setPointerCapture keeps move/up events targeting the knob even once the cursor leaves it
-// mid-drag, so a fast drag doesn't "lose" the control.
-let eqBalanceDragStartY = null;
-let eqBalanceDragStartValue = 0;
+// mid-drag, so a fast drag doesn't "lose" the control. Shared by every rotary <div role="slider">
+// knob in the app (EQ balance, queue volume) rather than each wiring up its own copy of this.
+function bindKnobDrag(knobEl, { getValue, onChange, range, step, onHome }) {
+  let dragStartY = null;
+  let dragStartValue = 0;
 
-eqBalanceKnobEl.addEventListener("pointerdown", (e) => {
-  if (eqBalanceKnobEl.tabIndex < 0) return; // disabled (see updateEqAvailability)
-  eqBalanceDragStartY = e.clientY;
-  eqBalanceDragStartValue = eqBalanceValue;
-  eqBalanceKnobEl.setPointerCapture(e.pointerId);
-});
+  knobEl.addEventListener("pointerdown", (e) => {
+    if (knobEl.tabIndex < 0) return; // disabled (see updateEqAvailability/updateQueueVolumeAvailability)
+    dragStartY = e.clientY;
+    dragStartValue = getValue();
+    knobEl.setPointerCapture(e.pointerId);
+  });
 
-eqBalanceKnobEl.addEventListener("pointermove", (e) => {
-  if (eqBalanceDragStartY === null) return;
-  // 150px of drag covers the full -100..100 range.
-  const delta = eqBalanceDragStartY - e.clientY;
-  setEqBalance(eqBalanceDragStartValue + (delta / 150) * 200);
-});
+  knobEl.addEventListener("pointermove", (e) => {
+    if (dragStartY === null) return;
+    // 150px of drag covers the full range.
+    const delta = dragStartY - e.clientY;
+    onChange(dragStartValue + (delta / 150) * range);
+  });
 
-function endEqBalanceDrag() {
-  eqBalanceDragStartY = null;
+  const endDrag = () => {
+    dragStartY = null;
+  };
+  knobEl.addEventListener("pointerup", endDrag);
+  knobEl.addEventListener("pointercancel", endDrag);
+
+  knobEl.addEventListener("keydown", (e) => {
+    if (knobEl.tabIndex < 0) return; // disabled
+    if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+      e.preventDefault();
+      onChange(getValue() + step);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      onChange(getValue() - step);
+    } else if (e.key === "Home" && onHome) {
+      e.preventDefault();
+      onHome();
+    }
+  });
 }
-eqBalanceKnobEl.addEventListener("pointerup", endEqBalanceDrag);
-eqBalanceKnobEl.addEventListener("pointercancel", endEqBalanceDrag);
 
-eqBalanceKnobEl.addEventListener("keydown", (e) => {
-  if (eqBalanceKnobEl.tabIndex < 0) return; // disabled (see updateEqAvailability)
-  if (e.key === "ArrowUp" || e.key === "ArrowRight") {
-    e.preventDefault();
-    setEqBalance(eqBalanceValue + 5);
-  } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
-    e.preventDefault();
-    setEqBalance(eqBalanceValue - 5);
-  } else if (e.key === "Home") {
-    e.preventDefault();
-    setEqBalance(0);
+bindKnobDrag(eqBalanceKnobEl, {
+  getValue: () => eqBalanceValue,
+  onChange: setEqBalance,
+  range: 200, // -100..100
+  step: 5,
+  onHome: () => setEqBalance(0),
+});
+
+// Desktop-only local playback volume (see the comment above #queue-volume-row in index.html for
+// why mobile has no equivalent). 0-270deg, not centered like the balance knob above - volume is
+// a single min-to-max range, not a bipolar one, so there's no meaningful "straight up" position
+// for it to rest at.
+const QUEUE_VOLUME_KEY = "pan.volume";
+
+function loadQueueVolumePercent() {
+  try {
+    const raw = localStorage.getItem(QUEUE_VOLUME_KEY);
+    // Number(null) is 0, not NaN - without this explicit check, "nothing saved yet" was
+    // indistinguishable from "saved at 0%" and silently loaded muted every first visit.
+    if (raw === null) return 100;
+    const saved = Number(raw);
+    if (Number.isFinite(saved) && saved >= 0 && saved <= 100) return saved;
+  } catch {
+    // localStorage unavailable (private browsing etc) - falls back to full volume every load
+  }
+  return 100;
+}
+
+function renderQueueVolumeKnob(percent) {
+  queueVolumeKnobEl.style.transform = `rotate(${(percent / 100) * 270 - 135}deg)`;
+  queueVolumeKnobEl.setAttribute("aria-valuenow", String(percent));
+  queueVolumeValueEl.textContent = `${percent}%`;
+}
+
+function setQueueVolume(percent, { save = true } = {}) {
+  const clamped = Math.max(0, Math.min(100, Math.round(percent / 5) * 5));
+  queuePlayer.volume = clamped / 100;
+  queuePlayer.muted = false;
+  // renderQueueVolumeKnob() also runs from the "volumechange" listener below, so the dial
+  // reflects this assignment either way - setting it here too isn't redundant, since that
+  // listener fires async-ish (next microtask-ish tick via the native event), and skipping an
+  // explicit render here would leave the dial visibly stale for a drag's entire duration.
+  renderQueueVolumeKnob(clamped);
+  if (save) {
+    try {
+      localStorage.setItem(QUEUE_VOLUME_KEY, String(clamped));
+    } catch {
+      // localStorage unavailable (private browsing etc) - the level just won't persist
+    }
+  }
+}
+setQueueVolume(loadQueueVolumePercent(), { save: false });
+
+// Belt-and-suspenders beyond hiding the native <audio controls> volume slider/mute button (see
+// style.css) - keeps the dial honest against volume changes from any OTHER source too (OS/site
+// volume restoration, a future code path, scroll-wheel-over-audio in some browsers), rather than
+// silently drifting out of sync with queuePlayer's actual, real volume the way it did before.
+queuePlayer.addEventListener("volumechange", () => {
+  renderQueueVolumeKnob(Math.round(queuePlayer.volume * 100));
+});
+
+bindKnobDrag(queueVolumeKnobEl, {
+  getValue: () => Math.round(queuePlayer.volume * 100),
+  onChange: setQueueVolume,
+  range: 200, // 0..100, but matching the balance knob's drag feel rather than a 100-range crawl
+  step: 5,
+});
+
+function seekBy(deltaSeconds) {
+  if (isCasting()) {
+    if (!Number.isFinite(castPlayer.duration)) return;
+    castPlayer.currentTime = Math.max(0, Math.min(castPlayer.duration, castPlayer.currentTime + deltaSeconds));
+    castController.seek();
+  } else if (!queuePlayer.hidden && Number.isFinite(queuePlayer.duration)) {
+    queuePlayer.currentTime = Math.max(0, Math.min(queuePlayer.duration, queuePlayer.currentTime + deltaSeconds));
+  }
+}
+
+function adjustVolumeBy(deltaPercent) {
+  if (isCasting()) {
+    castPlayer.volumeLevel = Math.max(0, Math.min(1, castPlayer.volumeLevel + deltaPercent / 100));
+    castController.setVolumeLevel();
+    updateCastVolumeUi();
+  } else if (!queuePlayer.hidden) {
+    setQueueVolume(queuePlayer.volume * 100 + deltaPercent);
+  }
+}
+
+function toggleMute() {
+  if (isCasting()) {
+    castController.muteOrUnmute();
+    updateCastVolumeUi();
+  } else if (!queuePlayer.hidden) {
+    queuePlayer.muted = !queuePlayer.muted;
+  }
+}
+
+// Global playback shortcuts - space/arrows/M, the same keys every other web media player (YouTube,
+// Spotify web) uses, so nothing here needs to be learned specially. Skipped entirely while a text
+// field, button, or a custom role="slider" knob (which handles its own arrow keys - see
+// bindKnobDrag above) has focus, so typing in search/filter/prompt fields and operating the EQ's
+// own knobs isn't hijacked.
+const KEYBOARD_SHORTCUT_IGNORE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "BUTTON"]);
+
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+  const active = document.activeElement;
+  if (
+    active &&
+    (KEYBOARD_SHORTCUT_IGNORE_TAGS.has(active.tagName) ||
+      active.isContentEditable ||
+      active.getAttribute("role") === "slider")
+  ) {
+    return;
+  }
+  switch (e.key) {
+    case " ":
+      e.preventDefault();
+      playPauseBtn.click();
+      break;
+    case "ArrowLeft":
+      e.preventDefault();
+      seekBy(-5);
+      break;
+    case "ArrowRight":
+      e.preventDefault();
+      seekBy(5);
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      adjustVolumeBy(5);
+      break;
+    case "ArrowDown":
+      e.preventDefault();
+      adjustVolumeBy(-5);
+      break;
+    case "m":
+    case "M":
+      toggleMute();
+      break;
   }
 });
 
@@ -597,8 +746,17 @@ function updateEqAvailability() {
   eqBalanceKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
 }
 
+// Same queuePlayer.hidden signal as updateEqAvailability above - hidden outright (not just
+// disabled) since Cast and the YouTube iframe both supply their own volume control already, so
+// this one would have nothing to act on rather than merely being redundant.
+function updateQueueVolumeAvailability() {
+  queueVolumeRowEl.hidden = queuePlayer.hidden;
+  queueVolumeKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
+}
+
 let queue = []; // [{id, title, artist, file_path}]
 let currentIndex = -1;
+let queueDragFromIndex = null; // set during a queue-list drag-and-drop reorder, see renderQueue
 // Video mode: not persisted across reloads (a session-only preference, unlike shuffle/repeat) -
 // re-enable it each time rather than complicate queue-state restore with a third playback mode.
 let videoModeEnabled = false;
@@ -1694,7 +1852,7 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
   panelHost.appendChild(infoPanel);
 
   const editBtn = document.createElement("button");
-  editBtn.textContent = "Edit tags";
+  editBtn.textContent = "Tags";
   editBtn.className = "edit-tags-btn";
   const editPanel = buildEditPanel(r, tagsEl);
   // Shared by the toggle click below and a successful Save (buildEditPanel calls this directly)
@@ -1702,7 +1860,7 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
   // reset its text/class and leave the button itself stranded inside the now-hidden panel.
   editPanel.collapse = () => {
     editPanel.hidden = true;
-    editBtn.textContent = "Edit tags";
+    editBtn.textContent = "Tags";
     editBtn.title = "";
     editBtn.classList.remove("inline-dismiss-btn");
     buttonHost.insertBefore(editBtn, playlistBtn);
@@ -2086,6 +2244,7 @@ function onYtStateChange(event) {
       queuePlayer.hidden = true;
       youtubePlayerWrap.hidden = false;
       updateEqAvailability();
+      updateQueueVolumeAvailability();
     }
     playPauseBtn.innerHTML = "&#10074;&#10074;";
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
@@ -2113,6 +2272,7 @@ function stopVideoPlayback() {
   youtubePlayerWrap.hidden = true;
   queuePlayer.hidden = false;
   updateEqAvailability();
+  updateQueueVolumeAvailability();
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
 }
 
@@ -2283,6 +2443,31 @@ function renderQueue() {
     removeBtn.addEventListener("click", () => removeFromQueue(i));
     li.appendChild(removeBtn);
 
+    // Drag-and-drop reordering. Dropping on a row moves the dragged track to that row's index -
+    // splice-then-splice naturally lands it before or after depending on drag direction, so no
+    // half-row "insert above/below" detection is needed for this to feel right.
+    li.draggable = true;
+    li.title = "Drag to reorder";
+    li.addEventListener("dragstart", (e) => {
+      queueDragFromIndex = i;
+      e.dataTransfer.effectAllowed = "move";
+      li.classList.add("dragging");
+    });
+    li.addEventListener("dragend", () => {
+      li.classList.remove("dragging");
+      queueDragFromIndex = null;
+    });
+    li.addEventListener("dragover", (e) => {
+      if (queueDragFromIndex === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    li.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (queueDragFromIndex === null || queueDragFromIndex === i) return;
+      reorderQueue(queueDragFromIndex, i);
+    });
+
     queueListEl.appendChild(li);
   });
 
@@ -2301,6 +2486,22 @@ function renderQueue() {
   persistQueueState();
   refreshQueueButtons();
   updateSaveControls();
+}
+
+// Moves the track at `from` to position `to` - splice-out-then-splice-in, same approach as
+// removeFromQueue/playAt use for mutating `queue` in place, with currentIndex re-derived
+// afterwards so "what's actually playing" survives the array shuffling underneath it intact.
+function reorderQueue(from, to) {
+  const [moved] = queue.splice(from, 1);
+  queue.splice(to, 0, moved);
+  if (currentIndex === from) {
+    currentIndex = to;
+  } else if (from < currentIndex && to >= currentIndex) {
+    currentIndex -= 1;
+  } else if (from > currentIndex && to <= currentIndex) {
+    currentIndex += 1;
+  }
+  renderQueue();
 }
 
 function removeFromQueue(i) {
@@ -2392,6 +2593,7 @@ function updateCastUi() {
   if (casting) stopVideoPlayback(); // video mode and casting can't both be showing at once
   queuePlayer.hidden = casting;
   updateEqAvailability();
+  updateQueueVolumeAvailability();
   castStatusEl.hidden = !casting;
   castVolumeControlsEl.hidden = !casting;
   castProgressControlsEl.hidden = !casting;
