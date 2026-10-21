@@ -53,7 +53,11 @@
         </div>
       </div>
       <div id="queue-now-playing-actions" hidden></div>
-      <audio id="queue-player" controls></audio>
+      <!-- preload="auto": buffers as far ahead as the browser's willing to, rather than the
+           conservative default - gives more cushion before a mobile background-tab network
+           throttle can run the buffer dry mid-track (see the "stalled"/"waiting" events in the
+           client-log diagnostic sink, e.g. 2026-10-19 16:20:20-21, trackId 16768). -->
+      <audio id="queue-player" controls preload="auto"></audio>
       <div id="youtube-player-wrap" hidden>
         <div id="youtube-player"></div>
         <button id="video-dismiss-btn" title="Not the right video - play audio instead">&#10006; Not this</button>
