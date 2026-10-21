@@ -898,8 +898,23 @@ function showSimilar(track) {
   return showRelated(track, "similar", `Similar to "${track.title || "Untitled"}"`);
 }
 
+// Mirrors backend/search/engine.py's _base_title() (same two regexes, case preserved here since
+// this is for display rather than comparison) - the versions search itself already ignores the
+// "(Radio Edit)"/"[Club Mix]"/"- Remix" part of the title when matching, so showing the raw,
+// unstripped title in the banner ("Other versions of \"Song (Specific Mix)\"") read as if it were
+// searching for other versions of that one specific mix, when it's actually searching for any
+// version of the underlying song.
+function versionsBaseTitle(title) {
+  if (!title) return "";
+  return title
+    .replace(/[([][^)\]]*[)\]]/g, "")
+    .replace(/\s+-\s+.+$/, "")
+    .trim();
+}
+
 function showVersions(track) {
-  return showRelated(track, "versions", `Other versions of "${track.title || "Untitled"}"`);
+  const baseTitle = versionsBaseTitle(track.title) || track.title || "Untitled";
+  return showRelated(track, "versions", `Other versions of "${baseTitle}"`);
 }
 
 async function showRelated(track, endpointPath, bannerText) {
