@@ -1,4 +1,4 @@
-.PHONY: install run reindex test FORCE
+.PHONY: install run reindex import-rip test FORCE
 
 # This machine's LAN IP, baked into the self-signed cert's SAN so phones/Chromecast on the
 # LAN can reach it over HTTPS (needed for PWA install - browsers require a secure context).
@@ -39,6 +39,12 @@ run: certs/cert.pem
 
 reindex:
 	uv run python -m scripts.reindex
+
+# Run this after EAC finishes ripping a CD to Z:\music (SHARED_DRIVE_PATH) - tells the
+# already-running `make run` server to pick up the new files now, instead of waiting for the
+# next scheduled reindex.
+import-rip:
+	uv run python -m scripts.import_rip
 
 test:
 	uv run pytest

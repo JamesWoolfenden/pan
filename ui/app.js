@@ -51,6 +51,11 @@ const playPauseBtn = document.getElementById("queue-playpause");
 const nextBtn = document.getElementById("queue-next");
 const repeatBtn = document.getElementById("queue-repeat");
 const videoModeBtn = document.getElementById("queue-video-mode");
+const eqToggleBtn = document.getElementById("eq-toggle");
+const eqPanelEl = document.getElementById("eq-panel");
+const eqMeterEl = document.getElementById("eq-meter");
+const eqFadersEl = document.getElementById("eq-faders");
+const eqResetBtn = document.getElementById("eq-reset");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const saveBtn = document.getElementById("queue-save");
@@ -60,6 +65,7 @@ const clearBtn = document.getElementById("queue-clear");
 const queueListToggleBtn = document.getElementById("queue-list-toggle");
 const playlistsListEl = document.getElementById("playlists-list");
 const playlistsToggleBtn = document.getElementById("playlists-toggle");
+const playlistsFilterEl = document.getElementById("playlists-filter");
 const loadMoreBtn = document.getElementById("load-more-btn");
 const nowPlayingActionsEl = document.getElementById("queue-now-playing-actions");
 
@@ -75,6 +81,213 @@ function wireCollapseToggle(toggleBtn, targetEl) {
 }
 wireCollapseToggle(queueListToggleBtn, queueListEl);
 wireCollapseToggle(playlistsToggleBtn, playlistsListEl);
+
+// 10-band graphic equaliser + live spectrum meter, applied via the Web Audio API to the local
+// <audio> element only - Chromecast and video mode both play back through an entirely separate
+// path (the receiver, and the YouTube iframe) that this graph never touches.
+// updateEqAvailability() greys the panel out (and halts the meter) rather than hiding it whenever
+// queuePlayer.hidden flips for either of those.
+//
+// Standard ISO-ish graphic-EQ centre frequencies, one octave apart - matches the layout in the
+// reference hardware equaliser/spectrum display this was modelled on.
+const EQ_BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+const EQ_STATE_KEY = "pan.eqState";
+let eqAudioCtx = null;
+let eqFilterNodes = []; // one BiquadFilterNode per EQ_BANDS entry, chained in order
+let eqAnalyser = null;
+let eqAnalyserData = null;
+let eqBandBinRanges = null; // [lo, hi] FFT bin indices per band, for the meter
+let eqMeterRafId = null;
+
+function formatEqFreqLabel(freq) {
+  return freq >= 1000 ? `${freq / 1000}k` : String(freq);
+}
+
+function loadEqState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(EQ_STATE_KEY));
+    if (Array.isArray(saved) && saved.length === EQ_BANDS.length && saved.every(Number.isFinite)) {
+      return saved;
+    }
+  } catch {
+    // localStorage unavailable (private browsing etc) - the EQ just won't persist across reloads
+  }
+  return EQ_BANDS.map(() => 0);
+}
+
+function saveEqState(state) {
+  try {
+    localStorage.setItem(EQ_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // localStorage unavailable (private browsing etc) - the EQ just won't persist across reloads
+  }
+}
+
+const eqSliders = [];
+const eqValueEls = [];
+const eqMeterFillEls = [];
+
+// Builds the meter-bar row and fader row as matching sets of equal-width flex columns (see the
+// shared .eq-band/.eq-meter-col CSS) - generated from EQ_BANDS rather than hand-duplicated in
+// index.html, so retuning the band list is a one-line change here instead of an HTML edit too.
+function buildEqUi() {
+  EQ_BANDS.forEach((freq, i) => {
+    const meterCol = document.createElement("div");
+    meterCol.className = "eq-meter-col";
+    const meterFill = document.createElement("div");
+    meterFill.className = "eq-meter-fill";
+    meterCol.appendChild(meterFill);
+    eqMeterEl.appendChild(meterCol);
+    eqMeterFillEls.push(meterFill);
+
+    const band = document.createElement("div");
+    band.className = "eq-band";
+    const value = document.createElement("span");
+    value.className = "eq-value";
+    value.textContent = "0 dB";
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "-12";
+    slider.max = "12";
+    slider.step = "1";
+    slider.value = "0";
+    slider.id = `eq-band-${i}`;
+    slider.dataset.index = String(i);
+    const label = document.createElement("label");
+    label.setAttribute("for", slider.id);
+    label.textContent = formatEqFreqLabel(freq);
+    band.append(value, slider, label);
+    eqFadersEl.appendChild(band);
+    eqSliders.push(slider);
+    eqValueEls.push(value);
+  });
+}
+buildEqUi();
+
+function renderEqValues(state) {
+  state.forEach((v, i) => {
+    eqValueEls[i].textContent = `${v > 0 ? "+" : ""}${v} dB`;
+  });
+}
+
+// Octave-band edges as the geometric mean between each pair of neighbouring centre frequencies -
+// the standard way to split a spectrum into bands, so the meter's bins line up with what each
+// fader actually controls instead of an arbitrary slice.
+function computeEqBandBinRanges() {
+  const binHz = eqAudioCtx.sampleRate / eqAnalyser.fftSize;
+  const edges = [0];
+  for (let i = 0; i < EQ_BANDS.length - 1; i++) {
+    edges.push(Math.sqrt(EQ_BANDS[i] * EQ_BANDS[i + 1]));
+  }
+  edges.push(eqAudioCtx.sampleRate / 2);
+  const bufferLength = eqAnalyser.frequencyBinCount;
+  return EQ_BANDS.map((_, i) => {
+    const lo = Math.max(0, Math.round(edges[i] / binHz));
+    const hi = Math.min(bufferLength - 1, Math.max(lo, Math.round(edges[i + 1] / binHz) - 1));
+    return [lo, hi];
+  });
+}
+
+// Built lazily on first playback rather than at page load: createMediaElementSource() can only
+// ever be called once per <audio> element (a second call throws "already connected"), and an
+// AudioContext created before any user gesture risks starting "suspended" in some browsers -
+// tying setup to the first real play sidesteps both.
+function ensureEqGraph() {
+  if (eqAudioCtx) return;
+  eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const source = eqAudioCtx.createMediaElementSource(queuePlayer);
+  const state = loadEqState();
+  eqFilterNodes = EQ_BANDS.map((freq, i) => {
+    const filter = eqAudioCtx.createBiquadFilter();
+    filter.type = "peaking";
+    filter.frequency.value = freq;
+    filter.Q.value = 1.41; // ~1 octave bandwidth, matching the band spacing above
+    filter.gain.value = state[i];
+    return filter;
+  });
+  eqAnalyser = eqAudioCtx.createAnalyser();
+  eqAnalyser.fftSize = 2048;
+  eqAnalyser.smoothingTimeConstant = 0.8;
+  eqAnalyserData = new Uint8Array(eqAnalyser.frequencyBinCount);
+  eqBandBinRanges = computeEqBandBinRanges();
+  let node = source;
+  eqFilterNodes.forEach((filter) => {
+    node.connect(filter);
+    node = filter;
+  });
+  node.connect(eqAnalyser);
+  eqAnalyser.connect(eqAudioCtx.destination);
+  startEqMeterLoop();
+}
+queuePlayer.addEventListener("play", ensureEqGraph);
+
+// Runs continuously once started rather than only while actually playing - queuePlayer.paused is
+// checked every frame instead, so the meter decays to 0 and resumes correctly across pause/resume
+// without needing separate play/pause listeners to start and stop a second loop.
+function startEqMeterLoop() {
+  if (eqMeterRafId) return;
+  const tick = () => {
+    eqMeterRafId = requestAnimationFrame(tick);
+    if (eqPanelEl.classList.contains("collapsed")) return; // nothing visible - skip the work
+    if (!eqAnalyser || queuePlayer.hidden || queuePlayer.paused) {
+      eqMeterFillEls.forEach((el) => {
+        el.style.height = "0%";
+      });
+      return;
+    }
+    eqAnalyser.getByteFrequencyData(eqAnalyserData);
+    eqBandBinRanges.forEach(([lo, hi], i) => {
+      let sum = 0;
+      for (let b = lo; b <= hi; b++) sum += eqAnalyserData[b];
+      const avg = sum / (hi - lo + 1); // 0-255
+      eqMeterFillEls[i].style.height = `${Math.min(100, (avg / 255) * 100)}%`;
+    });
+  };
+  tick();
+}
+
+function onEqSliderInput(e) {
+  const i = Number(e.target.dataset.index);
+  const v = Number(e.target.value);
+  if (eqFilterNodes[i]) eqFilterNodes[i].gain.value = v;
+  eqValueEls[i].textContent = `${v > 0 ? "+" : ""}${v} dB`;
+  saveEqState(eqSliders.map((s) => Number(s.value)));
+}
+eqSliders.forEach((el) => el.addEventListener("input", onEqSliderInput));
+
+eqResetBtn.addEventListener("click", () => {
+  const state = EQ_BANDS.map(() => 0);
+  eqSliders.forEach((s) => {
+    s.value = 0;
+  });
+  eqFilterNodes.forEach((f) => {
+    f.gain.value = 0;
+  });
+  renderEqValues(state);
+  saveEqState(state);
+});
+
+(function initEqSliders() {
+  const state = loadEqState();
+  eqSliders.forEach((s, i) => {
+    s.value = state[i];
+  });
+  renderEqValues(state);
+})();
+
+// #eq-pane is a permanent pane in #content (like #playlists-panel), not a popup, so this is just
+// the same collapsible-body chevron every other panel here uses.
+wireCollapseToggle(eqToggleBtn, eqPanelEl);
+
+// queuePlayer.hidden is the existing single signal for "local <audio> isn't what's actually
+// playing right now" (see updateCastUi/stopVideoPlayback/onYtStateChange below) - reuse it rather
+// than tracking cast/video state a second time here.
+function updateEqAvailability() {
+  eqPanelEl.classList.toggle("eq-unavailable", queuePlayer.hidden);
+  eqSliders.forEach((s) => {
+    s.disabled = queuePlayer.hidden;
+  });
+}
 
 let queue = []; // [{id, title, artist, file_path}]
 let currentIndex = -1;
@@ -1564,6 +1777,7 @@ function onYtStateChange(event) {
     if (playingViaVideo) {
       queuePlayer.hidden = true;
       youtubePlayerWrap.hidden = false;
+      updateEqAvailability();
     }
     playPauseBtn.innerHTML = "&#10074;&#10074;";
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
@@ -1590,6 +1804,7 @@ function stopVideoPlayback() {
   playingViaVideo = false;
   youtubePlayerWrap.hidden = true;
   queuePlayer.hidden = false;
+  updateEqAvailability();
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
 }
 
@@ -1770,6 +1985,7 @@ function renderQueue() {
   nextBtn.disabled = !hasQueue;
   repeatBtn.disabled = !hasQueue;
   videoModeBtn.disabled = !hasQueue;
+  eqToggleBtn.disabled = !hasQueue;
   saveBtn.disabled = !hasQueue;
   cloneBtn.disabled = !hasQueue;
   addToPlaylistBtn.disabled = !hasQueue;
@@ -1867,6 +2083,7 @@ function updateCastUi() {
   const casting = isCasting();
   if (casting) stopVideoPlayback(); // video mode and casting can't both be showing at once
   queuePlayer.hidden = casting;
+  updateEqAvailability();
   castStatusEl.hidden = !casting;
   castVolumeControlsEl.hidden = !casting;
   castProgressControlsEl.hidden = !casting;
@@ -2271,22 +2488,41 @@ clearBtn.addEventListener("click", () => {
 // Session-only, like videoModeEnabled - reopens collapsed each load rather than persisting a
 // "show clutter" preference across visits.
 let showHiddenPlaylists = false;
+// Below this many playlists, a filter box is just one more thing to look at before finding the
+// one you want in a two-second glance - it only earns its keep once scrolling/scanning the full
+// list actually costs more than typing a few letters.
+const PLAYLIST_FILTER_THRESHOLD = 8;
+let playlistFilterQuery = "";
+let lastPlaylists = []; // re-filtering on every keystroke shouldn't mean refetching every time
 
 async function loadPlaylists() {
   // Always fetch the full set (not just when showHiddenPlaylists is on) so the "N hidden" count
   // below is available without a second round-trip when the toggle is clicked.
   const res = await fetch("/playlists?include_hidden=true");
   const data = await res.json();
+  lastPlaylists = data.playlists;
   renderPlaylists(data.playlists);
 }
 
+playlistsFilterEl.addEventListener("input", () => {
+  playlistFilterQuery = playlistsFilterEl.value.trim().toLowerCase();
+  renderPlaylists(lastPlaylists);
+});
+
 function renderPlaylists(playlists) {
   playlistsListEl.innerHTML = "";
+  playlistsFilterEl.hidden = playlists.length < PLAYLIST_FILTER_THRESHOLD;
+
   const hidden = playlists.filter((p) => p.hidden_at);
-  const visible = showHiddenPlaylists ? playlists : playlists.filter((p) => !p.hidden_at);
+  let visible = showHiddenPlaylists ? playlists : playlists.filter((p) => !p.hidden_at);
+  if (playlistFilterQuery) {
+    visible = visible.filter((p) => p.name.toLowerCase().includes(playlistFilterQuery));
+  }
 
   if (!visible.length) {
-    playlistsListEl.innerHTML = "<li>No saved playlists yet.</li>";
+    playlistsListEl.innerHTML = playlistFilterQuery
+      ? `<li>No playlists match "${escapeHtml(playlistsFilterEl.value.trim())}".</li>`
+      : "<li>No saved playlists yet.</li>";
   }
   for (const p of visible) {
     const li = document.createElement("li");

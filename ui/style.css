@@ -507,6 +507,133 @@ header h1 {
   display: none;
 }
 
+/* Hidden on mobile by default - see the @media (min-width: 1000px) override near the end of this
+   file, which brings it back for desktop. A phone gets iPod-simple transport controls only; a
+   graphic EQ needs real screen estate to not dominate the page. Card styling matches
+   #playlists-panel - a permanent pane, not a popup, so it should look like its siblings. */
+#eq-pane {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+}
+
+#eq-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#eq-pane-header strong {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+#eq-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  margin-top: 0.6rem;
+  /* 10 columns is tight at small zoom levels/narrow desktop widths - a horizontal scrollbar here
+     beats either overflow clipping bars off or squeezing them illegibly thin. */
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#eq-panel.collapsed {
+  display: none;
+}
+
+/* Local-playback-only (see the comment above #eq-panel in index.html) - dimmed and
+   non-interactive rather than hidden, so switching to video/cast doesn't make the panel
+   disappear out from under someone who just had it open. The live meter is paused the same way
+   (see updateEqAvailability in app.js) since it has nothing real to show either in that case. */
+#eq-panel.eq-unavailable {
+  opacity: 0.5;
+}
+
+#eq-panel.eq-unavailable .eq-band input {
+  pointer-events: none;
+}
+
+/* Spectrum meter and faders are sibling rows of equal-width flex columns (see buildEqUi in
+   app.js) - same column count, same gap, same width each, so a meter bar always lines up
+   directly above the fader for that frequency without the two rows needing to share markup. */
+#eq-meter,
+#eq-faders {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.eq-meter-col {
+  width: 1.3rem;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  background: var(--bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+/* The blocky look of the reference hardware meter: thin transparent gaps sliced out of a solid
+   fill at regular intervals, so it reads as stacked LED segments rather than a smooth bar. */
+.eq-meter-fill {
+  width: 100%;
+  height: 0%;
+  background: repeating-linear-gradient(
+    to top,
+    var(--accent) 0px,
+    var(--accent) 3px,
+    var(--bg) 3px,
+    var(--bg) 5px
+  );
+}
+
+.eq-band {
+  width: 1.3rem;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.eq-band label {
+  font-size: 0.65rem;
+  line-height: 1.1;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Rotates the native range input into a vertical fader - the modern, standards-based way to do
+   this (the older -webkit-appearance: slider-vertical has been deprecated in Chrome in favour of
+   this). direction: rtl puts the slider's max end (+12) at the top and min (-12) at the bottom,
+   matching a fader rather than running bottom-to-top. */
+.eq-band input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 6px;
+  height: 64px;
+  accent-color: var(--accent);
+}
+
+.eq-value {
+  font-size: 0.65rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+#eq-reset {
+  margin-top: 0.1rem;
+}
+
 #queue-list {
   list-style: none;
   margin: 0.6rem 0 0;
@@ -590,10 +717,33 @@ header h1 {
   letter-spacing: 0.08em;
 }
 
+#playlists-filter {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+#playlists-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 #playlists-list {
   list-style: none;
   margin: 0.5rem 0 0;
   padding: 0;
+  /* Same cap as #queue-list - a growing playlist count shouldn't push the rest of the sidebar
+     (stats, and on mobile the search/results below it) further down the page indefinitely; the
+     filter box above helps you find one without needing to scroll through all of them anyway. */
+  max-height: 11rem;
+  overflow-y: auto;
 }
 
 #playlists-list li {
@@ -1149,4 +1299,131 @@ header h1 {
 .suggestion-chip:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* Below this width, #sidebar/#content stay in normal document flow (just two stacked divs),
+   so everything above behaves exactly as it did before the wrapper divs existed. Above it,
+   there's enough room to stop stacking the queue/playlists/stats above the search results and
+   show both at once instead. Placed at the end of the file deliberately: several rules below
+   override unconditional #queue-panel/#queue-now-playing/#queue-controls rules earlier in this
+   file, and same-specificity same-media-applicability CSS rules resolve by source order, not by
+   which one "sounds more specific" - a block placed near the top lost those fights silently. */
+@media (min-width: 1000px) {
+  body {
+    /* Wider than the 1280px this used to be: at a 360px sidebar, 1280px left ~860px for results
+       but only ~276px of actual sidebar content width after its own padding - a narrow utility
+       rail next to most of the screen. A true 50/50 split needs more total width to still leave
+       results room to breathe. */
+    max-width: 1440px;
+  }
+
+  main {
+    display: grid;
+    /* True 50/50, not just "sidebar gets more than before" - the queue/player deserves equal
+       visual weight to the results list on a screen with room to spare, not a narrow rail. */
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  #sidebar {
+    position: sticky;
+    top: 3.25rem;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    /* #queue-panel/#playlists-panel are sticky in the single-column layout so they stay put
+       while the (much longer) results list scrolls past underneath. Here #sidebar itself is the
+       sticky element, and nesting another sticky context inside it just fights the scroll
+       instead of helping. */
+    padding-bottom: 0.1rem;
+  }
+
+  #queue-panel,
+  #playlists-panel {
+    margin-bottom: 0;
+  }
+
+  #playlists-panel {
+    position: static;
+  }
+
+  #queue-panel {
+    position: static;
+  }
+
+  /* Mobile stays iPod-simple (transport controls only, no EQ) - a phone screen has no room for a
+     graphic EQ without it eating the whole queue panel. Desktop has the width to spare, so the
+     button appears and the panel below pops out as a proper hifi-sized flyout instead of the
+     compact in-flow version these base rules define. */
+  #eq-toggle {
+    display: inline-block;
+  }
+
+  /* At 760px (the old single-column width) this shares a line with the QUEUE label/chevron fine,
+     but squeezed into a ~340px sidebar column a long track title wraps to 2-3 lines and that
+     wrapped block ends up vertically centered (align-items: center) right across from the QUEUE
+     label, reading as if they overlap. Same flex-basis: 100% escape hatch #queue-controls already
+     uses below - give it, too, a full-width row of its own below the label/chevron line. */
+  #queue-now-playing {
+    flex-basis: 100%;
+    order: 1;
+  }
+
+  #queue-controls {
+    order: 2;
+  }
+
+  #content {
+    min-width: 0;
+  }
+
+  /* A permanent pane in #content now (see index.html), not a popup - just needs to actually show
+     up on desktop (hidden by default above, for mobile) and get sized generously, the same way
+     #playlists-panel does, since this column has the width to spare. */
+  #eq-pane {
+    display: block;
+  }
+
+  #eq-panel {
+    gap: 0.5rem;
+  }
+
+  #eq-meter,
+  #eq-faders {
+    gap: 0.9rem;
+  }
+
+  .eq-meter-col,
+  .eq-band {
+    width: 2.1rem;
+  }
+
+  .eq-meter-col {
+    height: 110px;
+  }
+
+  .eq-band input[type="range"] {
+    height: 180px;
+  }
+
+  .eq-value,
+  .eq-band label {
+    font-size: 0.8rem;
+  }
+
+  /* Mobile keeps this as a small discreet thumbnail (iPod-simple); desktop has the sidebar width
+     to give it real presence instead of leaving that space as padding around the same tiny image -
+     a proper "now playing" faceplate rather than just a wider column around unchanged content. */
+  .now-playing-art {
+    width: 4.5rem;
+    height: 4.5rem;
+    border-radius: 8px;
+  }
+
+  #queue-now-playing-actions {
+    gap: 0.9rem;
+  }
 }

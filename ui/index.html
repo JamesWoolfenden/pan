@@ -33,6 +33,7 @@
   </header>
 
   <main>
+    <div id="sidebar">
     <section id="queue-panel">
       <div id="queue-header">
         <strong>Queue</strong>
@@ -83,6 +84,9 @@
         <strong>Playlists</strong>
         <button id="playlists-toggle" class="chevron-toggle" title="Show/hide playlists" aria-expanded="true">&#9652;</button>
       </div>
+      <!-- Hidden until the list actually needs it (see PLAYLIST_FILTER_THRESHOLD in app.js) - a
+           handful of playlists don't need a filter box taking up space above them. -->
+      <input id="playlists-filter" type="text" placeholder="Filter playlists…" hidden />
       <ul id="playlists-list"></ul>
     </section>
 
@@ -96,7 +100,32 @@
       <button id="stats-most-skipped">Most skipped</button>
       <button id="stats-never-played">Never played</button>
     </section>
+    </div>
 
+    <div id="content">
+    <!-- Desktop only (hidden entirely on mobile - a phone stays iPod-simple, transport controls
+         only, no room for a graphic EQ without it dominating the page). A permanent pane here,
+         same shape as #playlists-panel (header + collapsible body), rather than the popup/flyout
+         this used to be - this column has the width to just hold it in place. Only has an effect
+         on the local <audio> element in #queue-panel, since Chromecast and video mode both play
+         back through an entirely separate path (the receiver, and the YouTube iframe) that this
+         Web Audio graph never touches, so app.js's updateEqAvailability() greys the body out in
+         those modes rather than leaving sliders that silently do nothing. -->
+    <section id="eq-pane">
+      <div id="eq-pane-header">
+        <strong>Equaliser</strong>
+        <button id="eq-toggle" class="chevron-toggle" title="Show/hide equaliser" aria-expanded="true">&#9652;</button>
+      </div>
+      <div id="eq-panel">
+        <!-- Live spectrum meter (one bar per EQ_BANDS frequency) and the gain faders below it are
+             both built by app.js's buildEqUi() from the same EQ_BANDS array, as sibling columns
+             with matching widths/gaps - so a meter bar always sits directly above its own fader
+             without the two being hand-kept in sync here. -->
+        <div id="eq-meter"></div>
+        <div id="eq-faders"></div>
+        <button id="eq-reset" class="link-btn">Reset</button>
+      </div>
+    </section>
     <form id="search-form">
       <input id="query" type="text" placeholder='Try: "upbeat 90s tracks but not metal"' autofocus />
       <button type="submit">Search</button>
@@ -109,6 +138,7 @@
     <div id="context-banner" hidden></div>
     <ul id="results"></ul>
     <button id="load-more-btn" hidden>Load more</button>
+    </div>
   </main>
 
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
