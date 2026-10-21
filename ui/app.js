@@ -636,6 +636,12 @@ function buildInfoPanel(r) {
   const lyricsEl = document.createElement("div");
   lyricsEl.className = "info-lyrics";
   lyricsEl.hidden = true;
+  // Holds lyricsEl plus (while shown) the reparented dismiss button - kept separate from lyricsEl
+  // itself since renderLyrics() does `lyricsEl.innerHTML = ""` on every lookup/refresh, which
+  // would otherwise wipe the button out along with the old lyrics text.
+  const lyricsWrapper = document.createElement("div");
+  lyricsWrapper.className = "lyrics-wrapper";
+  lyricsWrapper.appendChild(lyricsEl);
 
   const lyricsEditBtn = document.createElement("button");
   lyricsEditBtn.textContent = "✎ Edit lyrics";
@@ -780,12 +786,23 @@ function buildInfoPanel(r) {
     }
   }
 
+  // Moves lyricsBtn between actionsRow (labelled trigger) and lyricsWrapper's corner (compact
+  // dismiss) - same reasoning as Info/Edit tags: a small "×" packed into actionsRow next to
+  // Edit lyrics/Video was an easy misclick, pinning it to its own panel's corner isn't.
+  function setLyricsShown(shown) {
+    lyricsEl.hidden = !shown;
+    lyricsRefreshBtn.hidden = !shown;
+    lyricsBtn.textContent = shown ? "×" : "🎤 Lyrics";
+    lyricsBtn.title = shown ? "Hide lyrics" : "";
+    lyricsBtn.classList.toggle("inline-dismiss-btn", shown);
+    if (shown) lyricsWrapper.appendChild(lyricsBtn);
+    else actionsRow.insertBefore(lyricsBtn, lyricsRefreshBtn);
+  }
+
   lyricsBtn.addEventListener("click", async () => {
     if (lyricsLoaded) {
       // Already fetched once this session - just toggle visibility, no network call.
-      lyricsEl.hidden = !lyricsEl.hidden;
-      lyricsRefreshBtn.hidden = lyricsEl.hidden;
-      lyricsBtn.textContent = lyricsEl.hidden ? "🎤 Lyrics" : "Hide lyrics";
+      setLyricsShown(lyricsEl.hidden);
       return;
     }
     lyricsBtn.disabled = true;
@@ -793,8 +810,7 @@ function buildInfoPanel(r) {
     lyricsEl.hidden = false;
     await lookupLyrics(false);
     lyricsBtn.disabled = false;
-    lyricsBtn.textContent = lyricsLoaded ? "Hide lyrics" : "🎤 Lyrics";
-    lyricsRefreshBtn.hidden = !lyricsLoaded;
+    setLyricsShown(lyricsLoaded);
     lyricsEditBtn.hidden = !lyricsLoaded;
   });
 
@@ -841,11 +857,9 @@ function buildInfoPanel(r) {
     renderLyrics(data.text, null, "No lyrics found.");
     lyricsLoaded = true;
     lyricsTextarea.hidden = true;
-    lyricsEl.hidden = false;
     lyricsSaveBtn.hidden = true;
     lyricsEditBtn.textContent = "✎ Edit lyrics";
-    lyricsBtn.textContent = "Hide lyrics";
-    lyricsRefreshBtn.hidden = false;
+    setLyricsShown(true);
   });
 
   // Stays visible (not hidden after first use) and re-labels to "Regenerate" so a stale cached
@@ -893,7 +907,7 @@ function buildInfoPanel(r) {
   };
 
   panel.onHide = teardownSyncedLyrics;
-  panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsEl, lyricsTextarea, lyricsSaveBtn);
+  panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsWrapper, lyricsTextarea, lyricsSaveBtn);
   return panel;
 }
 
@@ -1136,11 +1150,24 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
   infoBtn.textContent = "Info";
   infoBtn.title = "Track/album/artist details";
   const infoPanel = buildInfoPanel(r);
-  infoBtn.addEventListener("click", () => {
+  infoBtn.addEventListener("click", async () => {
     infoPanel.hidden = !infoPanel.hidden;
-    infoBtn.textContent = infoPanel.hidden ? "Info" : "Hide info";
-    if (infoPanel.hidden) infoPanel.onHide();
-    else infoPanel.load();
+    // Same reasoning as the lyrics toggle: a labelled trigger to open it, a compact close
+    // affordance once it's open and already visible.
+    infoBtn.textContent = infoPanel.hidden ? "Info" : "×";
+    infoBtn.title = infoPanel.hidden ? "Track/album/artist details" : "Hide info";
+    infoBtn.classList.toggle("inline-dismiss-btn", !infoPanel.hidden);
+    if (infoPanel.hidden) {
+      infoPanel.onHide();
+      // Restore it to its usual spot in the row's button toolbar, right before Edit tags.
+      buttonHost.insertBefore(infoBtn, editBtn);
+    } else {
+      await infoPanel.load();
+      // Appended directly to the panel (not factsEl, whose innerHTML load() rebuilds from
+      // scratch on every open) and pinned to the panel's top-right corner via CSS - same
+      // positioning as .dismiss-btn on a track card.
+      infoPanel.appendChild(infoBtn);
+    }
   });
   buttonHost.appendChild(infoBtn);
   panelHost.appendChild(infoPanel);
@@ -1148,10 +1175,31 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
   const editBtn = document.createElement("button");
   editBtn.textContent = "Edit tags";
   editBtn.className = "edit-tags-btn";
-  const editPanel = buildEditPanel(r, tagsEl, editBtn);
+  const editPanel = buildEditPanel(r, tagsEl);
+  // Shared by the toggle click below and a successful Save (buildEditPanel calls this directly)
+  // so both paths move editBtn back to its spot in the toolbar the same way - Save used to only
+  // reset its text/class and leave the button itself stranded inside the now-hidden panel.
+  editPanel.collapse = () => {
+    editPanel.hidden = true;
+    editBtn.textContent = "Edit tags";
+    editBtn.title = "";
+    editBtn.classList.remove("inline-dismiss-btn");
+    buttonHost.insertBefore(editBtn, playlistBtn);
+  };
   editBtn.addEventListener("click", () => {
-    editPanel.hidden = !editPanel.hidden;
-    editBtn.textContent = editPanel.hidden ? "Edit tags" : "Cancel";
+    // Same treatment as Info: a labelled trigger to open it, a compact dismiss pinned to the
+    // panel's own corner once it's open - not left inline in the crowded button row, where a
+    // packed-in small "×" next to +Playlist was an easy misclick (clicks landing on the
+    // neighbour instead of closing the panel).
+    if (!editPanel.hidden) {
+      editPanel.collapse();
+      return;
+    }
+    editPanel.hidden = false;
+    editBtn.textContent = "×";
+    editBtn.title = "Cancel editing tags";
+    editBtn.classList.add("inline-dismiss-btn");
+    editPanel.appendChild(editBtn);
   });
   buttonHost.appendChild(editBtn);
   panelHost.appendChild(editPanel);
@@ -1207,7 +1255,7 @@ function looksLikeVersionedTitle(title) {
   return stripped.toLowerCase() !== title.trim().toLowerCase();
 }
 
-function buildEditPanel(r, tagsEl, editBtn) {
+function buildEditPanel(r, tagsEl) {
   const panel = document.createElement("div");
   panel.className = "edit-panel";
   panel.hidden = true;
@@ -1289,8 +1337,7 @@ function buildEditPanel(r, tagsEl, editBtn) {
     r.tags = updated.tags;
     tagsEditor.setTags(updated.tags);
     setTagsText(tagsEl, r);
-    panel.hidden = true;
-    editBtn.textContent = "Edit tags";
+    panel.collapse();
     // The title/artist are shown in several places built from this same track object (the
     // results list, the queue list, the now-playing bar) - re-render whichever of those
     // currently hold it rather than patching each one's DOM by hand.

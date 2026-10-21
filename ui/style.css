@@ -691,6 +691,30 @@ header h1 {
   border: none;
 }
 
+/* Same compact round "x" look as .dismiss-btn, for toggle buttons that sit inline in a row's
+   button toolbar (Lyrics/Info/Edit tags) rather than pinned to a card's corner - no absolute
+   positioning, since the surrounding flex layout already places them. */
+.inline-dismiss-btn {
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-faint);
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.inline-dismiss-btn:hover {
+  color: var(--danger);
+  background: var(--surface-alt);
+  border: none;
+}
+
 #load-more-btn {
   display: block;
   margin: 1rem auto 0;
@@ -880,6 +904,29 @@ header h1 {
   margin-top: 0.3rem;
 }
 
+/* Anchors the reparented Info/Edit tags toggle buttons (see appendDiscoveryActions) to their
+   panel's top-right corner, same as .dismiss-btn on a track card - a dedicated, isolated spot
+   rather than a small "✕" packed into the row's button toolbar next to other buttons, where it
+   was an easy misclick (clicks landing on a neighbour instead of closing the panel). */
+.info-panel,
+.edit-panel {
+  position: relative;
+}
+
+.info-panel > .inline-dismiss-btn,
+.edit-panel > .inline-dismiss-btn {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.8rem;
+}
+
+/* .edit-row's inputs use flex:1 and genuinely fill the full row width (unlike info-facts'
+   content-sized chips), so without this they'd render directly under the corner dismiss button
+   instead of leaving room for it. */
+.edit-panel {
+  padding-right: 2.3rem;
+}
+
 .playlist-picker-list {
   display: flex;
   flex-wrap: wrap;
@@ -902,6 +949,7 @@ header h1 {
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
+
 
 .info-label {
   color: var(--text-faint);
@@ -946,6 +994,25 @@ header h1 {
   white-space: pre-wrap;
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* Holds the reparented lyrics dismiss button (see setLyricsShown) in its own corner, clear of
+   the lyrics text - same pinned-corner treatment as Info/Edit tags, not a small "✕" packed into
+   actionsRow next to Edit lyrics/Video. The extra top padding only applies while the button's
+   actually in here (lyrics shown), so a track with lyrics never opened doesn't carry a
+   permanent empty gap in the Info panel. */
+.lyrics-wrapper {
+  position: relative;
+}
+
+.lyrics-wrapper:has(.inline-dismiss-btn) {
+  padding-top: 1.8rem;
+}
+
+.lyrics-wrapper > .inline-dismiss-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .info-lyrics.info-lyrics-synced {
