@@ -562,6 +562,66 @@ header h1 {
   pointer-events: none;
 }
 
+#eq-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  align-self: stretch;
+}
+
+#eq-preset-select {
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+#eq-bypass.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+/* Preamp's own fader (no frequency, no meter column above it) sits to the left of the
+   EQ_BANDS-driven spectrum block, divided from it so it doesn't read as an 11th band. */
+.eq-main-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.eq-preamp {
+  padding-right: 0.9rem;
+  border-right: 1px solid var(--border);
+}
+
+#eq-spectrum-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+#eq-balance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  align-self: stretch;
+}
+
+#eq-balance {
+  flex: 1;
+  max-width: 14rem;
+  accent-color: var(--accent);
+}
+
 /* Spectrum meter and faders are sibling rows of equal-width flex columns (see buildEqUi in
    app.js) - same column count, same gap, same width each, so a meter bar always lines up
    directly above the fader for that frequency without the two rows needing to share markup. */
@@ -572,6 +632,7 @@ header h1 {
 }
 
 .eq-meter-col {
+  position: relative;
   width: 1.3rem;
   height: 32px;
   flex-shrink: 0;
@@ -594,6 +655,18 @@ header h1 {
     var(--bg) 3px,
     var(--bg) 5px
   );
+}
+
+/* Holds briefly at each band's recent peak before decaying (see the meter loop in app.js) - the
+   classic VU-meter detail that makes it possible to read a brief transient that the live fill
+   bar itself has already dropped back down from by the time you look. */
+.eq-meter-peak {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  bottom: 0%;
+  background: var(--text);
 }
 
 .eq-band {

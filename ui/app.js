@@ -56,6 +56,12 @@ const eqPanelEl = document.getElementById("eq-panel");
 const eqMeterEl = document.getElementById("eq-meter");
 const eqFadersEl = document.getElementById("eq-faders");
 const eqResetBtn = document.getElementById("eq-reset");
+const eqPresetSelectEl = document.getElementById("eq-preset-select");
+const eqSavePresetBtn = document.getElementById("eq-save-preset");
+const eqBypassBtn = document.getElementById("eq-bypass");
+const eqPreampSlider = document.getElementById("eq-preamp");
+const eqPreampValueEl = document.getElementById("eq-preamp-value");
+const eqBalanceSlider = document.getElementById("eq-balance");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const saveBtn = document.getElementById("queue-save");
@@ -92,40 +98,105 @@ wireCollapseToggle(playlistsToggleBtn, playlistsListEl);
 // reference hardware equaliser/spectrum display this was modelled on.
 const EQ_BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 const EQ_STATE_KEY = "pan.eqState";
+const EQ_CUSTOM_PRESETS_KEY = "pan.eqCustomPresets";
+const EQ_CUSTOM_PRESET_PREFIX = "custom:";
+const EQ_PEAK_DECAY_PER_FRAME = 1.2; // % of meter height per animation frame (~60fps)
+const EQ_BUILTIN_PRESETS = {
+  Flat: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "Bass Boost": [7, 6, 4, 2, 0, 0, 0, 0, 0, 0],
+  Vocal: [-2, -2, -1, 1, 3, 4, 3, 1, -1, -2],
+  Rock: [4, 3, 2, 0, -1, 0, 2, 3, 4, 4],
+  "Treble Boost": [0, 0, 0, 0, 0, 1, 2, 4, 5, 6],
+  Loudness: [5, 4, 2, 0, -2, -2, 0, 2, 4, 5],
+};
+
 let eqAudioCtx = null;
+let eqPreampNode = null; // overall level, ahead of the 10 bands
 let eqFilterNodes = []; // one BiquadFilterNode per EQ_BANDS entry, chained in order
+// Not a user control - boosting several bands at once can push the signal into clipping, so a
+// gentle limiter sits at the end of the chain regardless of the bypass/preamp settings above it.
+let eqLimiterNode = null;
+let eqPannerNode = null; // left/right balance
 let eqAnalyser = null;
 let eqAnalyserData = null;
 let eqBandBinRanges = null; // [lo, hi] FFT bin indices per band, for the meter
 let eqMeterRafId = null;
+// Zeroes the filters/preamp without moving their sliders or touching saved state (see
+// applyEqGains) - a quick A/B against "no EQ", not a second settings profile, so it isn't
+// persisted across reloads any more than videoModeEnabled is.
+let eqBypassed = false;
 
 function formatEqFreqLabel(freq) {
   return freq >= 1000 ? `${freq / 1000}k` : String(freq);
 }
 
+function dbToGain(db) {
+  return Math.pow(10, db / 20);
+}
+
 function loadEqState() {
   try {
     const saved = JSON.parse(localStorage.getItem(EQ_STATE_KEY));
+    // Pre-preamp/balance format: just the 10 band gains.
     if (Array.isArray(saved) && saved.length === EQ_BANDS.length && saved.every(Number.isFinite)) {
+      return { bands: saved, preamp: 0, balance: 0 };
+    }
+    if (
+      saved &&
+      Array.isArray(saved.bands) &&
+      saved.bands.length === EQ_BANDS.length &&
+      saved.bands.every(Number.isFinite) &&
+      Number.isFinite(saved.preamp) &&
+      Number.isFinite(saved.balance)
+    ) {
       return saved;
     }
   } catch {
     // localStorage unavailable (private browsing etc) - the EQ just won't persist across reloads
   }
-  return EQ_BANDS.map(() => 0);
+  return { bands: EQ_BANDS.map(() => 0), preamp: 0, balance: 0 };
 }
 
-function saveEqState(state) {
+// Always reads live DOM slider state rather than taking it as a parameter - a single source of
+// truth avoids every call site having to assemble the same object correctly.
+function saveEqState() {
   try {
-    localStorage.setItem(EQ_STATE_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      EQ_STATE_KEY,
+      JSON.stringify({
+        bands: currentBandGains(),
+        preamp: Number(eqPreampSlider.value),
+        balance: Number(eqBalanceSlider.value) / 100,
+      }),
+    );
   } catch {
     // localStorage unavailable (private browsing etc) - the EQ just won't persist across reloads
+  }
+}
+
+function loadCustomPresets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(EQ_CUSTOM_PRESETS_KEY));
+    if (saved && typeof saved === "object") return saved;
+  } catch {
+    // localStorage unavailable (private browsing etc) - saved presets just won't persist
+  }
+  return {};
+}
+
+function saveCustomPresets(presets) {
+  try {
+    localStorage.setItem(EQ_CUSTOM_PRESETS_KEY, JSON.stringify(presets));
+  } catch {
+    // localStorage unavailable (private browsing etc) - saved presets just won't persist
   }
 }
 
 const eqSliders = [];
 const eqValueEls = [];
 const eqMeterFillEls = [];
+const eqMeterPeakEls = [];
+const eqPeaks = []; // current peak-hold height per band, 0-100
 
 // Builds the meter-bar row and fader row as matching sets of equal-width flex columns (see the
 // shared .eq-band/.eq-meter-col CSS) - generated from EQ_BANDS rather than hand-duplicated in
@@ -136,9 +207,13 @@ function buildEqUi() {
     meterCol.className = "eq-meter-col";
     const meterFill = document.createElement("div");
     meterFill.className = "eq-meter-fill";
-    meterCol.appendChild(meterFill);
+    const meterPeak = document.createElement("div");
+    meterPeak.className = "eq-meter-peak";
+    meterCol.append(meterFill, meterPeak);
     eqMeterEl.appendChild(meterCol);
     eqMeterFillEls.push(meterFill);
+    eqMeterPeakEls.push(meterPeak);
+    eqPeaks.push(0);
 
     const band = document.createElement("div");
     band.className = "eq-band";
@@ -164,11 +239,113 @@ function buildEqUi() {
 }
 buildEqUi();
 
-function renderEqValues(state) {
-  state.forEach((v, i) => {
+function renderEqValues(bands) {
+  bands.forEach((v, i) => {
     eqValueEls[i].textContent = `${v > 0 ? "+" : ""}${v} dB`;
   });
 }
+
+function currentBandGains() {
+  return eqSliders.map((s) => Number(s.value));
+}
+
+// What a filter/the preamp should actually be set to right now, folding in bypass - the sliders
+// themselves never move for bypass, only what the audio graph is told to do with them.
+function effectiveBandGain(i) {
+  return eqBypassed ? 0 : currentBandGains()[i];
+}
+
+function effectivePreampGain() {
+  return eqBypassed ? 1 : dbToGain(Number(eqPreampSlider.value));
+}
+
+function applyEqGains() {
+  eqFilterNodes.forEach((f, i) => {
+    f.gain.value = effectiveBandGain(i);
+  });
+  if (eqPreampNode) eqPreampNode.gain.value = effectivePreampGain();
+}
+
+function allPresets() {
+  const presets = { ...EQ_BUILTIN_PRESETS };
+  for (const [name, gains] of Object.entries(loadCustomPresets())) {
+    presets[`${EQ_CUSTOM_PRESET_PREFIX}${name}`] = gains;
+  }
+  return presets;
+}
+
+function matchingPresetKey(gains) {
+  for (const [key, presetGains] of Object.entries(allPresets())) {
+    if (presetGains.length === gains.length && presetGains.every((v, i) => v === gains[i])) {
+      return key;
+    }
+  }
+  return ""; // doesn't match any known preset - the hidden "Custom" placeholder option
+}
+
+// Rebuilds the <option>s (built-ins, then an optgroup of anything saved via "Save preset…") and
+// selects `selectedKey` - called on load and whenever a preset is saved, since the custom list
+// can change.
+function populatePresetSelect(selectedKey) {
+  eqPresetSelectEl.innerHTML = "";
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Custom";
+  placeholder.hidden = true; // not a real choice - just what shows when nothing else matches
+  eqPresetSelectEl.appendChild(placeholder);
+
+  for (const name of Object.keys(EQ_BUILTIN_PRESETS)) {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    eqPresetSelectEl.appendChild(opt);
+  }
+
+  const customNames = Object.keys(loadCustomPresets());
+  if (customNames.length) {
+    const group = document.createElement("optgroup");
+    group.label = "Your presets";
+    for (const name of customNames) {
+      const opt = document.createElement("option");
+      opt.value = `${EQ_CUSTOM_PRESET_PREFIX}${name}`;
+      opt.textContent = name;
+      group.appendChild(opt);
+    }
+    eqPresetSelectEl.appendChild(group);
+  }
+
+  eqPresetSelectEl.value = selectedKey ?? "";
+}
+
+eqPresetSelectEl.addEventListener("change", () => {
+  const gains = allPresets()[eqPresetSelectEl.value];
+  if (!gains) return; // the hidden "Custom" placeholder, or a stale value - nothing to apply
+  eqSliders.forEach((s, i) => {
+    s.value = gains[i];
+  });
+  renderEqValues(gains);
+  applyEqGains();
+  saveEqState();
+});
+
+eqSavePresetBtn.addEventListener("click", () => {
+  const name = prompt("Save the current EQ curve as:");
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  const custom = loadCustomPresets();
+  custom[trimmed] = currentBandGains();
+  saveCustomPresets(custom);
+  populatePresetSelect(`${EQ_CUSTOM_PRESET_PREFIX}${trimmed}`);
+});
+
+eqBypassBtn.addEventListener("click", () => {
+  eqBypassed = !eqBypassed;
+  eqBypassBtn.setAttribute("aria-pressed", String(eqBypassed));
+  eqBypassBtn.classList.toggle("is-active", eqBypassed);
+  eqBypassBtn.textContent = eqBypassed ? "Bypassed" : "Bypass";
+  applyEqGains();
+});
 
 // Octave-band edges as the geometric mean between each pair of neighbouring centre frequencies -
 // the standard way to split a spectrum into bands, so the meter's bins line up with what each
@@ -196,26 +373,45 @@ function ensureEqGraph() {
   if (eqAudioCtx) return;
   eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const source = eqAudioCtx.createMediaElementSource(queuePlayer);
-  const state = loadEqState();
+
+  eqPreampNode = eqAudioCtx.createGain();
+  eqPreampNode.gain.value = effectivePreampGain();
+
   eqFilterNodes = EQ_BANDS.map((freq, i) => {
     const filter = eqAudioCtx.createBiquadFilter();
     filter.type = "peaking";
     filter.frequency.value = freq;
     filter.Q.value = 1.41; // ~1 octave bandwidth, matching the band spacing above
-    filter.gain.value = state[i];
+    filter.gain.value = effectiveBandGain(i);
     return filter;
   });
+
+  eqLimiterNode = eqAudioCtx.createDynamicsCompressor();
+  eqLimiterNode.threshold.value = -3;
+  eqLimiterNode.knee.value = 0;
+  eqLimiterNode.ratio.value = 20;
+  eqLimiterNode.attack.value = 0.003;
+  eqLimiterNode.release.value = 0.25;
+
+  eqPannerNode = eqAudioCtx.createStereoPanner();
+  eqPannerNode.pan.value = Number(eqBalanceSlider.value) / 100;
+
   eqAnalyser = eqAudioCtx.createAnalyser();
   eqAnalyser.fftSize = 2048;
   eqAnalyser.smoothingTimeConstant = 0.8;
   eqAnalyserData = new Uint8Array(eqAnalyser.frequencyBinCount);
   eqBandBinRanges = computeEqBandBinRanges();
+
   let node = source;
+  node.connect(eqPreampNode);
+  node = eqPreampNode;
   eqFilterNodes.forEach((filter) => {
     node.connect(filter);
     node = filter;
   });
-  node.connect(eqAnalyser);
+  node.connect(eqLimiterNode);
+  eqLimiterNode.connect(eqPannerNode);
+  eqPannerNode.connect(eqAnalyser);
   eqAnalyser.connect(eqAudioCtx.destination);
   startEqMeterLoop();
 }
@@ -230,8 +426,10 @@ function startEqMeterLoop() {
     eqMeterRafId = requestAnimationFrame(tick);
     if (eqPanelEl.classList.contains("collapsed")) return; // nothing visible - skip the work
     if (!eqAnalyser || queuePlayer.hidden || queuePlayer.paused) {
-      eqMeterFillEls.forEach((el) => {
+      eqMeterFillEls.forEach((el, i) => {
         el.style.height = "0%";
+        eqPeaks[i] = 0;
+        eqMeterPeakEls[i].style.bottom = "0%";
       });
       return;
     }
@@ -240,7 +438,12 @@ function startEqMeterLoop() {
       let sum = 0;
       for (let b = lo; b <= hi; b++) sum += eqAnalyserData[b];
       const avg = sum / (hi - lo + 1); // 0-255
-      eqMeterFillEls[i].style.height = `${Math.min(100, (avg / 255) * 100)}%`;
+      const pct = Math.min(100, (avg / 255) * 100);
+      eqMeterFillEls[i].style.height = `${pct}%`;
+      // Jumps up to a new peak instantly, decays back down slowly - the detail that makes a
+      // brief transient visible after the live fill bar itself has already dropped from it.
+      eqPeaks[i] = pct >= eqPeaks[i] ? pct : Math.max(pct, eqPeaks[i] - EQ_PEAK_DECAY_PER_FRAME);
+      eqMeterPeakEls[i].style.bottom = `${eqPeaks[i]}%`;
     });
   };
   tick();
@@ -249,30 +452,49 @@ function startEqMeterLoop() {
 function onEqSliderInput(e) {
   const i = Number(e.target.dataset.index);
   const v = Number(e.target.value);
-  if (eqFilterNodes[i]) eqFilterNodes[i].gain.value = v;
   eqValueEls[i].textContent = `${v > 0 ? "+" : ""}${v} dB`;
-  saveEqState(eqSliders.map((s) => Number(s.value)));
+  if (eqFilterNodes[i]) eqFilterNodes[i].gain.value = effectiveBandGain(i);
+  eqPresetSelectEl.value = matchingPresetKey(currentBandGains());
+  saveEqState();
 }
 eqSliders.forEach((el) => el.addEventListener("input", onEqSliderInput));
 
+eqPreampSlider.addEventListener("input", () => {
+  const v = Number(eqPreampSlider.value);
+  eqPreampValueEl.textContent = `${v > 0 ? "+" : ""}${v} dB`;
+  if (eqPreampNode) eqPreampNode.gain.value = effectivePreampGain();
+  saveEqState();
+});
+
+eqBalanceSlider.addEventListener("input", () => {
+  if (eqPannerNode) eqPannerNode.pan.value = Number(eqBalanceSlider.value) / 100;
+  saveEqState();
+});
+
 eqResetBtn.addEventListener("click", () => {
-  const state = EQ_BANDS.map(() => 0);
   eqSliders.forEach((s) => {
     s.value = 0;
   });
-  eqFilterNodes.forEach((f) => {
-    f.gain.value = 0;
-  });
-  renderEqValues(state);
-  saveEqState(state);
+  eqPreampSlider.value = 0;
+  eqBalanceSlider.value = 0;
+  renderEqValues(EQ_BANDS.map(() => 0));
+  eqPreampValueEl.textContent = "0 dB";
+  applyEqGains();
+  if (eqPannerNode) eqPannerNode.pan.value = 0;
+  eqPresetSelectEl.value = "Flat";
+  saveEqState();
 });
 
-(function initEqSliders() {
+(function initEqControls() {
   const state = loadEqState();
   eqSliders.forEach((s, i) => {
-    s.value = state[i];
+    s.value = state.bands[i];
   });
-  renderEqValues(state);
+  renderEqValues(state.bands);
+  eqPreampSlider.value = state.preamp;
+  eqPreampValueEl.textContent = `${state.preamp > 0 ? "+" : ""}${state.preamp} dB`;
+  eqBalanceSlider.value = Math.round(state.balance * 100);
+  populatePresetSelect(matchingPresetKey(state.bands));
 })();
 
 // #eq-pane is a permanent pane in #content (like #playlists-panel), not a popup, so this is just
@@ -287,6 +509,11 @@ function updateEqAvailability() {
   eqSliders.forEach((s) => {
     s.disabled = queuePlayer.hidden;
   });
+  eqPreampSlider.disabled = queuePlayer.hidden;
+  eqBalanceSlider.disabled = queuePlayer.hidden;
+  eqPresetSelectEl.disabled = queuePlayer.hidden;
+  eqBypassBtn.disabled = queuePlayer.hidden;
+  eqSavePresetBtn.disabled = queuePlayer.hidden;
 }
 
 let queue = []; // [{id, title, artist, file_path}]
