@@ -376,6 +376,13 @@ header h1 {
   display: none;
 }
 
+/* Clamped to a fixed 2 lines (long titles like "Professional Widow (Armand Van Helden's Trunk
+   Funkin' Mix) (Radio Edit)" truncate with an ellipsis instead) with an explicit line-height so
+   min-height reserves exactly that much space always - title length varies continuously, unlike
+   the fixed set of cases the other "reserve space" fixes in this file cover, so capping it at a
+   known bound was needed before a height could be reserved for it at all. Without this, a short
+   title left the row at 1 line's height while a long one pushed it to 2+, shifting everything
+   below (the audio player, queue list) up or down on every track change. */
 #queue-now-playing {
   flex: 1;
   min-width: 0;
@@ -383,6 +390,12 @@ header h1 {
   color: var(--text);
   font-size: 0.95rem;
   font-weight: 500;
+  line-height: 1.3;
+  min-height: 2.6em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 #queue-controls {
@@ -422,6 +435,11 @@ header h1 {
   align-items: center;
   gap: 0.5rem;
   margin-top: 0.5rem;
+  /* Reserves the art thumbnail's own height (2rem here, 4.5rem on desktop below) regardless of
+     whether this track actually has one - .now-playing-art is taller than the tags/buttons text
+     alone, so without this the whole row (and everything below it) shifted up or down depending
+     on art presence, on top of the horizontal shift already fixed by appending it last. */
+  min-height: 2rem;
 }
 
 #queue-playpause {
@@ -1683,5 +1701,6 @@ header h1 {
 
   #queue-now-playing-actions {
     gap: 0.9rem;
+    min-height: 4.5rem;
   }
 }
