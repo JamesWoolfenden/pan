@@ -16,3 +16,9 @@ wheels/
 
 # Self-signed TLS cert for LAN HTTPS (machine-specific - regenerate per host, see Makefile)
 certs/
+
+# IDEs
+.vscode/
+
+# Personal Claude Code permission overrides (e.g. NAS deploy SSH allowlist)
+.claude/settings.local.json

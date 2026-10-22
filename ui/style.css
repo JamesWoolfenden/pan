@@ -609,12 +609,15 @@ header h1 {
   pointer-events: none;
 }
 
+/* Now sits below #eq-right-knobs (see index.html) rather than above the whole panel - preamp and
+   the dial column are noticeably shorter than the 10-band faders/meter beside them, so this fills
+   what would otherwise be dead space under that pair instead of its own full-width row. */
 #eq-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin-bottom: 0.5rem;
+  margin-top: 0.6rem;
   align-self: stretch;
 }
 
@@ -635,8 +638,8 @@ header h1 {
    inset shadow for a visibly pressed-in look when active, flat/raised (inherited from the base
    button style) when not. */
 .eq-round-btn {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   border-radius: 50%;
   flex-shrink: 0;
@@ -649,9 +652,21 @@ header h1 {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
 }
 
-/* Preamp's own fader (no frequency, no meter column above it) sits to the left of the
-   EQ_BANDS-driven spectrum block, divided from it so it doesn't read as an 11th band. */
 .eq-main-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+/* Preamp + the dial column (Balance/Volume/Bypass) side by side, with the preset toolbar below
+   them (see index.html) - together they're noticeably shorter than the 10-band faders/meter
+   beside them, so stacking the toolbar underneath uses that space instead of leaving it empty. */
+#eq-right-column {
+  display: flex;
+  flex-direction: column;
+}
+
+#eq-right-knobs {
   display: flex;
   align-items: flex-start;
   gap: 0.9rem;
@@ -672,12 +687,12 @@ header h1 {
 /* Rotary controls - Balance and (stacked under it) Volume - see the comment above
    #eq-balance-knob in index.html for why these are custom dials rather than native range
    inputs. -135deg/+135deg (Balance, set via app.js's setEqBalance) and 0-270deg (Volume, see
-   setQueueVolume) are the standard sweeps for a software knob. Sized 25% bigger than the EQ
-   band faders' own controls (1.8rem base) - this is now the shared home for everything besides
-   the core 10-band curve, so it gets a bit more presence. */
+   setQueueVolume) are the standard sweeps for a software knob. Bigger again (was 1.8rem, then
+   2.25rem) now that the preset toolbar moved out from under them (see #eq-toolbar) and this
+   column has more room to itself. */
 .eq-knob {
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
   flex-shrink: 0;
   margin: 0.3rem 0;
   border-radius: 50%;
@@ -700,7 +715,7 @@ header h1 {
 .eq-knob-pointer {
   position: absolute;
   left: 50%;
-  top: 0.25rem;
+  top: 0.3rem;
   width: 2px;
   height: 40%;
   background: var(--accent);
@@ -1697,6 +1712,15 @@ header h1 {
 
   .eq-fader-wrap {
     --eq-fader-len: 180px;
+  }
+
+  /* Preamp's fader matches the dial column's own height instead of the 10 bands' 180px - measured
+     empirically (.eq-balance's rendered height minus .eq-preamp's own value/label overhead, with
+     the bigger 2.75rem knobs above) rather than hand-calculated, since getting it from em/rem
+     arithmetic across nested gaps/margins is error-prone. Specificity (two classes vs one) wins
+     over the general rule above regardless of source order, so this doesn't need to go after it. */
+  .eq-preamp .eq-fader-wrap {
+    --eq-fader-len: 269px;
   }
 
   .eq-value,

@@ -130,13 +130,6 @@
         <button id="eq-toggle" class="chevron-toggle" title="Show/hide equaliser" aria-expanded="true">&#9652;</button>
       </div>
       <div id="eq-panel">
-        <div id="eq-toolbar">
-          <!-- Options populated by app.js's populatePresetSelect() - built-in curves plus
-               whatever's been saved with "Save preset…", so adding/renaming/removing a custom
-               one is a data change, not an HTML edit. -->
-          <select id="eq-preset-select" title="EQ preset"></select>
-          <button id="eq-save-preset" class="link-btn">Save preset…</button>
-        </div>
         <div class="eq-main-row">
           <div id="eq-spectrum-block">
             <!-- Live spectrum meter (one bar per EQ_BANDS frequency) and the gain faders below
@@ -146,20 +139,29 @@
             <div id="eq-meter"></div>
             <div id="eq-faders"></div>
           </div>
-          <!-- Overall level, not a frequency band - kept visually separate (own fader, no meter
-               column above it) from the EQ_BANDS-driven spectrum block to its left, and placed
-               after the bands (read the frequency curve first, then the overall trim applied
-               on top of it) rather than before. -->
-          <div class="eq-band eq-preamp">
-            <span id="eq-preamp-value" class="eq-value">0 dB</span>
-            <div class="eq-fader-wrap">
-              <div class="eq-fader-ticks"></div>
-              <div class="eq-fader-rail">
-                <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="0" />
+          <!-- Preamp + the dial column are noticeably shorter than the 10-band faders/meter, so
+               the preset select sits below them (see #eq-toolbar further down) rather than above
+               the whole panel - it fills what would otherwise be dead space under this pair
+               instead of taking its own full-width row. -->
+          <div id="eq-right-column">
+            <div id="eq-right-knobs">
+              <!-- Overall level, not a frequency band - kept visually separate (own fader, no
+                   meter column above it) from the EQ_BANDS-driven spectrum block to its left, and
+                   placed after the bands (read the frequency curve first, then the overall trim
+                   applied on top of it) rather than before. Its own fader is the same length as
+                   the dial column beside it (see --eq-fader-len on .eq-preamp .eq-fader-wrap in
+                   style.css), not the much taller 180px the 10 bands use - matching its neighbour
+                   rather than the column it has nothing in common with height-wise. -->
+              <div class="eq-band eq-preamp">
+                <span id="eq-preamp-value" class="eq-value">0 dB</span>
+                <div class="eq-fader-wrap">
+                  <div class="eq-fader-ticks"></div>
+                  <div class="eq-fader-rail">
+                    <input id="eq-preamp" type="range" min="-12" max="12" step="1" value="0" />
+                  </div>
+                </div>
+                <label for="eq-preamp">Pre</label>
               </div>
-            </div>
-            <label for="eq-preamp">Pre</label>
-          </div>
           <!-- Rightmost column, its own divider same as .eq-preamp's - not a frequency band
                either. Both rotary controls (Balance and, below it, Volume) rather than native
                <input type="range"> sliders - a horizontal slider reads as "which band is this"
@@ -218,6 +220,15 @@
               aria-pressed="false"
             ></button>
             <label for="eq-bypass">Byp</label>
+          </div>
+            </div>
+            <div id="eq-toolbar">
+              <!-- Options populated by app.js's populatePresetSelect() - built-in curves plus
+                   whatever's been saved with "Save preset…", so adding/renaming/removing a
+                   custom one is a data change, not an HTML edit. -->
+              <select id="eq-preset-select" title="EQ preset"></select>
+              <button id="eq-save-preset" class="link-btn">Save preset…</button>
+            </div>
           </div>
         </div>
         <button id="eq-reset" class="link-btn">Reset</button>
