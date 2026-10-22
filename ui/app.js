@@ -2595,11 +2595,19 @@ function guessCastContentType(track) {
   return CAST_CONTENT_TYPES[ext] || "audio/mpeg";
 }
 
-// Chromecast's receiver hardware fetches this URL itself, directly over the LAN, and does real
-// TLS certificate validation - unlike a browser, it has no way to click through a warning for
-// our self-signed cert. The app itself stays on HTTPS (needed for PWA install), but casting
-// specifically needs a plain-HTTP path, served in parallel on :8080 (see Makefile).
-const CAST_STREAM_ORIGIN = `http://${location.hostname}:8080`;
+// Chromecast's receiver hardware fetches this URL itself, directly over the network, and does
+// real TLS certificate validation - unlike a browser, it has no way to click through a warning.
+// Locally (`make run`), the app's HTTPS cert is self-signed, so casting needs the plain-HTTP
+// sibling served in parallel on :8080 (see Makefile) instead - that's the one case this app ever
+// has an untrusted cert. A real deployment (the Tailscale sidecar's `tailscale serve`, HTTPS on
+// the default 443) has a properly trusted cert and no :8080 listener at all - nothing is
+// reachable there except the page's own origin, which is also the only thing that actually needs
+// to be: casting from a phone against the deployed app was failing because this was hardcoded to
+// always assume the dev :8080 workaround, even in a deployment with no such port.
+const CAST_STREAM_ORIGIN =
+  location.protocol === "https:" && location.port === "8000"
+    ? `http://${location.hostname}:8080`
+    : location.origin;
 
 function isCasting() {
   return !!(castPlayer && castPlayer.isConnected);
