@@ -43,30 +43,34 @@
            affects the stack's height at all, with or without art - see app.js's
            setNowPlayingArt(), which always keeps this <img> in the DOM and only toggles its
            visibility (not its presence), so nothing here ever needs to re-reserve space for it. -->
+      <!-- Full width, above #queue-top rather than inside #queue-top-stack - the stack sits beside
+           the art column, so a header nested in it tops out short of the panel's right edge by the
+           art's width and never lines up with #playlists-toggle/#eq-toggle next door. Out here it
+           spans the whole panel like those headers do, so #queue-list-toggle lands at the same x. -->
+      <div id="queue-header">
+        <strong>Queue</strong>
+        <span id="queue-now-playing"></span>
+        <div id="queue-controls">
+          <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
+          <button id="queue-prev" disabled>&#9664;&#9664;</button>
+          <button id="queue-playpause" disabled>&#9654;</button>
+          <button id="queue-next" disabled>&#9654;&#9654;</button>
+          <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
+          <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
+          <google-cast-launcher id="cast-button"></google-cast-launcher>
+          <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
+          <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
+          <button id="queue-add-to-playlist" disabled title="Add all queued tracks to an existing playlist">&#10133; Playlist</button>
+          <button id="queue-clear" disabled title="Clear">&#128465;</button>
+        </div>
+        <!-- Last in the header, like #playlists-toggle/#eq-toggle - .chevron-toggle itself has
+             no positioning, so #queue-header pushes it to the far right (see margin-left:auto
+             below) since, unlike the other two headers, this one has more than just a title
+             and the toggle sharing it so justify-content:space-between isn't an option. -->
+        <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
+      </div>
       <div id="queue-top">
         <div id="queue-top-stack">
-          <div id="queue-header">
-            <strong>Queue</strong>
-            <span id="queue-now-playing"></span>
-            <div id="queue-controls">
-              <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
-              <button id="queue-prev" disabled>&#9664;&#9664;</button>
-              <button id="queue-playpause" disabled>&#9654;</button>
-              <button id="queue-next" disabled>&#9654;&#9654;</button>
-              <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
-              <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
-              <google-cast-launcher id="cast-button"></google-cast-launcher>
-              <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
-              <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
-              <button id="queue-add-to-playlist" disabled title="Add all queued tracks to an existing playlist">&#10133; Playlist</button>
-              <button id="queue-clear" disabled title="Clear">&#128465;</button>
-            </div>
-            <!-- Last in the header, like #playlists-toggle/#eq-toggle - .chevron-toggle itself has
-                 no positioning, so #queue-header pushes it to the far right (see margin-left:auto
-                 below) since, unlike the other two headers, this one has more than just a title
-                 and the toggle sharing it so justify-content:space-between isn't an option. -->
-            <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
-          </div>
           <div id="queue-now-playing-actions" hidden></div>
         </div>
         <img id="queue-art" class="album-art now-playing-art" alt="" />
