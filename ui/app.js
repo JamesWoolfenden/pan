@@ -78,6 +78,7 @@ const playlistsToggleBtn = document.getElementById("playlists-toggle");
 const playlistsFilterEl = document.getElementById("playlists-filter");
 const loadMoreBtn = document.getElementById("load-more-btn");
 const nowPlayingActionsEl = document.getElementById("queue-now-playing-actions");
+const queueArtEl = document.getElementById("queue-art");
 
 // Shared by every collapsible section that uses a chevron toggle (queue list, playlists) -
 // always visible, on every screen size. Defaults open (.collapsed absent), same as before this
@@ -1891,6 +1892,7 @@ function appendDiscoveryActions(r, tagsEl, buttonHost, panelHost) {
 
 function renderNowPlayingActions(track) {
   nowPlayingActionsEl.innerHTML = "";
+  setNowPlayingArt(track);
   if (!track) {
     nowPlayingActionsEl.hidden = true;
     return;
@@ -1907,21 +1909,27 @@ function renderNowPlayingActions(track) {
   const panelHost = document.createElement("div");
   appendDiscoveryActions(track, tagsEl, buttonRow, panelHost);
   nowPlayingActionsEl.append(buttonRow, panelHost);
+}
 
-  // Appended last, after the tags/buttons rather than before them - a track with no embedded art
-  // removes itself on error (below), and when it was the FIRST child, that removal shifted where
-  // the tags/buttons started (they'd jump left to fill the gap), reading as the controls
-  // redrawing themselves. At the end of the row, its presence or absence only affects the row's
-  // own trailing space, not where anything else starts.
-  if (track.file_path) {
-    const art = document.createElement("img");
-    art.className = "album-art now-playing-art";
-    art.src = `/track/${track.id}/art`;
-    art.alt = "";
-    art.addEventListener("error", () => art.remove(), { once: true });
-    nowPlayingActionsEl.appendChild(art);
+// #queue-art is a single persistent <img> (see the comment above #queue-top in index.html) that
+// this just points at the current track's art and shows/hides - never created or removed, unlike
+// the old approach of building a fresh <img> per track inside #queue-now-playing-actions, which
+// made that row's own height (and therefore everything below it) depend on whether the current
+// track happened to have art. Re-assigning .src on the same <img> element aborts any still-
+// in-flight previous request, so a slow/stale response from a few tracks ago can't land here
+// and flip visibility back on after a newer, art-less track has already hidden it.
+function setNowPlayingArt(track) {
+  queueArtEl.style.visibility = "hidden";
+  if (track && track.file_path) {
+    queueArtEl.src = `/track/${track.id}/art`;
   }
 }
+queueArtEl.addEventListener("load", () => {
+  queueArtEl.style.visibility = "visible";
+});
+queueArtEl.addEventListener("error", () => {
+  queueArtEl.style.visibility = "hidden";
+});
 
 // Cheap, no-extra-query heuristic for whether the "Versions" button is worth showing: does
 // this track's own title already look like a mix/edit/remix (mirrors backend _base_title's

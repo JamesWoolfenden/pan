@@ -339,6 +339,26 @@ header h1 {
   margin-bottom: 1rem;
 }
 
+/* #queue-art sits beside this stack (see the comment above #queue-top in index.html), not inside
+   it, so its own box can never affect the stack's height - visibility: hidden (not display:
+   none) when a track has no art keeps that box's space reserved at a constant size either way,
+   rather than the stack growing/shrinking depending on whether this track happens to have art. */
+#queue-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+#queue-top-stack {
+  flex: 1;
+  min-width: 0;
+}
+
+#queue-art {
+  flex-shrink: 0;
+  visibility: hidden;
+}
+
 #queue-header {
   display: flex;
   align-items: center;

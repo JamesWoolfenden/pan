@@ -35,25 +35,38 @@
   <main>
     <div id="sidebar">
     <section id="queue-panel">
-      <div id="queue-header">
-        <strong>Queue</strong>
-        <span id="queue-now-playing"></span>
-        <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
-        <div id="queue-controls">
-          <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
-          <button id="queue-prev" disabled>&#9664;&#9664;</button>
-          <button id="queue-playpause" disabled>&#9654;</button>
-          <button id="queue-next" disabled>&#9654;&#9654;</button>
-          <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
-          <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
-          <google-cast-launcher id="cast-button"></google-cast-launcher>
-          <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
-          <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
-          <button id="queue-add-to-playlist" disabled title="Add all queued tracks to an existing playlist">&#10133; Playlist</button>
-          <button id="queue-clear" disabled title="Clear">&#128465;</button>
+      <!-- The art thumbnail (queue-art below) lives in its own flex column beside this stack,
+           not inside #queue-now-playing-actions with the tags/buttons - a previous attempt kept
+           it in that row and reserved its height there to stop the shift when it appeared, but
+           that meant every track WITHOUT art (the common case) carried ~45px of dead space below
+           the controls all the time. Putting it beside the stack instead means its own box never
+           affects the stack's height at all, with or without art - see app.js's
+           setNowPlayingArt(), which always keeps this <img> in the DOM and only toggles its
+           visibility (not its presence), so nothing here ever needs to re-reserve space for it. -->
+      <div id="queue-top">
+        <div id="queue-top-stack">
+          <div id="queue-header">
+            <strong>Queue</strong>
+            <span id="queue-now-playing"></span>
+            <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
+            <div id="queue-controls">
+              <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
+              <button id="queue-prev" disabled>&#9664;&#9664;</button>
+              <button id="queue-playpause" disabled>&#9654;</button>
+              <button id="queue-next" disabled>&#9654;&#9654;</button>
+              <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
+              <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
+              <google-cast-launcher id="cast-button"></google-cast-launcher>
+              <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
+              <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
+              <button id="queue-add-to-playlist" disabled title="Add all queued tracks to an existing playlist">&#10133; Playlist</button>
+              <button id="queue-clear" disabled title="Clear">&#128465;</button>
+            </div>
+          </div>
+          <div id="queue-now-playing-actions" hidden></div>
         </div>
+        <img id="queue-art" class="album-art now-playing-art" alt="" />
       </div>
-      <div id="queue-now-playing-actions" hidden></div>
       <!-- preload="auto": buffers as far ahead as the browser's willing to, rather than the
            conservative default - gives more cushion before a mobile background-tab network
            throttle can run the buffer dry mid-track (see the "stalled"/"waiting" events in the
