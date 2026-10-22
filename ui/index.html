@@ -48,7 +48,6 @@
           <div id="queue-header">
             <strong>Queue</strong>
             <span id="queue-now-playing"></span>
-            <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
             <div id="queue-controls">
               <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
               <button id="queue-prev" disabled>&#9664;&#9664;</button>
@@ -62,6 +61,11 @@
               <button id="queue-add-to-playlist" disabled title="Add all queued tracks to an existing playlist">&#10133; Playlist</button>
               <button id="queue-clear" disabled title="Clear">&#128465;</button>
             </div>
+            <!-- Last in the header, like #playlists-toggle/#eq-toggle - .chevron-toggle itself has
+                 no positioning, so #queue-header pushes it to the far right (see margin-left:auto
+                 below) since, unlike the other two headers, this one has more than just a title
+                 and the toggle sharing it so justify-content:space-between isn't an option. -->
+            <button id="queue-list-toggle" class="chevron-toggle" title="Show/hide queue list" aria-expanded="true">&#9652;</button>
           </div>
           <div id="queue-now-playing-actions" hidden></div>
         </div>

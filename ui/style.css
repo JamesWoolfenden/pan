@@ -366,6 +366,10 @@ header h1 {
   flex-wrap: wrap;
 }
 
+#queue-list-toggle {
+  margin-left: auto;
+}
+
 #queue-header strong {
   color: var(--text-faint);
   font-size: 0.75rem;
@@ -1704,6 +1708,14 @@ header h1 {
   .eq-meter-col,
   .eq-band {
     width: 2.1rem;
+  }
+
+  /* Balance/Volume/Bypass knobs are 2.75rem across (see .eq-knob) - wider than the 2.1rem column
+     sized for the narrow fader bands, so left at that width they overflow it and spill past the
+     divider line into the preamp's space. Give this column enough room that the knobs clear it
+     with margin either side, same specificity-pattern as .eq-preamp .eq-fader-wrap above. */
+  .eq-band.eq-balance {
+    width: 3.4rem;
   }
 
   .eq-meter-col {
