@@ -365,10 +365,21 @@ header h1 {
   align-items: center;
   gap: 0.75rem;
   flex-wrap: wrap;
+  position: relative;
+  /* Reserves room for #queue-list-toggle, pinned absolute below - keeps the wrapping title/
+     now-playing/controls content from running under it. */
+  padding-right: 2.2rem;
 }
 
+/* Pinned to the header's own top-right corner instead of being a flex child with margin-left:
+   auto - on mobile, #queue-controls alone wraps across 2-3 lines (title, now-playing text, and
+   ~11 transport buttons in a narrow column), which left the toggle stranded alone on its own
+   trailing line, far below and disconnected from everything else. Absolute positioning keeps it
+   in the same place regardless of how much the rest of the header wraps, on any width. */
 #queue-list-toggle {
-  margin-left: auto;
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 #queue-header strong {
