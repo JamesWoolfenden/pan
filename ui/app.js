@@ -388,6 +388,16 @@ function computeEqBandBinRanges() {
 function ensureEqGraph() {
   if (eqAudioCtx) return;
   eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // Once audio is routed through here, it stays routed through here - so if the OS suspends the
+  // context (iOS in particular does this within seconds of the screen locking, independently of
+  // the <audio> element's own paused state), playback goes silent even though queuePlayer looks
+  // like it's still "playing". Nothing auto-resumes a suspended context; resumeEqAudioCtx() below
+  // is called from every place that could plausibly need it (statechange, visibilitychange, and
+  // every "play" event, not just the first).
+  eqAudioCtx.addEventListener("statechange", () => {
+    logClient(`eq_audio_ctx_${eqAudioCtx.state}`);
+    resumeEqAudioCtx();
+  });
   const source = eqAudioCtx.createMediaElementSource(queuePlayer);
 
   eqPreampNode = eqAudioCtx.createGain();
@@ -432,6 +442,12 @@ function ensureEqGraph() {
   startEqMeterLoop();
 }
 queuePlayer.addEventListener("play", ensureEqGraph);
+
+function resumeEqAudioCtx() {
+  if (eqAudioCtx && eqAudioCtx.state === "suspended" && !queuePlayer.paused) {
+    eqAudioCtx.resume().catch(() => {});
+  }
+}
 
 // Runs continuously once started rather than only while actually playing - queuePlayer.paused is
 // checked every frame instead, so the meter decays to 0 and resumes correctly across pause/resume
@@ -2861,6 +2877,7 @@ document.addEventListener("visibilitychange", () => {
     awaitingBackgroundResume = false;
     queuePlayer.play().catch(() => logClient("auto_resume_blocked"));
   }
+  if (!document.hidden) resumeEqAudioCtx();
 });
 for (const evt of ["stalled", "suspend", "waiting", "error"]) {
   queuePlayer.addEventListener(evt, () => logClient(evt));
@@ -2899,6 +2916,7 @@ queuePlayer.addEventListener("play", () => {
   pauseOtherPlayers(queuePlayer);
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
   awaitingBackgroundResume = false;
+  resumeEqAudioCtx();
 });
 queuePlayer.addEventListener("pause", () => {
   logClient("pause");
