@@ -63,11 +63,6 @@ const eqPreampSlider = document.getElementById("eq-preamp");
 const eqPreampValueEl = document.getElementById("eq-preamp-value");
 const eqBalanceKnobEl = document.getElementById("eq-balance-knob");
 const eqBalanceValueEl = document.getElementById("eq-balance-value");
-const eqPreampToggleBtn = document.getElementById("eq-preamp-toggle");
-const eqBalanceToggleBtn = document.getElementById("eq-balance-toggle");
-const eqPreampColEl = document.querySelector(".eq-preamp");
-const eqBalanceColEl = document.querySelector(".eq-balance");
-const queueVolumeRowEl = document.getElementById("queue-volume-row");
 const queueVolumeKnobEl = document.getElementById("queue-volume-knob");
 const queueVolumeValueEl = document.getElementById("queue-volume-value");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
@@ -366,20 +361,6 @@ eqBypassBtn.addEventListener("click", () => {
   applyEqGains();
 });
 
-// Independent toggles for two otherwise-unrelated controls (the preamp fader lives in
-// .eq-main-row next to the spectrum block, the balance knob is its own row below) - both used
-// far less often than the 10-band curve itself, so they start collapsed (see index.html) rather
-// than always taking up space, and showing one doesn't imply showing the other.
-function wireEqExtraToggle(toggleBtn, targetEl, label) {
-  toggleBtn.addEventListener("click", () => {
-    const collapsed = targetEl.classList.toggle("collapsed");
-    toggleBtn.setAttribute("aria-expanded", String(!collapsed));
-    toggleBtn.innerHTML = collapsed ? `${label} &#9656;` : `${label} &#9662;`;
-  });
-}
-wireEqExtraToggle(eqPreampToggleBtn, eqPreampColEl, "Preamp");
-wireEqExtraToggle(eqBalanceToggleBtn, eqBalanceColEl, "Balance");
-
 // Octave-band edges as the geometric mean between each pair of neighbouring centre frequencies -
 // the standard way to split a spectrum into bands, so the meter's bins line up with what each
 // fader actually controls instead of an arbitrary slice.
@@ -522,7 +503,7 @@ function bindKnobDrag(knobEl, { getValue, onChange, range, step, onHome }) {
   let dragStartValue = 0;
 
   knobEl.addEventListener("pointerdown", (e) => {
-    if (knobEl.tabIndex < 0) return; // disabled (see updateEqAvailability/updateQueueVolumeAvailability)
+    if (knobEl.tabIndex < 0) return; // disabled (see updateEqAvailability)
     dragStartY = e.clientY;
     dragStartValue = getValue();
     knobEl.setPointerCapture(e.pointerId);
@@ -564,7 +545,7 @@ bindKnobDrag(eqBalanceKnobEl, {
   onHome: () => setEqBalance(0),
 });
 
-// Desktop-only local playback volume (see the comment above #queue-volume-row in index.html for
+// Desktop-only local playback volume (see the comment above #eq-balance-knob in index.html for
 // why mobile has no equivalent). 0-270deg, not centered like the balance knob above - volume is
 // a single min-to-max range, not a bipolar one, so there's no meaningful "straight up" position
 // for it to rest at.
@@ -744,13 +725,10 @@ function updateEqAvailability() {
   // #eq-panel.eq-unavailable CSS rule, and tabIndex -1 is what actually keeps it out of the
   // Tab order and blocks the keydown handler below (see its own "disabled" check).
   eqBalanceKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
-}
-
-// Same queuePlayer.hidden signal as updateEqAvailability above - hidden outright (not just
-// disabled) since Cast and the YouTube iframe both supply their own volume control already, so
-// this one would have nothing to act on rather than merely being redundant.
-function updateQueueVolumeAvailability() {
-  queueVolumeRowEl.hidden = queuePlayer.hidden;
+  // Volume now lives in this same pane (under Balance - see index.html), so it's dimmed and
+  // blocked the same way as everything else here rather than needing its own hide/disable path:
+  // Cast and the YouTube iframe both supply their own volume control, so this one would have
+  // nothing to act on.
   queueVolumeKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
 }
 
@@ -2259,7 +2237,6 @@ function onYtStateChange(event) {
       queuePlayer.hidden = true;
       youtubePlayerWrap.hidden = false;
       updateEqAvailability();
-      updateQueueVolumeAvailability();
     }
     playPauseBtn.innerHTML = "&#10074;&#10074;";
     if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
@@ -2287,7 +2264,6 @@ function stopVideoPlayback() {
   youtubePlayerWrap.hidden = true;
   queuePlayer.hidden = false;
   updateEqAvailability();
-  updateQueueVolumeAvailability();
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
 }
 
@@ -2608,7 +2584,6 @@ function updateCastUi() {
   if (casting) stopVideoPlayback(); // video mode and casting can't both be showing at once
   queuePlayer.hidden = casting;
   updateEqAvailability();
-  updateQueueVolumeAvailability();
   castStatusEl.hidden = !casting;
   castVolumeControlsEl.hidden = !casting;
   castProgressControlsEl.hidden = !casting;

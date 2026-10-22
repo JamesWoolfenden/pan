@@ -58,34 +58,7 @@
            conservative default - gives more cushion before a mobile background-tab network
            throttle can run the buffer dry mid-track (see the "stalled"/"waiting" events in the
            client-log diagnostic sink, e.g. 2026-10-19 16:20:20-21, trackId 16768). -->
-      <div id="queue-player-row">
-        <audio id="queue-player" controls preload="auto"></audio>
-        <!-- Desktop only (see style.css) - a phone has a physical volume rocker on the side that
-             already controls this; a PC doesn't, and a rotary control (same .eq-knob as the EQ's
-             Balance dial - see app.js's bindKnobDrag, shared by both) fits a "hifi" panel better
-             than a plain slider. Hidden, not just dimmed, whenever queuePlayer.hidden is true
-             (casting or video mode): Cast has its own volume control, and the YouTube iframe
-             supplies its own too, so a local-volume dial would have nothing to act on. Sits
-             beside the player rather than on its own row below it - a knob this small didn't
-             need a whole extra line to itself. -->
-        <div id="queue-volume-row">
-          <span>Vol</span>
-          <div
-            id="queue-volume-knob"
-            class="eq-knob"
-            role="slider"
-            tabindex="0"
-            aria-label="Volume"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            aria-valuenow="100"
-            title="Volume (drag up/down, or use arrow keys)"
-          >
-            <div class="eq-knob-pointer"></div>
-          </div>
-          <span id="queue-volume-value" class="eq-value">100%</span>
-        </div>
-      </div>
+      <audio id="queue-player" controls preload="auto"></audio>
       <div id="youtube-player-wrap" hidden>
         <div id="youtube-player"></div>
         <button id="video-dismiss-btn" title="Not the right video - play audio instead">&#10006; Not this</button>
@@ -154,12 +127,6 @@
                saved state, so toggling it off restores exactly what was set before - a quick
                A/B of "with EQ" vs "flat" rather than a second settings profile. -->
           <button id="eq-bypass" title="Bypass: compare against no EQ" aria-pressed="false">Bypass</button>
-          <!-- Independent toggles, each starting collapsed (see .eq-preamp.collapsed/
-               .eq-balance.collapsed and app.js's wireEqExtraToggle) - overall level and stereo
-               balance are used far less often than the 10-band curve itself, and aren't related
-               to each other, so either can be shown without the other. -->
-          <button id="eq-preamp-toggle" class="link-btn" aria-expanded="false">Preamp &#9656;</button>
-          <button id="eq-balance-toggle" class="link-btn" aria-expanded="false">Balance &#9656;</button>
         </div>
         <div class="eq-main-row">
           <div id="eq-spectrum-block">
@@ -174,7 +141,7 @@
                column above it) from the EQ_BANDS-driven spectrum block to its left, and placed
                after the bands (read the frequency curve first, then the overall trim applied
                on top of it) rather than before. -->
-          <div class="eq-band eq-preamp collapsed">
+          <div class="eq-band eq-preamp">
             <span id="eq-preamp-value" class="eq-value">0 dB</span>
             <div class="eq-fader-wrap">
               <div class="eq-fader-ticks"></div>
@@ -185,14 +152,14 @@
             <label for="eq-preamp">Pre</label>
           </div>
           <!-- Rightmost column, its own divider same as .eq-preamp's - not a frequency band
-               either, and kept separate from it (own toggle, own column) since the two aren't
-               related. Custom rotary control, not a native <input type="range"> - a horizontal
-               slider reads as "which band is this" like the faders above it, when balance is
-               really a single left/right trim; a dial (drag up/down to turn, see app.js) matches
-               how a physical mixer's pan knob works instead. role="slider" + the aria-value*
-               attributes and arrow-key handling in app.js keep it keyboard/screen-reader
-               accessible despite not being a native form control. -->
-          <div class="eq-band eq-balance collapsed">
+               either. Both rotary controls (Balance and, below it, Volume) rather than native
+               <input type="range"> sliders - a horizontal slider reads as "which band is this"
+               like the faders above it, when each of these is really a single value; a dial
+               (drag up/down to turn, see app.js's bindKnobDrag) matches how a physical mixer's
+               pan/gain knobs work instead. role="slider" + the aria-value* attributes and
+               arrow-key handling in app.js keep each one keyboard/screen-reader accessible
+               despite not being a native form control. -->
+          <div class="eq-band eq-balance">
             <span id="eq-balance-value" class="eq-value">C</span>
             <div
               id="eq-balance-knob"
@@ -208,6 +175,24 @@
               <div class="eq-knob-pointer"></div>
             </div>
             <label>Bal</label>
+            <!-- Volume lives here, under Balance, rather than beside the audio player - the two
+                 knobs read as one cluster of "turn to adjust" controls, and this pane is already
+                 the desktop-only home for everything that isn't core transport. -->
+            <span id="queue-volume-value" class="eq-value">100%</span>
+            <div
+              id="queue-volume-knob"
+              class="eq-knob"
+              role="slider"
+              tabindex="0"
+              aria-label="Volume"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="100"
+              title="Volume (drag up/down, or use arrow keys)"
+            >
+              <div class="eq-knob-pointer"></div>
+            </div>
+            <label>Vol</label>
           </div>
         </div>
         <button id="eq-reset" class="link-btn">Reset</button>

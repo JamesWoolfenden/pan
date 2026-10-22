@@ -430,21 +430,14 @@ header h1 {
   border-color: var(--accent);
 }
 
-#queue-player-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+#queue-player {
+  width: 100%;
+  height: 32px;
   margin-top: 0.6rem;
 }
 
-#queue-player {
-  flex: 1;
-  min-width: 0;
-  height: 32px;
-}
-
 /* The native <audio controls> bar has its own built-in volume slider/mute button, which doesn't
-   know about #queue-volume-row's dial and can drift independently of it (we saw this: the dial
+   know about the EQ pane's volume dial and can drift independently of it (we saw this: the dial
    showing a stale/wrong percentage with no apparent cause) - hiding WebKit's internal parts here
    leaves the dial as the single volume control for local playback, mirroring how #eq-panel etc.
    already assume one source of truth per control. Chrome/WebKit-only (non-standard pseudo-
@@ -539,27 +532,6 @@ header h1 {
   margin-bottom: 1rem;
 }
 
-/* Hidden on mobile by default - see the @media (min-width: 1000px) override near the end of this
-   file. A phone has a physical volume rocker on its side that already does this job; a PC
-   doesn't, so it gets a dial instead (see the comment above #queue-volume-row in index.html). */
-#queue-volume-row {
-  display: none;
-  align-items: center;
-  gap: 0.4rem;
-  flex-shrink: 0;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-}
-
-#queue-volume-row .eq-value {
-  min-height: 0; /* not in a .eq-band column stack, so the 2-line reservation doesn't apply here */
-  /* "0%"/"10%"/"100%" are 2-4 characters - without a reserved width, that difference changed this
-     span's own width, and since it shares a flex row with the <audio> scrubber (flex: 1), the
-     scrubber resized to compensate every time the percentage's digit count changed. */
-  display: inline-block;
-  min-width: 2.6em;
-}
-
 #eq-pane-header {
   display: flex;
   align-items: center;
@@ -644,25 +616,21 @@ header h1 {
   border-left: 1px solid var(--border);
 }
 
-.eq-preamp.collapsed,
-.eq-balance.collapsed {
-  display: none;
-}
-
 #eq-spectrum-block {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
 }
 
-/* Rotary pan/balance control - see the comment above #eq-balance-knob in index.html for why
-   this is a custom dial rather than a native range input. -135deg/+135deg (set via JS, see
-   app.js's setEqBalance) is the standard 270-degree sweep for a software knob, straight up at
-   center. Sits in its own .eq-band column (value/control/label, like every other band) rather
-   than a separate row, so it lines up with the rest of the main row instead of floating below it. */
+/* Rotary controls - Balance and (stacked under it) Volume - see the comment above
+   #eq-balance-knob in index.html for why these are custom dials rather than native range
+   inputs. -135deg/+135deg (Balance, set via app.js's setEqBalance) and 0-270deg (Volume, see
+   setQueueVolume) are the standard sweeps for a software knob. Sized 25% bigger than the EQ
+   band faders' own controls (1.8rem base) - this is now the shared home for everything besides
+   the core 10-band curve, so it gets a bit more presence. */
 .eq-knob {
-  width: 1.8rem;
-  height: 1.8rem;
+  width: 2.25rem;
+  height: 2.25rem;
   flex-shrink: 0;
   margin: 0.3rem 0;
   border-radius: 50%;
@@ -685,7 +653,7 @@ header h1 {
 .eq-knob-pointer {
   position: absolute;
   left: 50%;
-  top: 0.2rem;
+  top: 0.25rem;
   width: 2px;
   height: 40%;
   background: var(--accent);
@@ -1660,10 +1628,6 @@ header h1 {
      #playlists-panel does, since this column has the width to spare. */
   #eq-pane {
     display: block;
-  }
-
-  #queue-volume-row {
-    display: flex;
   }
 
   #eq-panel {
