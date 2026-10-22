@@ -1897,15 +1897,6 @@ function renderNowPlayingActions(track) {
   }
   nowPlayingActionsEl.hidden = false;
 
-  if (track.file_path) {
-    const art = document.createElement("img");
-    art.className = "album-art now-playing-art";
-    art.src = `/track/${track.id}/art`;
-    art.alt = "";
-    art.addEventListener("error", () => art.remove(), { once: true });
-    nowPlayingActionsEl.appendChild(art);
-  }
-
   const tagsEl = document.createElement("span");
   tagsEl.className = "track-tags";
   setTagsText(tagsEl, track);
@@ -1916,6 +1907,20 @@ function renderNowPlayingActions(track) {
   const panelHost = document.createElement("div");
   appendDiscoveryActions(track, tagsEl, buttonRow, panelHost);
   nowPlayingActionsEl.append(buttonRow, panelHost);
+
+  // Appended last, after the tags/buttons rather than before them - a track with no embedded art
+  // removes itself on error (below), and when it was the FIRST child, that removal shifted where
+  // the tags/buttons started (they'd jump left to fill the gap), reading as the controls
+  // redrawing themselves. At the end of the row, its presence or absence only affects the row's
+  // own trailing space, not where anything else starts.
+  if (track.file_path) {
+    const art = document.createElement("img");
+    art.className = "album-art now-playing-art";
+    art.src = `/track/${track.id}/art`;
+    art.alt = "";
+    art.addEventListener("error", () => art.remove(), { once: true });
+    nowPlayingActionsEl.appendChild(art);
+  }
 }
 
 // Cheap, no-extra-query heuristic for whether the "Versions" button is worth showing: does
