@@ -72,14 +72,19 @@
       <div id="queue-top">
         <div id="queue-top-stack">
           <div id="queue-now-playing-actions" hidden></div>
+          <!-- preload="auto": buffers as far ahead as the browser's willing to, rather than the
+               conservative default - gives more cushion before a mobile background-tab network
+               throttle can run the buffer dry mid-track (see the "stalled"/"waiting" events in the
+               client-log diagnostic sink, e.g. 2026-10-19 16:20:20-21, trackId 16768).
+               Lives in the stack (not beside #queue-top as a full-width sibling below it) so its
+               height counts toward what #queue-art sits beside - with just the tags/buttons row,
+               the stack went well short of the art's fixed 4.5rem, leaving a bare gap under the
+               art before the player started. Costs the player ~80px of width when art's column is
+               reserved (always, per #queue-art's own comment) - a trade worth it for zero gap. -->
+          <audio id="queue-player" controls preload="auto"></audio>
         </div>
         <img id="queue-art" class="album-art now-playing-art" alt="" />
       </div>
-      <!-- preload="auto": buffers as far ahead as the browser's willing to, rather than the
-           conservative default - gives more cushion before a mobile background-tab network
-           throttle can run the buffer dry mid-track (see the "stalled"/"waiting" events in the
-           client-log diagnostic sink, e.g. 2026-10-19 16:20:20-21, trackId 16768). -->
-      <audio id="queue-player" controls preload="auto"></audio>
       <div id="youtube-player-wrap" hidden>
         <div id="youtube-player"></div>
         <button id="video-dismiss-btn" title="Not the right video - play audio instead">&#10006; Not this</button>
