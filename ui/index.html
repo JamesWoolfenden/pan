@@ -123,10 +123,6 @@
                one is a data change, not an HTML edit. -->
           <select id="eq-preset-select" title="EQ preset"></select>
           <button id="eq-save-preset" class="link-btn">Save preset…</button>
-          <!-- Zeroes the 10 band filters (and preamp) without moving the sliders or touching
-               saved state, so toggling it off restores exactly what was set before - a quick
-               A/B of "with EQ" vs "flat" rather than a second settings profile. -->
-          <button id="eq-bypass" title="Bypass: compare against no EQ" aria-pressed="false">Bypass</button>
         </div>
         <div class="eq-main-row">
           <div id="eq-spectrum-block">
@@ -193,6 +189,22 @@
               <div class="eq-knob-pointer"></div>
             </div>
             <label>Vol</label>
+            <!-- Round push button, not the pill-shaped text button it used to be - matches the
+                 knobs above it (same diameter) rather than reading as a different kind of control.
+                 No label fits inside it, so the on/off state shows in the status text above (like
+                 the knobs' own value readouts) and in the button's own colour/pressed-in look (see
+                 app.js's bypass handler and the .eq-round-btn.is-active style). Zeroes the 10 band
+                 filters (and preamp) without moving the sliders or touching saved state, so
+                 toggling it off restores exactly what was set before - a quick A/B of "with EQ" vs
+                 "flat" rather than a second settings profile. -->
+            <span id="eq-bypass-status" class="eq-value">Off</span>
+            <button
+              id="eq-bypass"
+              class="eq-round-btn"
+              title="Bypass: compare against no EQ"
+              aria-pressed="false"
+            ></button>
+            <label for="eq-bypass">Byp</label>
           </div>
         </div>
         <button id="eq-reset" class="link-btn">Reset</button>

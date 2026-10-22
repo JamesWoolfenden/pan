@@ -59,6 +59,7 @@ const eqResetBtn = document.getElementById("eq-reset");
 const eqPresetSelectEl = document.getElementById("eq-preset-select");
 const eqSavePresetBtn = document.getElementById("eq-save-preset");
 const eqBypassBtn = document.getElementById("eq-bypass");
+const eqBypassStatusEl = document.getElementById("eq-bypass-status");
 const eqPreampSlider = document.getElementById("eq-preamp");
 const eqPreampValueEl = document.getElementById("eq-preamp-value");
 const eqBalanceKnobEl = document.getElementById("eq-balance-knob");
@@ -357,7 +358,7 @@ eqBypassBtn.addEventListener("click", () => {
   eqBypassed = !eqBypassed;
   eqBypassBtn.setAttribute("aria-pressed", String(eqBypassed));
   eqBypassBtn.classList.toggle("is-active", eqBypassed);
-  eqBypassBtn.textContent = eqBypassed ? "Bypassed" : "Bypass";
+  eqBypassStatusEl.textContent = eqBypassed ? "On" : "Off";
   applyEqGains();
 });
 
