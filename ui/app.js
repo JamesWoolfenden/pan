@@ -68,6 +68,8 @@ const queueVolumeKnobEl = document.getElementById("queue-volume-knob");
 const queueVolumeValueEl = document.getElementById("queue-volume-value");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
+const localVideoWrap = document.getElementById("local-video-wrap");
+const localVideoPlayer = document.getElementById("local-video-player");
 const saveBtn = document.getElementById("queue-save");
 const cloneBtn = document.getElementById("queue-clone");
 const addToPlaylistBtn = document.getElementById("queue-add-to-playlist");
@@ -382,23 +384,27 @@ function computeEqBandBinRanges() {
 }
 
 // Built lazily on first playback rather than at page load: createMediaElementSource() can only
-// ever be called once per <audio> element (a second call throws "already connected"), and an
+// ever be called once per media element (a second call throws "already connected"), and an
 // AudioContext created before any user gesture risks starting "suspended" in some browsers -
-// tying setup to the first real play sidesteps both.
-function ensureEqGraph() {
+// tying setup to the first real play sidesteps both. Split into two concerns, not one: the
+// downstream chain (preamp..filters..limiter..panner..analyser) is built exactly once regardless
+// of how many media elements feed it, while each element (queuePlayer, and now localVideoPlayer
+// for a track's own video file) needs its own one-time createMediaElementSource() call into that
+// same shared chain - duplicating the chain per element would duplicate the EQ/meter instead of
+// sharing them.
+function ensureEqChain() {
   if (eqAudioCtx) return;
   eqAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
   // Once audio is routed through here, it stays routed through here - so if the OS suspends the
   // context (iOS in particular does this within seconds of the screen locking, independently of
-  // the <audio> element's own paused state), playback goes silent even though queuePlayer looks
-  // like it's still "playing". Nothing auto-resumes a suspended context; resumeEqAudioCtx() below
-  // is called from every place that could plausibly need it (statechange, visibilitychange, and
+  // the active media element's own paused state), playback goes silent even though it looks like
+  // it's still "playing". Nothing auto-resumes a suspended context; resumeEqAudioCtx() below is
+  // called from every place that could plausibly need it (statechange, visibilitychange, and
   // every "play" event, not just the first).
   eqAudioCtx.addEventListener("statechange", () => {
     logClient(`eq_audio_ctx_${eqAudioCtx.state}`);
     resumeEqAudioCtx();
   });
-  const source = eqAudioCtx.createMediaElementSource(queuePlayer);
 
   eqPreampNode = eqAudioCtx.createGain();
   eqPreampNode.gain.value = effectivePreampGain();
@@ -428,9 +434,7 @@ function ensureEqGraph() {
   eqAnalyserData = new Uint8Array(eqAnalyser.frequencyBinCount);
   eqBandBinRanges = computeEqBandBinRanges();
 
-  let node = source;
-  node.connect(eqPreampNode);
-  node = eqPreampNode;
+  let node = eqPreampNode;
   eqFilterNodes.forEach((filter) => {
     node.connect(filter);
     node = filter;
@@ -441,23 +445,45 @@ function ensureEqGraph() {
   eqAnalyser.connect(eqAudioCtx.destination);
   startEqMeterLoop();
 }
-queuePlayer.addEventListener("play", ensureEqGraph);
+
+let eqQueueSourceNode = null;
+let eqVideoSourceNode = null;
+
+// queuePlayer and localVideoPlayer are mutually exclusive (only one plays at a time - see
+// playAt()'s video/audio swap), so both source nodes just stay permanently connected to
+// eqPreampNode once created - the inactive element simply contributes silence, no per-switch
+// reconnect logic needed. Also correctly handles a session whose very first play is a local
+// video (no dependency on queuePlayer having played first).
+function ensureEqSource(mediaEl) {
+  ensureEqChain();
+  if (mediaEl === queuePlayer) {
+    if (eqQueueSourceNode) return;
+    eqQueueSourceNode = eqAudioCtx.createMediaElementSource(queuePlayer);
+    eqQueueSourceNode.connect(eqPreampNode);
+  } else {
+    if (eqVideoSourceNode) return;
+    eqVideoSourceNode = eqAudioCtx.createMediaElementSource(localVideoPlayer);
+    eqVideoSourceNode.connect(eqPreampNode);
+  }
+}
+queuePlayer.addEventListener("play", () => ensureEqSource(queuePlayer));
+localVideoPlayer.addEventListener("play", () => ensureEqSource(localVideoPlayer));
 
 function resumeEqAudioCtx() {
-  if (eqAudioCtx && eqAudioCtx.state === "suspended" && !queuePlayer.paused) {
+  if (eqAudioCtx && eqAudioCtx.state === "suspended" && !activePlaybackEl().paused) {
     eqAudioCtx.resume().catch(() => {});
   }
 }
 
-// Runs continuously once started rather than only while actually playing - queuePlayer.paused is
-// checked every frame instead, so the meter decays to 0 and resumes correctly across pause/resume
-// without needing separate play/pause listeners to start and stop a second loop.
+// Runs continuously once started rather than only while actually playing - the active element's
+// .paused is checked every frame instead, so the meter decays to 0 and resumes correctly across
+// pause/resume without needing separate play/pause listeners to start and stop a second loop.
 function startEqMeterLoop() {
   if (eqMeterRafId) return;
   const tick = () => {
     eqMeterRafId = requestAnimationFrame(tick);
     if (eqPanelEl.classList.contains("collapsed")) return; // nothing visible - skip the work
-    if (!eqAnalyser || queuePlayer.hidden || queuePlayer.paused) {
+    if (!eqAnalyser || activePlaybackEl().hidden || activePlaybackEl().paused) {
       eqMeterFillEls.forEach((el, i) => {
         el.style.height = "0%";
         eqPeaks[i] = 0;
@@ -593,6 +619,11 @@ function setQueueVolume(percent, { save = true } = {}) {
   const clamped = Math.max(0, Math.min(100, Math.round(percent / 5) * 5));
   queuePlayer.volume = clamped / 100;
   queuePlayer.muted = false;
+  // Kept in sync on both elements together (not just whichever is active) - the single volume
+  // knob stays correct regardless of which one is about to become active next, with no branching
+  // needed at the call site.
+  localVideoPlayer.volume = clamped / 100;
+  localVideoPlayer.muted = false;
   // renderQueueVolumeKnob() also runs from the "volumechange" listener below, so the dial
   // reflects this assignment either way - setting it here too isn't redundant, since that
   // listener fires async-ish (next microtask-ish tick via the native event), and skipping an
@@ -628,8 +659,9 @@ function seekBy(deltaSeconds) {
     if (!Number.isFinite(castPlayer.duration)) return;
     castPlayer.currentTime = Math.max(0, Math.min(castPlayer.duration, castPlayer.currentTime + deltaSeconds));
     castController.seek();
-  } else if (!queuePlayer.hidden && Number.isFinite(queuePlayer.duration)) {
-    queuePlayer.currentTime = Math.max(0, Math.min(queuePlayer.duration, queuePlayer.currentTime + deltaSeconds));
+  } else if (!activePlaybackEl().hidden && Number.isFinite(activePlaybackEl().duration)) {
+    const el = activePlaybackEl();
+    el.currentTime = Math.max(0, Math.min(el.duration, el.currentTime + deltaSeconds));
   }
 }
 
@@ -638,7 +670,10 @@ function adjustVolumeBy(deltaPercent) {
     castPlayer.volumeLevel = Math.max(0, Math.min(1, castPlayer.volumeLevel + deltaPercent / 100));
     castController.setVolumeLevel();
     updateCastVolumeUi();
-  } else if (!queuePlayer.hidden) {
+    // queuePlayer.hidden is also true during local-video playback, but setQueueVolume() already
+    // keeps both elements' volume in sync - only the YouTube iframe (which supplies its own
+    // volume control) has nothing for this to act on, so local video should still pass here.
+  } else if (!queuePlayer.hidden || playingViaLocalVideo) {
     setQueueVolume(queuePlayer.volume * 100 + deltaPercent);
   }
 }
@@ -727,27 +762,30 @@ eqResetBtn.addEventListener("click", () => {
 // the same collapsible-body chevron every other panel here uses.
 wireCollapseToggle(eqToggleBtn, eqPanelEl);
 
-// queuePlayer.hidden is the existing single signal for "local <audio> isn't what's actually
-// playing right now" (see updateCastUi/stopVideoPlayback/onYtStateChange below) - reuse it rather
-// than tracking cast/video state a second time here.
+// queuePlayer.hidden is the existing signal for "local <audio> isn't what's actually playing
+// right now" (see updateCastUi/stopVideoPlayback/onYtStateChange below), reused here - but it's
+// also true during local-video playback, where the EQ actually SHOULD stay available (audio is
+// flowing into the shared chain from localVideoPlayer, not silent) - playingViaLocalVideo is the
+// one case where queuePlayer.hidden alone would give the wrong answer.
 function updateEqAvailability() {
-  eqPanelEl.classList.toggle("eq-unavailable", queuePlayer.hidden);
+  const eqUnavailable = queuePlayer.hidden && !playingViaLocalVideo;
+  eqPanelEl.classList.toggle("eq-unavailable", eqUnavailable);
   eqSliders.forEach((s) => {
-    s.disabled = queuePlayer.hidden;
+    s.disabled = eqUnavailable;
   });
-  eqPreampSlider.disabled = queuePlayer.hidden;
-  eqPresetSelectEl.disabled = queuePlayer.hidden;
-  eqBypassBtn.disabled = queuePlayer.hidden;
-  eqSavePresetBtn.disabled = queuePlayer.hidden;
+  eqPreampSlider.disabled = eqUnavailable;
+  eqPresetSelectEl.disabled = eqUnavailable;
+  eqBypassBtn.disabled = eqUnavailable;
+  eqSavePresetBtn.disabled = eqUnavailable;
   // Not a native form control, so there's no .disabled - pointer-events is blocked by the
   // #eq-panel.eq-unavailable CSS rule, and tabIndex -1 is what actually keeps it out of the
   // Tab order and blocks the keydown handler below (see its own "disabled" check).
-  eqBalanceKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
+  eqBalanceKnobEl.tabIndex = eqUnavailable ? -1 : 0;
   // Volume now lives in this same pane (under Balance - see index.html), so it's dimmed and
   // blocked the same way as everything else here rather than needing its own hide/disable path:
   // Cast and the YouTube iframe both supply their own volume control, so this one would have
-  // nothing to act on.
-  queueVolumeKnobEl.tabIndex = queuePlayer.hidden ? -1 : 0;
+  // nothing to act on - local video doesn't, so it stays enabled there (see setQueueVolume()).
+  queueVolumeKnobEl.tabIndex = eqUnavailable ? -1 : 0;
 }
 
 let queue = []; // [{id, title, artist, file_path}]
@@ -757,6 +795,14 @@ let queueDragFromIndex = null; // set during a queue-list drag-and-drop reorder,
 // re-enable it each time rather than complicate queue-state restore with a third playback mode.
 let videoModeEnabled = false;
 let playingViaVideo = false; // true only while the current track is actually showing as video
+let playingViaLocalVideo = false; // true only while playing the track's own video file (not YouTube)
+
+// Whichever element is actually producing sound right now - queuePlayer by default, or
+// localVideoPlayer during local-video playback. Used anywhere that needs to read/control
+// playback state generically rather than assuming queuePlayer is always the active one.
+function activePlaybackEl() {
+  return playingViaLocalVideo ? localVideoPlayer : queuePlayer;
+}
 // Locking the phone pauses queuePlayer with no code of ours calling .pause() - confirmed via the
 // client log (a "pause" mid-track, then currentTime frozen through several hidden/visible cycles
 // until a manual tap). pauseQueuePlayer() marks our own deliberate pauses (button, track-switch,
@@ -900,6 +946,13 @@ function showSimilar(track) {
 // unstripped title in the banner ("Other versions of \"Song (Specific Mix)\"") read as if it were
 // searching for other versions of that one specific mix, when it's actually searching for any
 // version of the underlying song.
+// Display-only - the raw `source` value is what every other check in this file compares against
+// (r.source === "local_video" etc.), this just avoids literally printing "local_video" in the
+// search-result metadata line.
+function formatSourceLabel(source) {
+  return source === "local_video" ? "local video" : source;
+}
+
 function versionsBaseTitle(title) {
   if (!title) return "";
   return title
@@ -1068,7 +1121,7 @@ function renderResults(results) {
       metaEl.appendChild(albumLink);
       metaEl.append(" ");
     }
-    metaEl.append(`${r.year ? `(${r.year})` : ""} · ${r.source}`);
+    metaEl.append(`${r.year ? `(${r.year})` : ""} · ${formatSourceLabel(r.source)}`);
     if (r.play_count !== undefined) {
       const heard = r.avg_percent_listened != null ? `, avg ${Math.round(r.avg_percent_listened * 100)}% heard` : "";
       metaEl.append(` · played ${r.play_count}×${heard}`);
@@ -2085,6 +2138,7 @@ function pauseOtherPlayers(current) {
     if (audio !== current) audio.pause();
   }
   if (current !== queuePlayer) pauseQueuePlayer();
+  if (current !== localVideoPlayer) localVideoPlayer.pause();
 }
 
 playAllBtn.addEventListener("click", () => {
@@ -2297,6 +2351,38 @@ function stopVideoPlayback() {
   if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
 }
 
+// A track's own video file (source: local_video), played through a real <video> element - not a
+// fallback the user opts into like YouTube mode, this IS the track's media, so it's checked
+// unconditionally in playAt() regardless of videoModeEnabled. Reuses the same hide/show swap
+// shape as stopVideoPlayback()/onYtStateChange above, just against localVideoPlayer instead of
+// the YouTube iframe - queuePlayer is never destroyed, only hidden, exactly like today's pattern.
+function stopLocalVideoPlayback() {
+  playingViaLocalVideo = false;
+  localVideoWrap.hidden = true;
+  queuePlayer.hidden = false;
+  updateEqAvailability();
+  localVideoPlayer.pause();
+}
+
+async function tryPlayLocalVideo(track) {
+  if (track.source !== "local_video") return false;
+  stopVideoPlayback(); // clean slate if YouTube mode was previously active for the prior track
+  pauseQueuePlayer();
+  playingViaLocalVideo = true;
+  localVideoPlayer.src = `/stream/${track.id}`;
+  queuePlayer.hidden = true;
+  localVideoWrap.hidden = false;
+  updateEqAvailability();
+  try {
+    await localVideoPlayer.play();
+  } catch {
+    // Autoplay can be blocked without a direct user gesture on some browsers - the video/track
+    // title still show as "current", same as queuePlayer's own play() rejection handling
+    // elsewhere; a manual tap on the video's own controls recovers it.
+  }
+  return true;
+}
+
 async function loadVideoInPlayer(videoId) {
   const player = await ensureYtPlayer();
   pauseQueuePlayer(); // stop the old track's audio now; the new video/audio choice reveals
@@ -2308,6 +2394,7 @@ async function loadVideoInPlayer(videoId) {
 // Returns true if this track is now playing as video (caller should skip its normal audio
 // playback), false if video mode found nothing to play at all (caller should fall back).
 async function tryPlayVideo(track) {
+  stopLocalVideoPlayback(); // clean slate if switching here from a local_video track
   if (!videoModeEnabled) return false;
   let data;
   try {
@@ -2375,7 +2462,7 @@ function persistQueueState() {
     repeatMode,
     currentPlaylistId,
     currentPlaylistName,
-    currentTime: queuePlayer.currentTime || 0,
+    currentTime: activePlaybackEl().currentTime || 0,
     updatedAt: Date.now(),
   };
   try {
@@ -2431,7 +2518,26 @@ async function restoreQueueState() {
     nowPlayingEl.appendChild(buildTrackTitleLine(track, " (paused — press play to resume)"));
     renderNowPlayingActions(track);
     updateMediaSessionMetadata(track);
-    if (track.file_path) {
+    if (track.source === "local_video") {
+      // A local_video row has a real file_path too (it IS a local file), so this has to be
+      // checked before the generic file_path branch below, or a video would wrongly restore
+      // into queuePlayer (the <audio> element) instead of localVideoPlayer.
+      playingViaLocalVideo = true;
+      localVideoPlayer.src = `/stream/${track.id}`;
+      queuePlayer.hidden = true;
+      localVideoWrap.hidden = false;
+      updateEqAvailability();
+      if (saved.currentTime) {
+        localVideoPlayer.addEventListener(
+          "loadedmetadata",
+          () => {
+            localVideoPlayer.currentTime = saved.currentTime;
+          },
+          { once: true }
+        );
+      }
+      // No schedulePrefetch() here - video isn't prefetched (see playAt()'s tryPlayLocalVideo).
+    } else if (track.file_path) {
       queuePlayer.src = `/stream/${track.id}`;
       if (saved.currentTime) {
         queuePlayer.addEventListener(
@@ -2562,12 +2668,14 @@ function schedulePrefetch(track) {
 function recordCurrentPlayProgress() {
   if (currentIndex === -1 || !queue[currentIndex]) return;
   const track = queue[currentIndex];
-  // When the current track played as video, queuePlayer never actually moved - read progress
-  // from the YouTube player instead, or this would wrongly log it as barely listened to.
+  // When the current track played as a YouTube video, queuePlayer never actually moved - read
+  // progress from the YouTube player instead, or this would wrongly log it as barely listened to.
+  // A local video is simpler: activePlaybackEl() already resolves to the real <video> element
+  // that's actually playing, so .duration/.currentTime work directly, same as queuePlayer's own.
   const usingYt = playingViaVideo && ytPlayer && ytPlayer.getDuration;
-  const duration = usingYt ? ytPlayer.getDuration() : queuePlayer.duration;
+  const duration = usingYt ? ytPlayer.getDuration() : activePlaybackEl().duration;
   if (!duration || !isFinite(duration)) return;
-  const currentTime = usingYt ? ytPlayer.getCurrentTime() : queuePlayer.currentTime;
+  const currentTime = usingYt ? ytPlayer.getCurrentTime() : activePlaybackEl().currentTime;
   const percentListened = currentTime / duration;
   fetch(`/track/${track.id}/play-event`, {
     method: "POST",
@@ -2793,6 +2901,15 @@ async function playAt(i) {
     return;
   }
 
+  if (await tryPlayLocalVideo(track)) {
+    nowPlayingEl.innerHTML = "";
+    nowPlayingEl.appendChild(buildTrackTitleLine(track));
+    renderNowPlayingActions(track);
+    renderQueue();
+    updateMediaSessionMetadata(track);
+    return;
+  }
+
   if (await tryPlayVideo(track)) {
     nowPlayingEl.innerHTML = "";
     nowPlayingEl.appendChild(buildTrackTitleLine(track));
@@ -2803,6 +2920,7 @@ async function playAt(i) {
     return;
   }
   stopVideoPlayback();
+  stopLocalVideoPlayback();
 
   let src = `/stream/${track.id}`;
   if (nextPrefetch && nextPrefetch.id === track.id) {
@@ -2907,11 +3025,13 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("play", () => {
     if (isCasting()) castController.playOrPause();
     else if (playingViaVideo && ytPlayer) ytPlayer.playVideo();
+    else if (playingViaLocalVideo) localVideoPlayer.play();
     else queuePlayer.play();
   });
   navigator.mediaSession.setActionHandler("pause", () => {
     if (isCasting()) castController.playOrPause();
     else if (playingViaVideo && ytPlayer) ytPlayer.pauseVideo();
+    else if (playingViaLocalVideo) localVideoPlayer.pause();
     else pauseQueuePlayer();
   });
   navigator.mediaSession.setActionHandler("previoustrack", () => playAt(prevQueueIndex(currentIndex)));
@@ -2947,6 +3067,30 @@ queuePlayer.addEventListener("timeupdate", () => {
 });
 window.addEventListener("beforeunload", persistQueueState);
 
+// Mirrors the queuePlayer listener block above, for a track's own video file. Reuses the shared
+// handlers (advanceOnEnded, logClient, persistQueueState, resumeEqAudioCtx) as-is - only the
+// play/pause icon + mediaSession.playbackState bits are duplicated, since those don't generalize.
+localVideoPlayer.addEventListener("play", () => {
+  logClient("local_video_play");
+  playPauseBtn.innerHTML = "&#10074;&#10074;";
+  pauseOtherPlayers(localVideoPlayer);
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
+  resumeEqAudioCtx();
+});
+localVideoPlayer.addEventListener("pause", () => {
+  logClient("local_video_pause");
+  playPauseBtn.innerHTML = "&#9654;";
+  if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
+  persistQueueState();
+});
+localVideoPlayer.addEventListener("ended", advanceOnEnded);
+localVideoPlayer.addEventListener("timeupdate", () => {
+  if (localVideoPlayer.currentTime - lastPersistedTime >= 5) {
+    lastPersistedTime = localVideoPlayer.currentTime;
+    persistQueueState();
+  }
+});
+
 playPauseBtn.addEventListener("click", () => {
   if (currentIndex === -1 && queue.length) {
     playAt(0);
@@ -2955,6 +3099,9 @@ playPauseBtn.addEventListener("click", () => {
   } else if (playingViaVideo && ytPlayer) {
     if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
     else ytPlayer.playVideo();
+  } else if (playingViaLocalVideo) {
+    if (localVideoPlayer.paused) localVideoPlayer.play();
+    else localVideoPlayer.pause();
   } else if (queuePlayer.paused) {
     queuePlayer.play();
   } else {

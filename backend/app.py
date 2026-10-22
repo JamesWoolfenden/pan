@@ -86,6 +86,9 @@ MEDIA_TYPE_OVERRIDES = {
     ".flac": "audio/flac",
     ".wma": "audio/x-ms-wma",
     ".aac": "audio/aac",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".mkv": "video/x-matroska",
 }
 
 app = FastAPI(title="pan")

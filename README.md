@@ -73,10 +73,21 @@ Edit `.env`:
 - `PLEX_BASEURL` / `PLEX_TOKEN` — your Plex server URL and an auth token
   ([how to find your Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/)).
   Leave blank to skip Plex entirely.
-- `SHARED_DRIVE_PATH` — folder to scan for local audio files not in Plex. Leave blank to skip.
+- `SHARED_DRIVE_PATH` — folder to scan for local audio **and video** files not in Plex (concert
+  footage, music videos you own — `.mp4`/`.mov`/`.mkv`, alongside your music in the same folder).
+  Leave blank to skip. Video playback goes through the same EQ chain as audio, via a first-party
+  `<video>` element rather than Plex or an embedded YouTube player.
 - `ANTHROPIC_API_KEY` — enables cloud tagging fallback and complex query parsing. Without it,
   tagging stops after the local pass and search falls back to plain semantic matching.
 - `CLOUD_TAGGING_MAX_PER_RUN` — safety cap on how many tracks get sent to Claude per reindex.
+
+**Video files need `ffmpeg` on `PATH`** (mutagen, used for audio tags, has no Matroska/WebM
+support at all) — `winget install ffmpeg` on Windows, `apt install ffmpeg`/`brew install ffmpeg`
+elsewhere; the Docker image installs it automatically. Without it, video files still get ingested
+and are still playable, just with filename-only metadata (no duration/tags) until it's installed.
+Browser codec support varies by container — H.264 video + AAC audio plays reliably across
+Chrome/Edge/Safari regardless of container (`.mp4`/`.mov`/`.mkv`); other codec combinations (HEVC
+without hardware decode, non-AAC audio tracks) may not play even though the file ingests fine.
 
 ## Running
 
@@ -112,6 +123,10 @@ the filesystem, or the Claude API.
 - **Audio feature extraction** only runs for tracks whose file is reachable from this machine;
   Plex tracks are only feature-analyzed if their underlying file path also resolves locally
   (e.g. the Plex library and the shared drive are the same mount).
+- **Local video + Chromecast**: casting a local video file (`source: local_video`) isn't
+  supported — casting assumes audio-style streaming. Rare enough combination that it's not worth
+  building for yet; local video plays fine in-browser with the full EQ chain, just not on a cast
+  target.
 
 ## Deploying elsewhere
 

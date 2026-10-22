@@ -18,7 +18,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS tracks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     external_id TEXT UNIQUE NOT NULL,
-    source TEXT NOT NULL,              -- 'plex' or 'local'
+    source TEXT NOT NULL,              -- 'plex' | 'local' | 'local_video'
     plex_rating_key TEXT,
     file_path TEXT,
     title TEXT,

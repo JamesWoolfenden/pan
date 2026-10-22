@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import shutil
+import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -13,6 +16,19 @@ from backend.paths import resolve, to_relative
 log = logging.getLogger(__name__)
 
 AUDIO_EXTENSIONS = {".mp3", ".flac", ".m4a", ".ogg", ".wav", ".aac", ".wma"}
+# Concert/music-video files, ingested from the same shared-drive walk as audio. mutagen has no
+# Matroska/WebM module at all (confirmed by inspecting the installed package), so these go through
+# ffprobe (_read_video_tags below) instead of mutagen for every extension here, not just .mkv -
+# one code path, and ffprobe reads every container's tag/format structure more consistently than
+# mutagen's per-format modules do anyway.
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv"}
+
+_FFPROBE_AVAILABLE = shutil.which("ffprobe") is not None
+if not _FFPROBE_AVAILABLE:
+    log.warning(
+        "ffprobe not found on PATH - video files will be ingested with filename-only metadata "
+        "(no duration/tags) until ffmpeg is installed"
+    )
 
 
 def normalize_path(path: str) -> str:
@@ -27,8 +43,11 @@ def _stable_id(path: str) -> str:
 
 
 def iter_local_tracks(root: str, skip_paths: set[str] | None = None) -> Iterator[Track]:
-    """Walk `root` for audio files and yield a Track per file, skipping any path already
-    known (e.g. because Plex already reports it) via its normalized form in `skip_paths`."""
+    """Walk `root` for audio and video files and yield a Track per file, skipping any path
+    already known (e.g. because Plex already reports it) via its normalized form in
+    `skip_paths`. Video files (concert/music-video rips) live in the same walk as audio - they
+    naturally share library folders - and come out with source='local_video' instead of
+    'local', tagged via ffprobe (_read_video_tags) instead of mutagen (_read_tags)."""
     skip_paths = skip_paths or set()
     root_path = Path(root)
     if not root_path.exists():
@@ -36,17 +55,19 @@ def iter_local_tracks(root: str, skip_paths: set[str] | None = None) -> Iterator
         return
 
     for file_path in root_path.rglob("*"):
-        if file_path.suffix.lower() not in AUDIO_EXTENSIONS or not file_path.is_file():
+        suffix = file_path.suffix.lower()
+        is_video = suffix in VIDEO_EXTENSIONS
+        if (not is_video and suffix not in AUDIO_EXTENSIONS) or not file_path.is_file():
             continue
 
         normalized = normalize_path(str(file_path))
         if normalized in skip_paths:
             continue
 
-        tags = _read_tags(file_path)
+        tags = _read_video_tags(file_path) if is_video else _read_tags(file_path)
         yield Track(
             external_id=f"local:{_stable_id(str(file_path))}",
-            source="local",
+            source="local_video" if is_video else "local",
             file_path=to_relative(str(file_path), root),
             title=tags.get("title", file_path.stem),
             artist=tags.get("artist", ""),
@@ -91,3 +112,44 @@ def _read_tags(file_path: Path) -> dict:
         "year": year,
         "duration_ms": duration_ms,
     }
+
+
+def _read_video_tags(file_path: Path) -> dict:
+    """ffprobe-based metadata for video containers - mutagen has no Matroska/WebM support at
+    all, and ffprobe handles every container's tag/format structure more consistently than
+    mutagen's per-format modules, so this is used for all video extensions, not just .mkv.
+    Returns {} on any failure (ffprobe missing, corrupt file, timeout) - enrichment, never
+    something that should break an ingest scan, same philosophy as backend/lastfm.py."""
+    if not _FFPROBE_AVAILABLE:
+        return {}
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                str(file_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=True,
+        )
+        fmt = json.loads(result.stdout).get("format", {})
+        tags = {k.lower(): v for k, v in fmt.get("tags", {}).items()}
+        duration_s = fmt.get("duration")
+        return {
+            "duration_ms": int(float(duration_s) * 1000) if duration_s else None,
+            "title": tags.get("title"),
+            "artist": tags.get("artist"),
+            "album": tags.get("album"),
+            "genre": tags.get("genre"),
+        }
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError, ValueError):
+        log.warning(
+            "ffprobe failed for %s - ingesting with filename-only metadata", file_path
+        )
+        return {}

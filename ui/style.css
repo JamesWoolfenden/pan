@@ -490,11 +490,17 @@ header h1 {
    already assume one source of truth per control. Chrome/WebKit-only (non-standard pseudo-
    elements), but so is Cast support, so that's already the baseline here. */
 #queue-player::-webkit-media-controls-volume-slider,
-#queue-player::-webkit-media-controls-mute-button {
+#queue-player::-webkit-media-controls-mute-button,
+#local-video-player::-webkit-media-controls-volume-slider,
+#local-video-player::-webkit-media-controls-mute-button {
   display: none;
 }
 
-#youtube-player-wrap {
+/* Shared by the YouTube iframe wrap and #local-video-wrap (a track's own video file, played
+   through a real <video> element - see the comment above it in index.html) - same prominent,
+   full-width 16:9 treatment either way, since both are "watch this" surfaces, not just audio
+   playing with a hidden video. */
+.video-surface {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -504,7 +510,7 @@ header h1 {
   background: #000;
 }
 
-#youtube-player {
+.video-surface-el {
   position: absolute;
   inset: 0;
   width: 100%;

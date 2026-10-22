@@ -85,9 +85,16 @@
         </div>
         <img id="queue-art" class="album-art now-playing-art" alt="" />
       </div>
-      <div id="youtube-player-wrap" hidden>
-        <div id="youtube-player"></div>
+      <div id="youtube-player-wrap" class="video-surface" hidden>
+        <div id="youtube-player" class="video-surface-el"></div>
         <button id="video-dismiss-btn" title="Not the right video - play audio instead">&#10006; Not this</button>
+      </div>
+      <!-- A track's own video file (source: local_video - concert footage, music videos the user
+           owns, ingested the same way local audio is), played through a real <video> element
+           rather than an embedded YouTube iframe - unlike the iframe above, this is same-origin,
+           so its audio CAN be fed into the Web Audio EQ graph (see app.js's ensureEqSource). -->
+      <div id="local-video-wrap" class="video-surface" hidden>
+        <video id="local-video-player" class="video-surface-el" controls preload="auto"></video>
       </div>
       <div id="cast-status" hidden></div>
       <div id="cast-progress-controls" hidden>
