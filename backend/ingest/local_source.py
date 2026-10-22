@@ -31,10 +31,14 @@ if not _FFPROBE_AVAILABLE:
     )
 
 
-def normalize_path(path: str) -> str:
+def normalize_path(path: str, source: str | None = None) -> str:
     """Normalize a filesystem path for cross-source matching (case/separator-insensitive).
-    Accepts either an absolute path or one stored relative to SHARED_DRIVE_PATH."""
-    resolved = resolve(path)
+    Accepts either an absolute path, or one stored relative to SHARED_DRIVE_PATH or (for
+    local_video rows, when `source` is passed) VIDEO_DRIVE_PATH - see resolve()'s docstring.
+    `source` only matters for a relative path read back from the DB; during an active walk the
+    path is already absolute (resolve() short-circuits on that), so callers here that process
+    paths fresh off disk don't need to pass it."""
+    resolved = resolve(path, source)
     return str(resolved.resolve()).lower() if resolved else ""
 
 
@@ -42,13 +46,25 @@ def _stable_id(path: str) -> str:
     return hashlib.sha1(normalize_path(path).encode("utf-8")).hexdigest()
 
 
-def iter_local_tracks(root: str, skip_paths: set[str] | None = None) -> Iterator[Track]:
+def iter_local_tracks(
+    root: str,
+    skip_paths: set[str] | None = None,
+    extensions: set[str] | None = None,
+) -> Iterator[Track]:
     """Walk `root` for audio and video files and yield a Track per file, skipping any path
     already known (e.g. because Plex already reports it) via its normalized form in
-    `skip_paths`. Video files (concert/music-video rips) live in the same walk as audio - they
-    naturally share library folders - and come out with source='local_video' instead of
-    'local', tagged via ffprobe (_read_video_tags) instead of mutagen (_read_tags)."""
+    `skip_paths`. Video files (concert/music-video rips) live in the same walk as audio by
+    default - they naturally share library folders - and come out with source='local_video'
+    instead of 'local', tagged via ffprobe (_read_video_tags) instead of mutagen (_read_tags).
+
+    `extensions` restricts which files this walk considers (default: AUDIO_EXTENSIONS |
+    VIDEO_EXTENSIONS, i.e. everything) - used to scan VIDEO_DRIVE_PATH, when configured, for
+    video only, since that root's whole purpose is holding video the main library walk
+    (SHARED_DRIVE_PATH) wouldn't otherwise reach."""
     skip_paths = skip_paths or set()
+    allowed_extensions = (
+        extensions if extensions is not None else AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
+    )
     root_path = Path(root)
     if not root_path.exists():
         log.warning("Shared drive path does not exist: %s", root)
@@ -57,7 +73,7 @@ def iter_local_tracks(root: str, skip_paths: set[str] | None = None) -> Iterator
     for file_path in root_path.rglob("*"):
         suffix = file_path.suffix.lower()
         is_video = suffix in VIDEO_EXTENSIONS
-        if (not is_video and suffix not in AUDIO_EXTENSIONS) or not file_path.is_file():
+        if suffix not in allowed_extensions or not file_path.is_file():
             continue
 
         normalized = normalize_path(str(file_path))

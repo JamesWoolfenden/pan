@@ -37,9 +37,10 @@ def main() -> None:
 
         counts = run_ingest(conn)
         log.info(
-            "Ingested %d Plex tracks, %d local-only tracks",
+            "Ingested %d Plex tracks, %d local-only tracks, %d video tracks",
             counts["plex"],
             counts["local"],
+            counts["video"],
         )
 
         # Audio analysis is by far the slowest phase on a large library, and can run for
@@ -51,7 +52,9 @@ def main() -> None:
         feature_count = 0
         start = time.monotonic()
         for processed, row in enumerate(to_process, start=1):
-            features = extract_features(resolve_file_path(row["file_path"]))
+            features = extract_features(
+                resolve_file_path(row["file_path"], row["source"])
+            )
             if features:
                 set_audio_features(
                     conn,

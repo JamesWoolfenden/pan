@@ -77,6 +77,9 @@ Edit `.env`:
   footage, music videos you own — `.mp4`/`.mov`/`.mkv`, alongside your music in the same folder).
   Leave blank to skip. Video playback goes through the same EQ chain as audio, via a first-party
   `<video>` element rather than Plex or an embedded YouTube player.
+- `VIDEO_DRIVE_PATH` — optional second root, scanned for video only, for when your video files
+  live on a genuinely different drive/share than `SHARED_DRIVE_PATH` rather than a subfolder of
+  it. Leave blank if they're already under `SHARED_DRIVE_PATH` — that's scanned regardless.
 - `ANTHROPIC_API_KEY` — enables cloud tagging fallback and complex query parsing. Without it,
   tagging stops after the local pass and search falls back to plain semantic matching.
 - `CLOUD_TAGGING_MAX_PER_RUN` — safety cap on how many tracks get sent to Claude per reindex.
@@ -159,6 +162,17 @@ needed for this path.
      the same variable name means a different thing in each.
    - `NAS_MUSIC_PATH=/volume1/music` (or wherever your music actually lives on the NAS) — the
      host-side path `docker-compose.yml` bind-mounts to `/music`.
+   - If your video files live on a separate NAS share from your music (not just a subfolder of
+     it), set `VIDEO_DRIVE_PATH=/video` and add a matching mount to `docker-compose.yml`'s `pan`
+     service, the same shape as the music one:
+
+     ```yaml
+     - ${NAS_VIDEO_PATH}:/video:ro
+     ```
+
+     (plus `NAS_VIDEO_PATH=/volume1/video` in `.env`). Not added by default since it's an
+     optional extra mount most deployments won't need - leave `VIDEO_DRIVE_PATH` blank if your
+     videos are already under `SHARED_DRIVE_PATH`/`NAS_MUSIC_PATH`.
    - `TS_AUTHKEY=` the key from step 2.
    - `PAN_AUTH_USER` / `PAN_AUTH_PASSWORD` — required for this path (see above): once `pan` is
      reachable beyond the LAN, nothing else stops a visitor from browsing your library or

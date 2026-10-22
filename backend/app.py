@@ -561,7 +561,7 @@ def stream(track_id: int):
         row = get_track(conn, track_id)
     if row is None or not row["file_path"]:
         raise HTTPException(status_code=404, detail="No playable file for this track")
-    path = resolve_file_path(row["file_path"])
+    path = resolve_file_path(row["file_path"], row["source"])
     media_type = MEDIA_TYPE_OVERRIDES.get(path.suffix.lower())
     return FileResponse(path, media_type=media_type)
 
@@ -600,7 +600,7 @@ def track_art(track_id: int):
         row = get_track(conn, track_id)
     if row is None or not row["file_path"]:
         raise HTTPException(status_code=404, detail="No art available")
-    art = extract_album_art(row["file_path"])
+    art = extract_album_art(row["file_path"], row["source"])
     if art is None:
         raise HTTPException(status_code=404, detail="No embedded art")
     data, mime = art
@@ -640,7 +640,7 @@ def track_detail(track_id: int):
     file_format = None
     resolved_path = None
     if row["file_path"]:
-        path = resolve_file_path(row["file_path"])
+        path = resolve_file_path(row["file_path"], row["source"])
         file_format = path.suffix.lstrip(".").upper() or None
         resolved_path = str(path)
         try:

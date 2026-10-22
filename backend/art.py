@@ -10,12 +10,16 @@ from backend.paths import resolve as resolve_file_path
 log = logging.getLogger(__name__)
 
 
-def extract_album_art(file_path: str) -> tuple[bytes, str] | None:
+def extract_album_art(
+    file_path: str, source: str | None = None
+) -> tuple[bytes, str] | None:
     """Pull embedded cover art straight out of the audio file's own tags - FLAC's PICTURE
     block, an ID3 APIC frame (MP3), or an MP4 covr atom (M4A/AAC) - rather than maintaining a
     separate artwork cache/table, since the art already lives inside the file. Returns
-    (image_bytes, mime_type), or None if the file can't be read or has no embedded art."""
-    path = resolve_file_path(file_path)
+    (image_bytes, mime_type), or None if the file can't be read or has no embedded art.
+    `source` is passed through to resolve() so a local_video row can be found under
+    VIDEO_DRIVE_PATH when it's not under SHARED_DRIVE_PATH - see that function's docstring."""
+    path = resolve_file_path(file_path, source)
     if path is None or not path.exists():
         return None
     try:

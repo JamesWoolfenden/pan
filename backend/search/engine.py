@@ -131,7 +131,7 @@ FORMAT_QUALITY_TIER = {
 
 
 def _file_quality(row: sqlite3.Row) -> tuple[int, int]:
-    path = resolve_file_path(row["file_path"])
+    path = resolve_file_path(row["file_path"], row["source"])
     if path is None:
         return (-1, 0)
     tier = FORMAT_QUALITY_TIER.get(path.suffix.lower(), 0)

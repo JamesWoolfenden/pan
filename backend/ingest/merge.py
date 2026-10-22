@@ -5,7 +5,11 @@ import sqlite3
 
 from backend.config import settings
 from backend.db import all_tracks, merge_plex_metadata, upsert_track
-from backend.ingest.local_source import iter_local_tracks, normalize_path
+from backend.ingest.local_source import (
+    VIDEO_EXTENSIONS,
+    iter_local_tracks,
+    normalize_path,
+)
 from backend.ingest.plex_source import iter_plex_tracks
 
 log = logging.getLogger(__name__)
@@ -15,14 +19,14 @@ COMMIT_EVERY = 100
 
 def known_file_paths(conn: sqlite3.Connection) -> set[str]:
     rows = conn.execute(
-        "SELECT file_path FROM tracks WHERE file_path IS NOT NULL"
+        "SELECT file_path, source FROM tracks WHERE file_path IS NOT NULL"
     ).fetchall()
-    return {normalize_path(row["file_path"]) for row in rows}
+    return {normalize_path(row["file_path"], row["source"]) for row in rows}
 
 
 def path_to_id_map(conn: sqlite3.Connection) -> dict[str, int]:
     return {
-        normalize_path(row["file_path"]): row["id"]
+        normalize_path(row["file_path"], row["source"]): row["id"]
         for row in all_tracks(conn)
         if row["file_path"]
     }
@@ -42,7 +46,7 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
     Commits periodically rather than in one long transaction, both so progress survives an
     interruption and so this doesn't hold a write lock that starves another process (e.g. a
     concurrently-running feature-extraction pass) of its own periodic commits."""
-    counts = {"plex": 0, "plex_merged": 0, "local": 0}
+    counts = {"plex": 0, "plex_merged": 0, "local": 0, "video": 0}
 
     if settings.plex_baseurl and settings.plex_token:
         existing_by_path = path_to_id_map(conn)
@@ -84,5 +88,21 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
         conn.commit()
     else:
         log.info("SHARED_DRIVE_PATH not configured - skipping local scan")
+
+    # A separate root, scanned for video only - for when video files live on a genuinely
+    # different drive/share than the music library, rather than in a subfolder of
+    # SHARED_DRIVE_PATH (which is already covered above, no separate config needed for that).
+    if settings.video_drive_path:
+        skip_paths = known_file_paths(conn)
+        for track in iter_local_tracks(
+            settings.video_drive_path,
+            skip_paths=skip_paths,
+            extensions=VIDEO_EXTENSIONS,
+        ):
+            upsert_track(conn, track)
+            counts["video"] += 1
+            if counts["video"] % COMMIT_EVERY == 0:
+                conn.commit()
+        conn.commit()
 
     return counts

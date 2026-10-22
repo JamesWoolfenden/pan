@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     plex_baseurl: str = ""
     plex_token: str = ""
     shared_drive_path: str = ""
+    # Optional second root, scanned for video files only (concert footage, music videos - see
+    # backend/ingest/local_source.py's VIDEO_EXTENSIONS) when they live on a separate drive/share
+    # from the music library rather than in a subfolder under SHARED_DRIVE_PATH. Leave blank if
+    # your videos already live somewhere under SHARED_DRIVE_PATH - that's scanned regardless and
+    # needs no separate config, this is only for a genuinely different root.
+    video_drive_path: str = ""
     # Plex reports file paths using the server's own (often different-OS) filesystem view,
     # e.g. a Synology NAS's "/volume1/plexdata/music/...". When that prefix corresponds to
     # SHARED_DRIVE_PATH as seen from this machine, set it here so Plex-sourced tracks get a

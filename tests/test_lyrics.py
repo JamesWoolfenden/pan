@@ -281,7 +281,8 @@ def test_get_lyrics_embedded_never_has_synced_timestamps(monkeypatch, tmp_path):
     path = tmp_path / "track.mp3"
     path.write_bytes(b"fake")
     monkeypatch.setattr(
-        "backend.lyrics.extract_embedded_lyrics", lambda fp: "embedded text"
+        "backend.lyrics.extract_embedded_lyrics",
+        lambda fp, source=None: "embedded text",
     )
     conn = connect(":memory:")
     init_db(conn)

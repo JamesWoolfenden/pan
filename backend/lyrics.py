@@ -28,12 +28,14 @@ def _normalize_artist_name(artist: str) -> str | None:
     return f"The {match.group(1)}"
 
 
-def extract_embedded_lyrics(file_path: str) -> str | None:
+def extract_embedded_lyrics(file_path: str, source: str | None = None) -> str | None:
     """Pull embedded lyrics straight out of the audio file's own tags - an ID3 USLT frame (MP3),
     a Vorbis comment LYRICS/UNSYNCEDLYRICS field (FLAC/OGG), or an MP4 (c)lyr atom (M4A/AAC) -
     mirroring extract_album_art's approach of reading what's already in the file rather than a
-    separate store. Returns None if the file can't be read or has no embedded lyrics."""
-    path = resolve_file_path(file_path)
+    separate store. Returns None if the file can't be read or has no embedded lyrics.
+    `source` is passed through to resolve() so a local_video row can be found under
+    VIDEO_DRIVE_PATH when it's not under SHARED_DRIVE_PATH - see that function's docstring."""
+    path = resolve_file_path(file_path, source)
     if path is None or not path.exists():
         return None
     try:
@@ -154,7 +156,7 @@ def get_lyrics(row) -> tuple[str | None, str, str | None]:
     lookup failed transiently - callers should not treat this the same as a confirmed "none").
     synced is only ever set alongside source="online" - embedded tags don't carry timestamps."""
     if row["file_path"]:
-        embedded = extract_embedded_lyrics(row["file_path"])
+        embedded = extract_embedded_lyrics(row["file_path"], row["source"])
         if embedded:
             return embedded, "embedded", None
 
