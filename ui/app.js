@@ -504,8 +504,25 @@ function ensureEqSource(mediaEl) {
     eqVideoSourceNode.connect(eqPreampNode);
   }
 }
-queuePlayer.addEventListener("play", () => ensureEqSource(queuePlayer));
-localVideoPlayer.addEventListener("play", () => ensureEqSource(localVideoPlayer));
+// Only engage the Web Audio graph once the EQ panel has actually been opened (here, or the
+// expand handler by wireCollapseToggle(eqToggleBtn, ...) below) - NOT unconditionally on every
+// play, which was the previous behaviour. Once an element's output is captured by
+// createMediaElementSource it stays routed through the AudioContext for the rest of the session
+// (see ensureEqChain's docstring), and Chrome then stops reliably treating the tab as "playing
+// audible media" - losing the background-audio protection a plain <audio> element gets, so it
+// pauses mid-track once the screen locks and (per real client logs) can't even auto-resume on
+// unlock (NotAllowedError - a visibilitychange-triggered .play() isn't a user gesture). The EQ
+// panel is desktop-only in practice, so gating on it keeps mobile listening on the plain,
+// background-safe path with no loss of functionality anyone actually uses there.
+function engageEqIfPanelOpen(mediaEl) {
+  // offsetParent is null whenever the element (or an ancestor) is display:none - catches both
+  // the "collapsed" class AND #eq-pane's own @media (min-width: 1000px) CSS rule that hides the
+  // whole EQ pane on mobile regardless of that class (mobile never gets the "collapsed" class
+  // added/removed at all, since the toggle button it'd come from is itself hidden there).
+  if (eqPanelEl.offsetParent !== null) ensureEqSource(mediaEl);
+}
+queuePlayer.addEventListener("play", () => engageEqIfPanelOpen(queuePlayer));
+localVideoPlayer.addEventListener("play", () => engageEqIfPanelOpen(localVideoPlayer));
 
 function resumeEqAudioCtx() {
   if (eqAudioCtx && eqAudioCtx.state === "suspended" && !activePlaybackEl().paused) {
@@ -799,6 +816,10 @@ eqResetBtn.addEventListener("click", () => {
 // #eq-pane is a permanent pane in #content (like #playlists-panel), not a popup, so this is just
 // the same collapsible-body chevron every other panel here uses.
 wireCollapseToggle(eqToggleBtn, eqPanelEl);
+// Opening the panel mid-playback (see engageEqIfPanelOpen above) needs to engage the graph right
+// away too, not wait for the next track's "play" event - otherwise the meter/EQ would stay dead
+// until you skip tracks.
+eqToggleBtn.addEventListener("click", () => engageEqIfPanelOpen(activePlaybackEl()));
 
 // queuePlayer.hidden is the existing signal for "local <audio> isn't what's actually playing
 // right now" (see updateCastUi/stopVideoPlayback/onYtStateChange below), reused here - but it's
@@ -2582,6 +2603,14 @@ function persistQueueState() {
     currentPlaylistId,
     currentPlaylistName,
     currentTime: activePlaybackEl().currentTime || 0,
+    // So a restore (see restoreQueueState) can attempt to resume playback itself rather than
+    // always landing paused - matters a lot on Android, where the OS can discard/reload a
+    // backgrounded PWA tab outright (not just suspend its AudioContext), wiping all in-memory
+    // state including the queuePlayer's own playing/paused status. The browser's own autoplay
+    // policy is the safety net here: if it decides this reload doesn't qualify (e.g. a genuinely
+    // cold, gestureless visit), .play() below just silently no-ops and the UI stays paused -
+    // never a worse outcome than today's always-paused restore.
+    playing: !activePlaybackEl().paused,
     updatedAt: Date.now(),
   };
   try {
@@ -2634,7 +2663,9 @@ async function restoreQueueState() {
   const track = currentIndex !== -1 ? queue[currentIndex] : null;
   if (track) {
     nowPlayingEl.innerHTML = "";
-    nowPlayingEl.appendChild(buildTrackTitleLine(track, " (paused — press play to resume)"));
+    nowPlayingEl.appendChild(
+      buildTrackTitleLine(track, saved.playing ? "" : " (paused — press play to resume)")
+    );
     renderNowPlayingActions(track);
     updateMediaSessionMetadata(track);
     if (track.source === "local_video") {
@@ -2651,9 +2682,20 @@ async function restoreQueueState() {
           "loadedmetadata",
           () => {
             localVideoPlayer.currentTime = saved.currentTime;
+            if (saved.playing) {
+              localVideoPlayer
+                .play()
+                .then(() => logClient("restore_autoplay_ok"))
+                .catch(() => logClient("restore_autoplay_blocked"));
+            }
           },
           { once: true }
         );
+      } else if (saved.playing) {
+        localVideoPlayer
+          .play()
+          .then(() => logClient("restore_autoplay_ok"))
+          .catch(() => logClient("restore_autoplay_blocked"));
       }
       // No schedulePrefetch() here - video isn't prefetched (see playAt()'s tryPlayLocalVideo).
     } else if (track.file_path) {
@@ -2663,9 +2705,20 @@ async function restoreQueueState() {
           "loadedmetadata",
           () => {
             queuePlayer.currentTime = saved.currentTime;
+            if (saved.playing) {
+              queuePlayer
+                .play()
+                .then(() => logClient("restore_autoplay_ok"))
+                .catch(() => logClient("restore_autoplay_blocked"));
+            }
           },
           { once: true }
         );
+      } else if (saved.playing) {
+        queuePlayer
+          .play()
+          .then(() => logClient("restore_autoplay_ok"))
+          .catch(() => logClient("restore_autoplay_blocked"));
       }
       schedulePrefetch(queue[nextQueueIndex(currentIndex)]);
     }
