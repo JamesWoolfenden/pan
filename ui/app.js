@@ -22,6 +22,44 @@ adminToggleBtn.addEventListener("click", () => {
   adminToggleBtn.setAttribute("aria-expanded", String(!adminPanelEl.hidden));
 });
 
+// Light/Dark/System, cycled by clicking #theme-toggle - System (no [data-theme] override) is
+// what index.html's inline head script leaves things in by default, letting :root's own
+// prefers-color-scheme media query follow the OS. The inline script (not this file, loaded at
+// the end of body) applies a saved light/dark choice before first paint, so there's no flash of
+// the wrong theme on load; this just takes over the cycling/persisting from there.
+const THEME_KEY = "pan_theme";
+const themeToggleBtn = document.getElementById("theme-toggle");
+const THEME_CYCLE = { system: "light", light: "dark", dark: "system" };
+// Plain Unicode glyphs, not emoji - color emoji ignore CSS `color` entirely, same reason
+// repeatBtn's own glyph was picked (see updateShuffleRepeatButtons).
+const THEME_GLYPHS = { system: "◐", light: "☀", dark: "☾" };
+const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
+
+function currentTheme() {
+  const attr = document.documentElement.dataset.theme;
+  return attr === "light" || attr === "dark" ? attr : "system";
+}
+
+function applyTheme(theme) {
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  else delete document.documentElement.dataset.theme;
+  themeToggleBtn.textContent = THEME_GLYPHS[theme];
+  themeToggleBtn.title = `Theme: ${THEME_LABELS[theme]} - click for ${THEME_LABELS[THEME_CYCLE[theme]]}`;
+}
+
+themeToggleBtn.addEventListener("click", () => {
+  const next = THEME_CYCLE[currentTheme()];
+  applyTheme(next);
+  try {
+    if (next === "system") localStorage.removeItem(THEME_KEY);
+    else localStorage.setItem(THEME_KEY, next);
+  } catch {
+    // localStorage unavailable (private browsing etc) - the choice just won't persist across reloads
+  }
+});
+
+applyTheme(currentTheme());
+
 // /version is exempt from auth (see backend/app.py) specifically so this works without a
 // login prompt - the whole point is confirming a deploy actually updated before chasing what
 // looks like a bug but is really just stale code still running.
@@ -894,6 +932,21 @@ function renderHistory() {
 
 renderHistory();
 
+// "all" | "audio" | "video" - narrows results to local video files (source="local_video") or
+// everything else, same distinction the ingest/paths code already uses. Kept client-side only;
+// re-runs the last search from offset 0 on change rather than filtering the page in place, since
+// the backend filter changes which tracks rank/paginate, not just which already-fetched rows show.
+let mediaTypeFilter = "all";
+const mediaTypeFilterEl = document.getElementById("media-type-filter");
+mediaTypeFilterEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".media-filter-btn");
+  if (!btn || btn.classList.contains("active")) return;
+  mediaTypeFilterEl.querySelector(".active")?.classList.remove("active");
+  btn.classList.add("active");
+  mediaTypeFilter = btn.dataset.type;
+  if (lastQuery) form.requestSubmit();
+});
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = input.value.trim();
@@ -907,7 +960,8 @@ form.addEventListener("submit", async (e) => {
   resultsEl.innerHTML = "<li>Searching...</li>";
   resultsHeaderEl.hidden = true;
   loadMoreBtn.hidden = true;
-  const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=${SEARCH_PAGE_SIZE}&offset=0`);
+  const mediaTypeParam = mediaTypeFilter === "all" ? "" : `&media_type=${mediaTypeFilter}`;
+  const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=${SEARCH_PAGE_SIZE}&offset=0${mediaTypeParam}`);
   const data = await res.json();
   lastResults = data.results;
   searchOffset = data.results.length;
@@ -920,7 +974,8 @@ form.addEventListener("submit", async (e) => {
 async function loadMoreSearch() {
   loadMoreBtn.disabled = true;
   loadMoreBtn.textContent = "Loading...";
-  const res = await fetch(`/search?q=${encodeURIComponent(lastQuery)}&limit=${SEARCH_PAGE_SIZE}&offset=${searchOffset}`);
+  const mediaTypeParam = mediaTypeFilter === "all" ? "" : `&media_type=${mediaTypeFilter}`;
+  const res = await fetch(`/search?q=${encodeURIComponent(lastQuery)}&limit=${SEARCH_PAGE_SIZE}&offset=${searchOffset}${mediaTypeParam}`);
   const data = await res.json();
   lastResults = lastResults.concat(data.results);
   searchOffset += data.results.length;
@@ -1061,21 +1116,51 @@ function renderAlbums(albums, artist) {
 // "Title — Artist[, suffix]" with the artist rendered as a clickable discography link (when
 // known) - shared by the results list and the now-playing bar, so playing a track gives the
 // exact same "find more by this band" access a search result row already has.
+// "S01E03", "Episode 3" (season unparsed), "Season 1" (episode unparsed), or null when neither
+// got parsed off the filename (see backend/ingest/local_source.py) - a plain movie, or a TV
+// episode whose naming didn't match any recognized pattern.
+function formatSeasonEpisode(track) {
+  if (track.season != null && track.episode != null) {
+    return `S${String(track.season).padStart(2, "0")}E${String(track.episode).padStart(2, "0")}`;
+  }
+  if (track.episode != null) return `Episode ${track.episode}`;
+  if (track.season != null) return `Season ${track.season}`;
+  return null;
+}
+
+// What plays under the title. For a movie/TV episode (source="local_video"), season/episode
+// takes priority when parsed (the relevant "tag" for that kind of file - see the pasted
+// brainstorm note this came from); a video file can still carry a genuine artist (VIDEO_EXTENSIONS
+// also covers concert/music-video files, not just movies/TV - see local_source.py), so that's
+// the fallback rather than being suppressed outright; only when a video has neither does this
+// return null, which callers treat as "show nothing" rather than a meaningless "Unknown artist".
+// A music track always gets something: its own artist, or "Unknown artist" when that's a genuine
+// data gap worth surfacing.
+function trackSubtitle(track) {
+  if (track.source === "local_video") return formatSeasonEpisode(track) || track.artist || null;
+  return track.artist || "Unknown artist";
+}
+
 function buildTrackTitleLine(track, suffix = "") {
   const frag = document.createDocumentFragment();
   const titleStrong = document.createElement("strong");
   titleStrong.textContent = track.title || "Untitled";
   frag.appendChild(titleStrong);
-  frag.append(" — ");
-  if (track.artist) {
-    const artistLink = document.createElement("button");
-    artistLink.className = "artist-link";
-    artistLink.textContent = track.artist;
-    artistLink.title = "Browse this artist's discography";
-    artistLink.addEventListener("click", () => showDiscography(track.artist));
-    frag.appendChild(artistLink);
-  } else {
-    frag.append("Unknown artist");
+  const subtitle = trackSubtitle(track);
+  if (subtitle) {
+    frag.append(" — ");
+    // Only a genuine artist name - not season/episode text, not the "Unknown artist" filler -
+    // links to the discography view.
+    if (subtitle === track.artist) {
+      const artistLink = document.createElement("button");
+      artistLink.className = "artist-link";
+      artistLink.textContent = track.artist;
+      artistLink.title = "Browse this artist's discography";
+      artistLink.addEventListener("click", () => showDiscography(track.artist));
+      frag.appendChild(artistLink);
+    } else {
+      frag.append(subtitle);
+    }
   }
   if (suffix) frag.append(suffix);
   return frag;
@@ -1136,11 +1221,26 @@ function renderResults(results) {
     const playArea = document.createElement("div");
     playArea.className = "play-area";
     if (r.file_path) {
-      const audio = document.createElement("audio");
-      audio.controls = true;
-      audio.src = `/stream/${r.id}`;
-      audio.addEventListener("play", () => pauseOtherPlayers(audio));
-      playArea.appendChild(audio);
+      if (r.source === "local_video") {
+        // A bare <audio controls> here (like the audio branch below) technically "plays" a
+        // video file - browsers happily decode just the audio track - but silently: no picture,
+        // not routed through the queue's real video player (tryPlayLocalVideo in playAt(), the
+        // only path that actually renders <video>), and nothing tells you that's what happened.
+        // Route straight into the queue/video pipeline instead, the same as clicking a queued
+        // video track does.
+        const playBtn = document.createElement("button");
+        playBtn.className = "video-play-btn";
+        playBtn.textContent = "▶ Play video";
+        playBtn.title = "Play with picture, through the queue";
+        playBtn.addEventListener("click", () => playFromResults(r));
+        playArea.appendChild(playBtn);
+      } else {
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = `/stream/${r.id}`;
+        audio.addEventListener("play", () => pauseOtherPlayers(audio));
+        playArea.appendChild(audio);
+      }
 
       const queueBtn = document.createElement("button");
       queueBtn.className = "queue-btn";
@@ -1185,6 +1285,7 @@ function buildPlaylistPickerPanel(trackIdsSource) {
   listEl.className = "playlist-picker-list";
 
   const newBtn = document.createElement("button");
+  newBtn.className = "playlist-picker-new-btn";
   newBtn.textContent = "+ New playlist";
   newBtn.addEventListener("click", async () => {
     const name = prompt("Playlist name?");
@@ -1249,7 +1350,11 @@ function buildPlaylistPickerPanel(trackIdsSource) {
     }
   };
 
-  panel.append(listEl, newBtn);
+  // "+ New playlist" first and visually distinct (see .playlist-picker-new-btn) - it used to
+  // come after the existing-playlist list with no styling of its own, so it read as just
+  // another list item and was easy to miss entirely once there were more than a couple of
+  // playlists to scan past.
+  panel.append(newBtn, listEl);
   return panel;
 }
 
@@ -2165,6 +2270,20 @@ function addToQueue(track) {
   if (currentIndex === -1) playAt(0);
 }
 
+// Queues the track if it isn't already there, then plays it immediately regardless of what's
+// currently playing - unlike addToQueue, which only auto-plays when the queue was empty. Used
+// by a video result's "Play video" button (see renderResults) so it actually goes through
+// playAt()'s real video-rendering path instead of a results-row <audio> player.
+function playFromResults(track) {
+  let index = queue.findIndex((t) => t.id === track.id);
+  if (index === -1) {
+    queue.push(toQueueEntry(track));
+    renderQueue();
+    index = queue.length - 1;
+  }
+  playAt(index);
+}
+
 function isQueued(trackId) {
   return queue.some((t) => t.id === trackId);
 }
@@ -2560,7 +2679,8 @@ function renderQueue() {
     li.className = i === currentIndex ? "queue-current" : "";
 
     const label = document.createElement("span");
-    label.textContent = `${track.title || "Untitled"} — ${track.artist || "Unknown artist"}`;
+    const subtitle = trackSubtitle(track);
+    label.textContent = subtitle ? `${track.title || "Untitled"} — ${subtitle}` : track.title || "Untitled";
     label.addEventListener("click", () => playAt(i));
     li.appendChild(label);
 
@@ -2828,6 +2948,7 @@ function castCurrentTrack() {
       // advance the queue, since the IDLE handler only ever fires for a track that actually
       // started. Skip to the next track instead.
       console.warn("Cast loadMedia failed, skipping track", track.id, err);
+      logClient("cast_load_failed", { castTrackId: track.id, err: String(err?.description || err) });
       advanceOnEnded();
     });
 }
@@ -2844,6 +2965,7 @@ function initializeCastApi() {
     // Starting a cast session hands playback to the receiver; local <audio> would otherwise
     // keep playing too (both audible at once). Disconnecting doesn't resume local playback
     // automatically - press play again to continue here.
+    logClient("cast_connected_changed", { connected: isCasting() });
     if (isCasting()) castCurrentTrack();
     updateCastUi();
   });
@@ -2858,6 +2980,7 @@ function initializeCastApi() {
     // (seen on some firmware) can't double-advance.
     if (!castTrackActive) return;
     castTrackActive = false;
+    logClient("cast_idle_advance");
     advanceOnEnded();
   });
   castController.addEventListener(cast.framework.RemotePlayerEventType.VOLUME_LEVEL_CHANGED, updateCastVolumeUi);
@@ -2868,6 +2991,16 @@ function initializeCastApi() {
     castController.setVolumeLevel();
   });
   castMuteBtn.addEventListener("click", () => castController.muteOrUnmute());
+
+  // Session-level failures (receiver unreachable, cast app launch rejected, session dropped) -
+  // the IS_CONNECTED_CHANGED/PLAYER_STATE_CHANGED listeners above only see a session that
+  // already succeeded, so a session that never gets that far would otherwise log nothing at all.
+  cast.framework.CastContext.getInstance().addEventListener(
+    cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
+    (event) => {
+      logClient("cast_session_state", { state: event.sessionState, error: event.errorCode ?? null });
+    }
+  );
 }
 
 window["__onGCastApiAvailable"] = (isAvailable) => {
@@ -3016,7 +3149,7 @@ function updateMediaSessionMetadata(track) {
   if (!("mediaSession" in navigator)) return;
   navigator.mediaSession.metadata = new MediaMetadata({
     title: track.title || "Untitled",
-    artist: track.artist || "Unknown artist",
+    artist: trackSubtitle(track) || "",
     album: track.album || "",
   });
 }
@@ -3051,7 +3184,11 @@ queuePlayer.addEventListener("pause", () => {
   playPauseBtn.innerHTML = "&#9654;";
   if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
   persistQueueState();
-  if (!deliberatePause && currentIndex !== -1) awaitingBackgroundResume = true;
+  // A track finishing naturally also fires "pause" right after "ended" - don't mistake that
+  // for the OS silently killing playback, or the next background/foreground cycle calls
+  // .play() on an already-ended track, which mobile browsers handle inconsistently and can
+  // desync currentIndex from what's actually playing (see client-log trail 2026-10-24 16:10-16:13).
+  if (!deliberatePause && !queuePlayer.ended && currentIndex !== -1) awaitingBackgroundResume = true;
   deliberatePause = false;
 });
 queuePlayer.addEventListener("ended", advanceOnEnded);

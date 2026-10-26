@@ -158,9 +158,19 @@ def _on_shutdown():
 
 
 @app.get("/search")
-def search_endpoint(q: str, limit: int = 25, offset: int = 0):
+def search_endpoint(
+    q: str, limit: int = 25, offset: int = 0, media_type: str | None = None
+):
+    if media_type is not None and media_type not in ("audio", "video"):
+        raise HTTPException(
+            status_code=400, detail="media_type must be one of: audio, video"
+        )
     with connection() as conn:
-        return {"results": run_search(conn, q, limit=limit, offset=offset)}
+        return {
+            "results": run_search(
+                conn, q, limit=limit, offset=offset, media_type=media_type
+            )
+        }
 
 
 @app.get("/search/by-tag")
@@ -654,6 +664,8 @@ def track_detail(track_id: int):
         "artist": row["artist"],
         "album": row["album"],
         "year": row["year"],
+        "season": row["season"],
+        "episode": row["episode"],
         "genre": row["genre"],
         "mood": row["mood"],
         "tags": tags_list(row),

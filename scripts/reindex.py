@@ -46,8 +46,18 @@ def main() -> None:
         # Audio analysis is by far the slowest phase on a large library, and can run for
         # hours. Commit + log progress periodically rather than only at the end, so a crash
         # or interruption doesn't lose all of it, and so progress is observable from outside.
+        # local_video rows are skipped entirely - tempo/energy (and the mood apply_local_tags
+        # infers from them below) are a music-specific heuristic. extract_features() only reads
+        # the first 60s of a file, almost always a quiet non-musical intro for a movie/TV
+        # episode (logos, credits, dialogue), which mechanically landed nearly every one of them
+        # in infer_mood's "driving" bucket - see scripts/clear_video_local_mood.py, which cleans
+        # up rows already mistagged that way before this fix.
         to_process = [
-            row for row in all_tracks(conn) if row["tempo"] is None and row["file_path"]
+            row
+            for row in all_tracks(conn)
+            if row["tempo"] is None
+            and row["file_path"]
+            and row["source"] != "local_video"
         ]
         feature_count = 0
         start = time.monotonic()

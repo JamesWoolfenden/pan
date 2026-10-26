@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS tracks (
     genre TEXT,
     mood TEXT,
     year INTEGER,
+    season INTEGER,  -- local_video only, parsed from the filename/path (see backend/ingest/
+                     -- local_source.py's _parse_season_episode) - NULL for a movie or anything
+                     -- whose naming didn't match a recognized TV pattern, and always NULL for
+                     -- a 'plex'/'local' (music) row, which has no concept of season/episode
+    episode INTEGER,  -- same source/caveats as season
     duration_ms INTEGER,
     tempo REAL,
     energy REAL,
@@ -153,6 +158,8 @@ class Track:
     genre: str | None = None
     mood: str | None = None
     year: int | None = None
+    season: int | None = None
+    episode: int | None = None
     duration_ms: int | None = None
     tempo: float | None = None
     energy: float | None = None
@@ -221,6 +228,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN youtube_watch_id TEXT")
     if "disliked_at" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN disliked_at TEXT")
+    if "season" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN season INTEGER")
+    if "episode" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN episode INTEGER")
 
     playlists_columns = {
         row["name"] for row in conn.execute("PRAGMA table_info(playlists)").fetchall()
@@ -254,6 +265,7 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
                 artist=CASE WHEN identity_source='manual' THEN artist ELSE ? END,
                 album=CASE WHEN identity_source='manual' THEN album ELSE ? END,
                 genre=COALESCE(?, genre), mood=COALESCE(?, mood), year=?,
+                season=COALESCE(?, season), episode=COALESCE(?, episode),
                 duration_ms=?, tempo=COALESCE(?, tempo), energy=COALESCE(?, energy),
                 musical_key=COALESCE(?, musical_key)
             WHERE id=?
@@ -268,6 +280,8 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
                 track.genre,
                 track.mood,
                 track.year,
+                track.season,
+                track.episode,
                 track.duration_ms,
                 track.tempo,
                 track.energy,
@@ -281,8 +295,9 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
         """
         INSERT INTO tracks (
             external_id, source, plex_rating_key, file_path, title, artist, album,
-            genre, mood, year, duration_ms, tempo, energy, musical_key, tag_source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            genre, mood, year, season, episode, duration_ms, tempo, energy, musical_key,
+            tag_source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             track.external_id,
@@ -295,6 +310,8 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
             track.genre,
             track.mood,
             track.year,
+            track.season,
+            track.episode,
             track.duration_ms,
             track.tempo,
             track.energy,
@@ -493,14 +510,24 @@ def get_track(conn: sqlite3.Connection, track_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
 
 
+#  SQLite caps the number of "?" placeholders in a single statement
+#  (SQLITE_MAX_VARIABLE_NUMBER, 999 on the builds this ships against) - a hard search filter
+#  that keeps most of the library (e.g. "audio" excluding only the small number of local_video
+#  rows) can pass many more ids than that to get_tracks_by_ids/rank_by_embedding below.
+_SQLITE_IN_BATCH_SIZE = 900
+
+
 def get_tracks_by_ids(conn: sqlite3.Connection, ids: list[int]) -> list[sqlite3.Row]:
     if not ids:
         return []
-    placeholders = ",".join("?" for _ in ids)
-    rows = conn.execute(
-        f"SELECT * FROM tracks WHERE id IN ({placeholders})", ids
-    ).fetchall()
-    by_id = {row["id"]: row for row in rows}
+    by_id: dict[int, sqlite3.Row] = {}
+    for i in range(0, len(ids), _SQLITE_IN_BATCH_SIZE):
+        batch = ids[i : i + _SQLITE_IN_BATCH_SIZE]
+        placeholders = ",".join("?" for _ in batch)
+        rows = conn.execute(
+            f"SELECT * FROM tracks WHERE id IN ({placeholders})", batch
+        ).fetchall()
+        by_id.update({row["id"]: row for row in rows})
     return [by_id[i] for i in ids if i in by_id]
 
 
@@ -562,17 +589,22 @@ def rank_by_embedding(
     or not - can silently miss genuinely matching tracks entirely."""
     if not track_ids:
         return []
-    placeholders = ",".join("?" for _ in track_ids)
-    rows = conn.execute(
-        f"""
-        SELECT rowid, vec_distance_cosine(embedding, ?) AS distance
-        FROM track_vectors
-        WHERE rowid IN ({placeholders})
-        ORDER BY distance
-        """,
-        (sqlite_vec.serialize_float32(query_embedding), *track_ids),
-    ).fetchall()
-    return [(row["rowid"], row["distance"]) for row in rows]
+    embedding_blob = sqlite_vec.serialize_float32(query_embedding)
+    results: list[tuple[int, float]] = []
+    for i in range(0, len(track_ids), _SQLITE_IN_BATCH_SIZE):
+        batch = track_ids[i : i + _SQLITE_IN_BATCH_SIZE]
+        placeholders = ",".join("?" for _ in batch)
+        rows = conn.execute(
+            f"""
+            SELECT rowid, vec_distance_cosine(embedding, ?) AS distance
+            FROM track_vectors
+            WHERE rowid IN ({placeholders})
+            """,
+            (embedding_blob, *batch),
+        ).fetchall()
+        results.extend((row["rowid"], row["distance"]) for row in rows)
+    results.sort(key=lambda r: r[1])
+    return results
 
 
 def find_similar_embeddings(

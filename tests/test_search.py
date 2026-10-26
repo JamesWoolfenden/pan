@@ -71,6 +71,47 @@ def test_filtered_candidate_ids_returns_none_without_hard_constraints():
     assert _filtered_candidate_ids(conn, {"semantic_query": "chill"}) is None
 
 
+def test_filtered_candidate_ids_applies_media_type_video():
+    # "video" is a small candidate set (few local_video rows in a real library), so it's worth
+    # a hard filter/exact-rank pass. "audio" is the opposite - excluding only that same small
+    # minority - and is handled as a post-filter in _search_with_filter instead (see
+    # test_search_media_type_audio_excludes_video_tracks), not here.
+    conn = connect(":memory:")
+    init_db(conn)
+    upsert_track(conn, Track(external_id="a", source="local", title="A"))
+    upsert_track(conn, Track(external_id="b", source="plex", title="B"))
+    video_id = upsert_track(
+        conn, Track(external_id="c", source="local_video", title="C")
+    )
+    conn.commit()
+
+    assert _filtered_candidate_ids(conn, {"media_type": "video"}) == {video_id}
+    assert _filtered_candidate_ids(conn, {"media_type": "audio"}) is None
+
+
+def test_search_media_type_audio_excludes_video_tracks(monkeypatch):
+    conn = connect(":memory:")
+    init_db(conn)
+    audio_id = upsert_track(conn, Track(external_id="a", source="local", title="A"))
+    video_id = upsert_track(
+        conn, Track(external_id="b", source="local_video", title="B")
+    )
+    conn.commit()
+
+    query_vec = [0.0] * EMBEDDING_DIM
+    query_vec[0] = 1.0
+    upsert_embedding(conn, audio_id, list(query_vec))
+    upsert_embedding(conn, video_id, list(query_vec))
+
+    monkeypatch.setattr("backend.search.engine.embed_text", lambda q: query_vec)
+
+    results = search(conn, "whatever", limit=10, media_type="audio")
+
+    ids = [r["id"] for r in results]
+    assert audio_id in ids
+    assert video_id not in ids
+
+
 def test_filtered_candidate_ids_year_range_excludes_null_year_without_content_filter():
     # A pure decade query (no genre/mood) should stay strict - letting every undated track
     # through would defeat the point of the year filter.

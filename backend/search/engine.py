@@ -47,6 +47,14 @@ def _filtered_candidate_ids(conn: sqlite3.Connection, filt: dict) -> set[int] | 
     clauses: list[str] = []
     params: list = []
 
+    # "audio" is deliberately NOT a hard clause here - it excludes only the small minority of
+    # local_video rows, so forcing the exact-rank path (rank_by_embedding over nearly the whole
+    # library) over it is much slower than just filtering the normal KNN scan's output
+    # afterward (see _search_with_filter). "video" is the opposite case - a small candidate set
+    # - so the exact-rank path is both correct and fast for it.
+    if filt.get("media_type") == "video":
+        clauses.append("source = 'local_video'")
+
     for genre in filt.get("genre_include") or []:
         clauses.append("genre LIKE ?")
         params.append(f"%{genre}%")
@@ -176,14 +184,18 @@ def _literal_title_matches(
     query = query.strip()
     if not query:
         return []
-    sql = "SELECT id FROM tracks WHERE (title LIKE ? OR artist LIKE ?)"
-    params: list = [f"%{query}%", f"%{query}%"]
+    if candidate_ids is not None and not candidate_ids:
+        return []
+    rows = conn.execute(
+        "SELECT id FROM tracks WHERE (title LIKE ? OR artist LIKE ?)",
+        (f"%{query}%", f"%{query}%"),
+    ).fetchall()
+    # Filtered in Python rather than an `id IN (...)` clause - candidate_ids can be large enough
+    # (e.g. "audio" excluding only the small number of local_video rows) to blow past SQLite's
+    # cap on placeholders in a single statement.
     if candidate_ids is not None:
-        if not candidate_ids:
-            return []
-        sql += f" AND id IN ({','.join('?' * len(candidate_ids))})"
-        params.extend(candidate_ids)
-    return [row["id"] for row in conn.execute(sql, params).fetchall()]
+        return [row["id"] for row in rows if row["id"] in candidate_ids]
+    return [row["id"] for row in rows]
 
 
 def _search_with_filter(
@@ -221,15 +233,23 @@ def _search_with_filter(
     ids_in_order = [track_id for track_id, _ in hits]
     distance_by_id = dict(hits)
     rows = get_tracks_by_ids(conn, ids_in_order)
+    if filt.get("media_type") == "audio":
+        rows = [row for row in rows if row["source"] != "local_video"]
     rows = _dedupe_by_song(rows, offset + limit)[offset:]
     return [_to_result(row, distance_by_id[row["id"]]) for row in rows]
 
 
 def search(
-    conn: sqlite3.Connection, query: str, limit: int = 25, offset: int = 0
+    conn: sqlite3.Connection,
+    query: str,
+    limit: int = 25,
+    offset: int = 0,
+    media_type: str | None = None,
 ) -> list[dict]:
     filt = parse_query(query) if is_complex_query(query) else {"semantic_query": query}
     filt = _apply_genre_aliases(query, filt)
+    if media_type:
+        filt["media_type"] = media_type
     semantic_query = filt.get("semantic_query") or query
     return _search_with_filter(
         conn, filt, semantic_query, limit, offset, literal_query=query
@@ -533,6 +553,8 @@ def _to_result(row: sqlite3.Row, distance: float) -> dict:
         "mood": row["mood"],
         "tags": tags_list(row),
         "year": row["year"],
+        "season": row["season"],
+        "episode": row["episode"],
         "source": row["source"],
         "file_path": row["file_path"],
         "plex_rating_key": row["plex_rating_key"],

@@ -26,18 +26,45 @@ Tracks:
 {tracks_json}
 """
 
+# Separate from PROMPT (see tag_with_cloud's split by source) rather than one prompt covering
+# both - these are movies/TV episodes, not songs: there's no artist/album to ask about, and a
+# tempo-style music mood ("upbeat", "driving") describes nothing real about a film. Local
+# tagging's own tempo/energy heuristic used to be run on these too and defaulted most of them to
+# "driving" for exactly that reason (mechanically, not because the content had anything to do
+# with driving) - see scripts/clear_video_local_mood.py.
+VIDEO_PROMPT = """You are tagging movies and TV episodes with a genre (e.g. "Sci-Fi", "Drama",
+"Comedy", "Documentary") and a one-or-two-word mood/tone descriptor (e.g. "tense", "lighthearted",
+"atmospheric") - NOT a tempo-style music mood like "upbeat" or "driving", which describes nothing
+real about a film. You are given a JSON array of video files identified by id, with whatever
+title/season/episode/existing-tag info is known. These are not music tracks - don't infer an
+artist or album for them. Use your general knowledge of the film/show from its title where
+possible. Respond with ONLY a JSON array of {{"id": <id>, "genre": <string>, "mood": <string>}}
+objects, one per input track, in the same order. If you genuinely cannot infer a field, use null.
+
+Videos:
+{tracks_json}
+"""
+
 
 def _client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def _tag_batch(client: anthropic.Anthropic, rows: list[sqlite3.Row]) -> list[dict]:
+def _tag_batch(
+    client: anthropic.Anthropic,
+    rows: list[sqlite3.Row],
+    prompt_template: str = PROMPT,
+    is_video: bool = False,
+) -> list[dict]:
     payload = [
         {
             "id": row["id"],
             "title": row["title"],
-            "artist": row["artist"],
-            "album": row["album"],
+            **(
+                {"season": row["season"], "episode": row["episode"]}
+                if is_video
+                else {"artist": row["artist"], "album": row["album"]}
+            ),
             "existing_genre": row["genre"],
             "existing_mood": row["mood"],
         }
@@ -51,7 +78,10 @@ def _tag_batch(client: anthropic.Anthropic, rows: list[sqlite3.Row]) -> list[dic
         # entirely. This task needs no multi-step reasoning, so turn thinking off.
         thinking={"type": "between_tools"},
         messages=[
-            {"role": "user", "content": PROMPT.format(tracks_json=json.dumps(payload))}
+            {
+                "role": "user",
+                "content": prompt_template.format(tracks_json=json.dumps(payload)),
+            }
         ],
     )
     text = "".join(block.text for block in message.content if block.type == "text")
@@ -125,19 +155,25 @@ def tag_with_cloud(
 
     client = _client()
     tagged = 0
-    for i in range(0, len(rows), BATCH_SIZE):
-        batch = rows[i : i + BATCH_SIZE]
-        by_id = {row["id"]: row for row in batch}
-        results = _tag_batch(client, batch)
-        for result in results:
-            track_id = result.get("id")
-            row = by_id.get(track_id)
-            if row is None:
-                continue
-            genre = result.get("genre") or row["genre"]
-            mood = result.get("mood") or row["mood"]
-            if genre or mood:
-                set_tags(conn, track_id, genre, mood, "cloud")
-                tagged += 1
+    music_rows = [row for row in rows if row["source"] != "local_video"]
+    video_rows = [row for row in rows if row["source"] == "local_video"]
+    for group, prompt_template, is_video in (
+        (music_rows, PROMPT, False),
+        (video_rows, VIDEO_PROMPT, True),
+    ):
+        for i in range(0, len(group), BATCH_SIZE):
+            batch = group[i : i + BATCH_SIZE]
+            by_id = {row["id"]: row for row in batch}
+            results = _tag_batch(client, batch, prompt_template, is_video)
+            for result in results:
+                track_id = result.get("id")
+                row = by_id.get(track_id)
+                if row is None:
+                    continue
+                genre = result.get("genre") or row["genre"]
+                mood = result.get("mood") or row["mood"]
+                if genre or mood:
+                    set_tags(conn, track_id, genre, mood, "cloud")
+                    tagged += 1
     conn.commit()
     return tagged

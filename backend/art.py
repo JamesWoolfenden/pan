@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import shutil
+import subprocess
+from pathlib import Path
 
 import mutagen
 from mutagen.mp4 import MP4Cover
@@ -8,6 +11,43 @@ from mutagen.mp4 import MP4Cover
 from backend.paths import resolve as resolve_file_path
 
 log = logging.getLogger(__name__)
+
+_FFMPEG_AVAILABLE = shutil.which("ffmpeg") is not None
+
+
+def _extract_video_frame(path: Path) -> tuple[bytes, str] | None:
+    """A frame grabbed partway into the file, the same way a video player's own scrubber
+    thumbnail would - video containers essentially never carry a usable embedded cover picture
+    mutagen can extract (Matroska/.mkv isn't supported by mutagen at all). Tries a point likely
+    to be past any black/logo intro first, falling back to just past the start for anything
+    shorter than that."""
+    if not _FFMPEG_AVAILABLE:
+        return None
+    for seek_seconds in ("60", "2"):
+        try:
+            result = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-ss",
+                    seek_seconds,
+                    "-i",
+                    str(path),
+                    "-frames:v",
+                    "1",
+                    "-f",
+                    "image2",
+                    "-c:v",
+                    "mjpeg",
+                    "-",
+                ],
+                capture_output=True,
+                timeout=15,
+            )
+        except (subprocess.TimeoutExpired, OSError):
+            return None
+        if result.returncode == 0 and result.stdout:
+            return result.stdout, "image/jpeg"
+    return None
 
 
 def extract_album_art(
@@ -22,6 +62,8 @@ def extract_album_art(
     path = resolve_file_path(file_path, source)
     if path is None or not path.exists():
         return None
+    if source == "local_video":
+        return _extract_video_frame(path)
     try:
         audio = mutagen.File(path)
     except Exception:

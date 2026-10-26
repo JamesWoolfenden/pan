@@ -123,6 +123,7 @@ header h1 {
   font-family: monospace;
 }
 
+#theme-toggle,
 #admin-toggle {
   min-width: 2.2rem;
   padding: 0.35rem 0.6rem;
@@ -287,6 +288,31 @@ header h1 {
   border-color: var(--accent);
   padding: 0.7rem 1.4rem;
   font-weight: 600;
+}
+
+#media-type-filter {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.media-filter-btn {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: none;
+  border-radius: 0;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.media-filter-btn + .media-filter-btn {
+  border-left: 1px solid var(--border);
+}
+
+.media-filter-btn.active {
+  background: var(--accent);
+  color: var(--accent-contrast);
 }
 
 #search-history {
@@ -1369,6 +1395,16 @@ header h1 {
   padding: 0.3rem 0.7rem;
 }
 
+/* The only play control a video result gets (no audio-preview element next to it, see
+   renderResults) - accent-filled so it reads as the primary action for the row, not a secondary
+   button like +Queue beside it. */
+.video-play-btn {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 
 .edit-panel,
 .info-panel,
@@ -1401,6 +1437,20 @@ header h1 {
    instead of leaving room for it. */
 .edit-panel {
   padding-right: 2.3rem;
+}
+
+.playlist-picker-new-btn {
+  display: block;
+  width: 100%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-align: left;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
 }
 
 .playlist-picker-list {

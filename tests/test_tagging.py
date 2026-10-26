@@ -10,7 +10,12 @@ from backend.db import (
     tracks_missing_identity,
     upsert_track,
 )
-from backend.tagging.cloud_tagger import suggest_tags
+from backend.tagging.cloud_tagger import (
+    PROMPT,
+    VIDEO_PROMPT,
+    suggest_tags,
+    tag_with_cloud,
+)
 from backend.tagging.local_tagger import apply_local_tags, infer_mood
 
 
@@ -163,6 +168,51 @@ def test_tracks_missing_identity_flags_blank_title_or_artist():
 
     assert flagged == {no_title, no_artist}
     assert good not in flagged
+
+
+def test_tag_with_cloud_splits_video_and_music_rows_with_different_prompts(monkeypatch):
+    # Movies/TV episodes shouldn't be tagged with the music prompt (asks about artist/album,
+    # invites a tempo-style mood like "driving") - see VIDEO_PROMPT's own docstring for why.
+    monkeypatch.setattr(
+        "backend.tagging.cloud_tagger.settings.anthropic_api_key", "fake-key"
+    )
+    monkeypatch.setattr("backend.tagging.cloud_tagger._client", lambda: object())
+
+    conn = connect(":memory:")
+    init_db(conn)
+    song_id = upsert_track(conn, Track(external_id="a", source="local", title="Song"))
+    video_id = upsert_track(
+        conn, Track(external_id="b", source="local_video", title="Movie")
+    )
+    conn.commit()
+    rows = conn.execute("SELECT * FROM tracks").fetchall()
+
+    calls = []
+
+    def fake_tag_batch(client, batch, prompt_template, is_video):
+        calls.append((is_video, [row["id"] for row in batch], prompt_template))
+        return [
+            {"id": row["id"], "genre": "TestGenre", "mood": "TestMood"} for row in batch
+        ]
+
+    monkeypatch.setattr("backend.tagging.cloud_tagger._tag_batch", fake_tag_batch)
+
+    tagged = tag_with_cloud(conn, rows)
+    conn.commit()
+
+    assert tagged == 2
+    assert len(calls) == 2
+    by_is_video = {c[0]: c for c in calls}
+    assert by_is_video[False][1] == [song_id]
+    assert by_is_video[False][2] is PROMPT
+    assert by_is_video[True][1] == [video_id]
+    assert by_is_video[True][2] is VIDEO_PROMPT
+
+    row = conn.execute(
+        "SELECT genre, mood FROM tracks WHERE id = ?", (video_id,)
+    ).fetchone()
+    assert row["genre"] == "TestGenre"
+    assert row["mood"] == "TestMood"
 
 
 def test_suggest_tags_falls_back_without_api_key(monkeypatch):
