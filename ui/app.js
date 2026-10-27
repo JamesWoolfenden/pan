@@ -3186,7 +3186,9 @@ function logClient(event, detail = {}) {
 function tryBackgroundResume() {
   if (!document.hidden && awaitingBackgroundResume && queuePlayer.paused) {
     awaitingBackgroundResume = false;
-    queuePlayer.play().catch(() => logClient("auto_resume_blocked"));
+    queuePlayer
+      .play()
+      .catch((err) => logClient("auto_resume_blocked", { errorName: err?.name, errorMessage: err?.message }));
   }
 }
 
