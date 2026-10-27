@@ -261,12 +261,18 @@ access means either full root-group membership (too broad for a key that's meant
 narrowly scoped) or a `sudoers.d` rule limited to exactly the commands needed. If set up:
 
 ```text
-woolfenden ALL=(root) NOPASSWD: /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build --no-cache, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml ps
+woolfenden ALL=(root) NOPASSWD: /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml ps
 ```
 
-in `/etc/sudoers.d/pan-deploy` (mode `0440`, validated with `sudo visudo -c`) lets that one SSH
-key run exactly those four commands as root - build, start, read logs, check status - with no
-shell access and no wildcard that could be widened into anything broader.
+in `/etc/sudoers.d/pan-deploy` (mode `0440`) lets that one SSH key run exactly those four
+commands as root - build, start, read logs, check status - with no shell access and no wildcard
+that could be widened into anything broader. This NAS's busybox environment has no `visudo`
+binary, so validate edits to this file with `sudo -l` instead (it re-parses sudoers on every
+invocation and reports a syntax error immediately rather than silently locking you out) - and
+make a backup first (`sudo cp pan-deploy pan-deploy.bak`), since there's no visudo safety net.
+Edit with a non-interactive `sed -i` rather than an editor where possible: pasting a multi-line
+block (e.g. shell comments, other commands) into an editor's insert mode types it all in
+literally, which is what corrupted this file once already.
 
 ### Plain Docker, LAN-only
 

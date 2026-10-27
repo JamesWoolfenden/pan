@@ -17,6 +17,10 @@ wheels/
 # Self-signed TLS cert for LAN HTTPS (machine-specific - regenerate per host, see Makefile)
 certs/
 
+# Deploy tarball (see Makefile's deploy target) - built and removed within the same run, but
+# left behind if that run fails partway through.
+pan-deploy.tar.gz
+
 # IDEs
 .vscode/
 

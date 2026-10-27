@@ -67,10 +67,11 @@ deploy:
 	git diff --quiet HEAD -- backend ui scripts Dockerfile docker-compose.yml pyproject.toml uv.lock || \
 		{ echo "Uncommitted changes under backend/ui/scripts/Dockerfile/docker-compose.yml/pyproject.toml/uv.lock - commit first."; exit 1; }
 	git rev-parse --short HEAD > VERSION
-	tar -czf /tmp/pan-deploy.tar.gz backend ui scripts Dockerfile docker-compose.yml pyproject.toml uv.lock VERSION
-	scp -O /tmp/pan-deploy.tar.gz pan-nas:/tmp/pan-deploy.tar.gz
+	tar -czf pan-deploy.tar.gz backend ui scripts Dockerfile docker-compose.yml pyproject.toml uv.lock VERSION
+	scp -O pan-deploy.tar.gz pan-nas:/tmp/pan-deploy.tar.gz
+	rm pan-deploy.tar.gz
 	ssh pan-nas 'cd /volume1/docker/pan && tar -xzf /tmp/pan-deploy.tar.gz && rm /tmp/pan-deploy.tar.gz'
-	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build --no-cache'
+	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build'
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate'
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan'
 	@echo "Deployed. Verify at https://pan.tail8f9049.ts.net/version"
