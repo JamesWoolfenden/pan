@@ -3179,18 +3179,37 @@ function logClient(event, detail = {}) {
   }
 }
 
-document.addEventListener("visibilitychange", () => {
-  logClient("visibilitychange");
-  // The flip side of the "pause" listener's bookkeeping above: once an involuntary (OS-driven)
-  // pause has happened, wait for the page to actually come back to the foreground before trying
-  // to resume - a bare .play() call the instant it's paused tends to be rejected anyway, and this
-  // mirrors the one thing that reliably un-sticks it today (unlocking the phone).
+// The flip side of the "pause" listener's bookkeeping above: once an involuntary (OS-driven)
+// pause has happened, wait for the page to actually come back to the foreground before trying
+// to resume - a bare .play() call the instant it's paused tends to be rejected anyway, and this
+// mirrors the one thing that reliably un-sticks it today (unlocking the phone).
+function tryBackgroundResume() {
   if (!document.hidden && awaitingBackgroundResume && queuePlayer.paused) {
     awaitingBackgroundResume = false;
     queuePlayer.play().catch(() => logClient("auto_resume_blocked"));
   }
+}
+
+document.addEventListener("visibilitychange", () => {
+  logClient("visibilitychange");
+  tryBackgroundResume();
   if (!document.hidden) resumeEqAudioCtx();
 });
+
+// Chrome's Page Lifecycle API: a background tab can be fully frozen (no timers, no event
+// delivery at all) well before - and independently of - any visibilitychange, which is why a
+// pause caused by this can sit unresumed for a minute+ even though nothing else looks wrong in
+// the client logs (seen 2026-10-27 13:48-13:49: a pause with no visibilitychange, auto_resume
+// attempt, or any other event for 52s, until manual intervention). "resume" fires the instant
+// the browser thaws the page, whether or not visibility also changed - same resume check as
+// above, just triggered by the signal that actually matches what happened.
+if ("onresume" in document) {
+  document.addEventListener("resume", () => {
+    logClient("page_resume");
+    tryBackgroundResume();
+    if (!document.hidden) resumeEqAudioCtx();
+  });
+}
 for (const evt of ["stalled", "suspend", "waiting", "error"]) {
   queuePlayer.addEventListener(evt, () => logClient(evt));
 }
