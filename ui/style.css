@@ -124,10 +124,26 @@ header h1 {
 }
 
 #theme-toggle,
-#admin-toggle {
+#admin-toggle,
+#recommendations-btn {
   min-width: 2.2rem;
   padding: 0.35rem 0.6rem;
   color: var(--text-faint);
+}
+
+#recommendations-panel {
+  position: absolute;
+  top: 100%;
+  right: 1rem;
+  width: min(90vw, 420px);
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 25;
 }
 
 #admin-panel {
@@ -137,13 +153,8 @@ header h1 {
   gap: 0.75rem;
 }
 
-#normalize-volume-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+#normalize-volume-toggle {
   font-size: 0.85rem;
-  color: var(--text-muted);
-  cursor: pointer;
 }
 
 #client-logs-panel {
@@ -488,7 +499,8 @@ header h1 {
 
 #queue-shuffle.is-active,
 #queue-repeat.is-active,
-#queue-video-mode.is-active {
+#queue-video-mode.is-active,
+#normalize-volume-toggle.is-active {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: var(--accent-soft);

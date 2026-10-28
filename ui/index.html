@@ -34,25 +34,27 @@
     <h1>pan</h1>
     <span id="app-version" title="Build version - confirms a deploy actually picked up new code"></span>
     <button id="theme-toggle" title="Theme"></button>
+    <button id="recommendations-btn" title="Recommendations: library-improvement and discovery suggestions from your listening history, refreshed each reindex">&#10024;</button>
+    <div id="recommendations-panel" hidden></div>
     <button id="admin-toggle" title="Admin" aria-expanded="false">&#9881;</button>
     <div id="admin-panel" hidden>
-      <button id="reindex-btn">Reindex library</button>
+      <button id="reindex-btn" title="Reindex library">Reindex</button>
       <span id="reindex-status"></span>
-      <button id="missing-metadata-btn" title="Tracks with no title/artist - unfindable by search">Needs attention</button>
-      <button id="client-logs-btn" title="Recent player events (play/pause/ended/stalled/...) - for debugging playback issues">Client logs</button>
+      <button id="missing-metadata-btn" title="Needs attention: tracks with no title/artist - unfindable by search">Missing</button>
+      <button id="client-logs-btn" title="Recent player events (play/pause/ended/stalled/...) - for debugging playback issues">Logs</button>
       <div id="client-logs-panel" hidden>
         <a id="client-logs-download" href="/admin/client-logs/download" download="pan-client-logs.txt">Download</a>
         <pre id="client-logs-output"></pre>
       </div>
-      <button id="recommendations-btn" title="Library-improvement suggestions from your listening history, refreshed each reindex">Recommendations</button>
-      <div id="recommendations-panel" hidden></div>
       <!-- Lives here rather than in the (desktop-only) EQ pane, since it should be reachable on
            mobile too - that's exactly where tracks jumping in volume matters most (headphones,
            no quick access to the volume knob anyway). See app.js's currentTrackGainFactor(). -->
-      <label id="normalize-volume-label">
-        <input type="checkbox" id="normalize-volume-toggle" />
-        Normalize volume (reduce loud tracks to match quieter ones)
-      </label>
+      <button
+        type="button"
+        id="normalize-volume-toggle"
+        title="Normalise volume: reduce loud tracks to match quieter ones"
+        aria-pressed="false"
+      >Normalise</button>
     </div>
   </header>
 
@@ -83,7 +85,6 @@
           <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
           <google-cast-launcher id="cast-button"></google-cast-launcher>
           <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
-          <button id="queue-clone" disabled hidden title="Save as new playlist">&#10697;</button>
           <button id="queue-add-to-playlist" disabled title="Add all queued tracks to a playlist - new or existing">&#10133; Playlist</button>
           <button id="queue-clear" disabled title="Clear">&#128465;</button>
         </div>

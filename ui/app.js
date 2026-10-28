@@ -110,7 +110,6 @@ const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const localVideoWrap = document.getElementById("local-video-wrap");
 const localVideoPlayer = document.getElementById("local-video-player");
 const saveBtn = document.getElementById("queue-save");
-const cloneBtn = document.getElementById("queue-clone");
 const addToPlaylistBtn = document.getElementById("queue-add-to-playlist");
 const clearBtn = document.getElementById("queue-clear");
 const queueListToggleBtn = document.getElementById("queue-list-toggle");
@@ -696,7 +695,11 @@ function loadNormalizeVolume() {
 }
 
 let normalizeVolumeEnabled = loadNormalizeVolume();
-if (normalizeVolumeToggleEl) normalizeVolumeToggleEl.checked = normalizeVolumeEnabled;
+function renderNormalizeVolumeToggle() {
+  normalizeVolumeToggleEl?.setAttribute("aria-pressed", String(normalizeVolumeEnabled));
+  normalizeVolumeToggleEl?.classList.toggle("is-active", normalizeVolumeEnabled);
+}
+renderNormalizeVolumeToggle();
 
 // Attenuation-only: a track quieter than the target would need .volume above 1.0 to reach it,
 // which doesn't exist - this only ever pulls a loud track down toward the target, never pushes a
@@ -751,8 +754,9 @@ function setQueueVolume(percent, { save = true } = {}) {
 }
 applyEffectiveVolume();
 
-normalizeVolumeToggleEl?.addEventListener("change", () => {
-  normalizeVolumeEnabled = normalizeVolumeToggleEl.checked;
+normalizeVolumeToggleEl?.addEventListener("click", () => {
+  normalizeVolumeEnabled = !normalizeVolumeEnabled;
+  renderNormalizeVolumeToggle();
   try {
     localStorage.setItem(NORMALIZE_VOLUME_KEY, normalizeVolumeEnabled ? "1" : "0");
   } catch {
@@ -2400,9 +2404,6 @@ function refreshQueueButtons() {
 
 function updateSaveControls() {
   saveBtn.title = currentPlaylistId ? `Update "${currentPlaylistName}"` : "Save as playlist";
-  // Only meaningful once a playlist is actually loaded - saving a fresh queue already creates
-  // a new playlist via the Save button itself, so a separate clone action would be redundant.
-  cloneBtn.hidden = !currentPlaylistId;
 }
 
 function toQueueEntry(r) {
@@ -2853,7 +2854,6 @@ function renderQueue() {
   videoModeBtn.disabled = !hasQueue;
   eqToggleBtn.disabled = !hasQueue;
   saveBtn.disabled = !hasQueue;
-  cloneBtn.disabled = !hasQueue;
   addToPlaylistBtn.disabled = !hasQueue;
   clearBtn.disabled = !hasQueue;
   persistQueueState();
@@ -3424,10 +3424,6 @@ saveBtn.addEventListener("click", async () => {
   }
   await saveAsNewPlaylist();
 });
-
-// Clone: fork the currently-loaded playlist's queue into a new one instead of updating it -
-// only shown when a playlist is actually loaded (see updateSaveControls).
-cloneBtn.addEventListener("click", saveAsNewPlaylist);
 
 // Unlike Save (which creates a new playlist or overwrites the one the queue was loaded from),
 // this adds the whole queue onto an existing playlist of your choice, same as per-track +Playlist.
