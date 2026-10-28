@@ -73,6 +73,7 @@ def main() -> None:
                     features["tempo"],
                     features["energy"],
                     features["musical_key"],
+                    features["loudness_lufs"],
                 )
                 feature_count += 1
 

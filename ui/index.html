@@ -46,6 +46,13 @@
       </div>
       <button id="recommendations-btn" title="Library-improvement suggestions from your listening history, refreshed each reindex">Recommendations</button>
       <div id="recommendations-panel" hidden></div>
+      <!-- Lives here rather than in the (desktop-only) EQ pane, since it should be reachable on
+           mobile too - that's exactly where tracks jumping in volume matters most (headphones,
+           no quick access to the volume knob anyway). See app.js's currentTrackGainFactor(). -->
+      <label id="normalize-volume-label">
+        <input type="checkbox" id="normalize-volume-toggle" />
+        Normalize volume (reduce loud tracks to match quieter ones)
+      </label>
     </div>
   </header>
 

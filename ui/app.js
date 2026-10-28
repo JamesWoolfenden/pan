@@ -104,6 +104,7 @@ const eqBalanceKnobEl = document.getElementById("eq-balance-knob");
 const eqBalanceValueEl = document.getElementById("eq-balance-value");
 const queueVolumeKnobEl = document.getElementById("queue-volume-knob");
 const queueVolumeValueEl = document.getElementById("queue-volume-value");
+const normalizeVolumeToggleEl = document.getElementById("normalize-volume-toggle");
 const youtubePlayerWrap = document.getElementById("youtube-player-wrap");
 const videoDismissBtn = document.getElementById("video-dismiss-btn");
 const localVideoWrap = document.getElementById("local-video-wrap");
@@ -644,6 +645,13 @@ bindKnobDrag(eqBalanceKnobEl, {
   onHome: () => setEqBalance(0),
 });
 
+// Declared up here (rather than down with the rest of the queue state further below) since
+// currentTrackGainFactor() below needs to read queue/currentIndex, including from the bootstrap
+// applyEffectiveVolume() call that runs at the bottom of this block - before this file's own
+// later "let queue" line would otherwise have run.
+let queue = []; // [{id, title, artist, file_path}]
+let currentIndex = -1;
+
 // Desktop-only local playback volume (see the comment above #eq-balance-knob in index.html for
 // why mobile has no equivalent). 0-270deg, not centered like the balance knob above - volume is
 // a single min-to-max range, not a bipolar one, so there's no meaningful "straight up" position
@@ -664,46 +672,113 @@ function loadQueueVolumePercent() {
   return 100;
 }
 
+// The knob's own percentage, kept as state separate from queuePlayer.volume - once
+// normalization is on, the two are no longer the same number (the actual .volume is this times
+// the current track's gain factor below), so .volume can't be read back as "what the knob is set
+// to" any more the way it used to be.
+let currentVolumePercent = loadQueueVolumePercent();
+
+const NORMALIZE_VOLUME_KEY = "pan.normalizeVolume";
+// Reference level a track's measured loudness is matched against - see
+// backend/tagging/audio_features.py's _measure_loudness. -16 LUFS sits a little under typical
+// streaming-service targets (around -14), leaving some headroom since this only ever attenuates,
+// never boosts (see currentTrackGainFactor below) - a lower target means less gets clipped to "no
+// change" by that ceiling.
+const NORMALIZE_TARGET_LUFS = -16;
+
+function loadNormalizeVolume() {
+  try {
+    const raw = localStorage.getItem(NORMALIZE_VOLUME_KEY);
+    return raw === null ? true : raw === "1"; // on by default - see index.html's checkbox
+  } catch {
+    return true;
+  }
+}
+
+let normalizeVolumeEnabled = loadNormalizeVolume();
+if (normalizeVolumeToggleEl) normalizeVolumeToggleEl.checked = normalizeVolumeEnabled;
+
+// Attenuation-only: a track quieter than the target would need .volume above 1.0 to reach it,
+// which doesn't exist - this only ever pulls a loud track down toward the target, never pushes a
+// quiet one up past where the knob already has it. loudness_lufs is null for anything not yet
+// measured (see scripts/backfill_loudness.py) or for video, which skips measurement entirely -
+// either way, no adjustment.
+function currentTrackGainFactor() {
+  if (!normalizeVolumeEnabled) return 1;
+  const lufs = queue[currentIndex]?.loudness_lufs;
+  if (lufs === null || lufs === undefined) return 1;
+  return Math.min(1, 10 ** ((NORMALIZE_TARGET_LUFS - lufs) / 20));
+}
+
 function renderQueueVolumeKnob(percent) {
   queueVolumeKnobEl.style.transform = `rotate(${(percent / 100) * 270 - 135}deg)`;
   queueVolumeKnobEl.setAttribute("aria-valuenow", String(percent));
   queueVolumeValueEl.textContent = `${percent}%`;
 }
 
-function setQueueVolume(percent, { save = true } = {}) {
-  const clamped = Math.max(0, Math.min(100, Math.round(percent / 5) * 5));
-  queuePlayer.volume = clamped / 100;
+// What volumechange compares an incoming queuePlayer.volume against to tell "our own assignment
+// echoing back" apart from a genuinely external change (OS/site volume restoration, a future code
+// path, scroll-wheel-over-audio in some browsers) - see that listener below.
+let lastAppliedVolume = null;
+
+function applyEffectiveVolume() {
+  const effective = (currentVolumePercent / 100) * currentTrackGainFactor();
+  lastAppliedVolume = effective;
+  queuePlayer.volume = effective;
   queuePlayer.muted = false;
   // Kept in sync on both elements together (not just whichever is active) - the single volume
   // knob stays correct regardless of which one is about to become active next, with no branching
   // needed at the call site.
-  localVideoPlayer.volume = clamped / 100;
+  localVideoPlayer.volume = effective;
   localVideoPlayer.muted = false;
-  // renderQueueVolumeKnob() also runs from the "volumechange" listener below, so the dial
-  // reflects this assignment either way - setting it here too isn't redundant, since that
-  // listener fires async-ish (next microtask-ish tick via the native event), and skipping an
-  // explicit render here would leave the dial visibly stale for a drag's entire duration.
-  renderQueueVolumeKnob(clamped);
+  renderQueueVolumeKnob(currentVolumePercent);
+}
+
+function setQueueVolume(percent, { save = true } = {}) {
+  currentVolumePercent = Math.max(0, Math.min(100, Math.round(percent / 5) * 5));
+  // renderQueueVolumeKnob() also runs inside applyEffectiveVolume(), so the dial reflects this
+  // either way - it's called again there, not skipped, since the "volumechange" listener below
+  // fires async-ish (next microtask-ish tick via the native event), and skipping an explicit
+  // render here would leave the dial visibly stale for a drag's entire duration.
+  applyEffectiveVolume();
   if (save) {
     try {
-      localStorage.setItem(QUEUE_VOLUME_KEY, String(clamped));
+      localStorage.setItem(QUEUE_VOLUME_KEY, String(currentVolumePercent));
     } catch {
       // localStorage unavailable (private browsing etc) - the level just won't persist
     }
   }
 }
-setQueueVolume(loadQueueVolumePercent(), { save: false });
+applyEffectiveVolume();
+
+normalizeVolumeToggleEl?.addEventListener("change", () => {
+  normalizeVolumeEnabled = normalizeVolumeToggleEl.checked;
+  try {
+    localStorage.setItem(NORMALIZE_VOLUME_KEY, normalizeVolumeEnabled ? "1" : "0");
+  } catch {
+    // localStorage unavailable (private browsing etc) - the choice just won't persist
+  }
+  applyEffectiveVolume();
+});
 
 // Belt-and-suspenders beyond hiding the native <audio controls> volume slider/mute button (see
-// style.css) - keeps the dial honest against volume changes from any OTHER source too (OS/site
-// volume restoration, a future code path, scroll-wheel-over-audio in some browsers), rather than
-// silently drifting out of sync with queuePlayer's actual, real volume the way it did before.
+// style.css) - keeps the dial honest against volume changes from any OTHER source too, rather
+// than silently drifting out of sync with queuePlayer's actual, real volume the way it did
+// before. Ignores our own assignment echoing back (within float rounding of lastAppliedVolume) -
+// otherwise, once normalization makes .volume something other than currentVolumePercent/100,
+// this would immediately overwrite the dial with the gain-adjusted figure instead of what the
+// knob is actually set to.
 queuePlayer.addEventListener("volumechange", () => {
-  renderQueueVolumeKnob(Math.round(queuePlayer.volume * 100));
+  if (lastAppliedVolume !== null && Math.abs(queuePlayer.volume - lastAppliedVolume) < 0.01) {
+    return;
+  }
+  const factor = currentTrackGainFactor();
+  currentVolumePercent = Math.round(((queuePlayer.volume / factor) * 100) || 0);
+  applyEffectiveVolume();
 });
 
 bindKnobDrag(queueVolumeKnobEl, {
-  getValue: () => Math.round(queuePlayer.volume * 100),
+  getValue: () => currentVolumePercent,
   onChange: setQueueVolume,
   range: 200, // 0..100, but matching the balance knob's drag feel rather than a 100-range crawl
   step: 5,
@@ -847,8 +922,6 @@ function updateEqAvailability() {
   queueVolumeKnobEl.tabIndex = eqUnavailable ? -1 : 0;
 }
 
-let queue = []; // [{id, title, artist, file_path}]
-let currentIndex = -1;
 let queueDragFromIndex = null; // set during a queue-list drag-and-drop reorder, see renderQueue
 // Video mode: not persisted across reloads (a session-only preference, unlike shuffle/repeat) -
 // re-enable it each time rather than complicate queue-state restore with a third playback mode.
@@ -3076,6 +3149,10 @@ async function playAt(i) {
   recordCurrentPlayProgress();
   currentIndex = i;
   const track = queue[i];
+  // The new track's own gain factor (see currentTrackGainFactor) - applied before any of the
+  // playback-path branches below so it's already correct by the time any of them actually start
+  // audio, not just on the next unrelated volume change.
+  applyEffectiveVolume();
 
   if (isCasting()) {
     castCurrentTrack();

@@ -675,6 +675,7 @@ def track_detail(track_id: int):
         "tempo": row["tempo"],
         "energy": row["energy"],
         "musical_key": row["musical_key"],
+        "loudness_lufs": row["loudness_lufs"],
         "duration_ms": row["duration_ms"],
         "source": row["source"],
         "file_format": file_format,

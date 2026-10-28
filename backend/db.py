@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS tracks (
     tempo REAL,
     energy REAL,
     musical_key TEXT,
+    loudness_lufs REAL,  -- integrated loudness (LUFS) from the same decode as tempo/energy -
+                         -- see backend/tagging/audio_features.py. Drives volume normalization
+                         -- (ui/app.js) so quiet/loud tracks don't jump in volume back to back;
+                         -- NULL means not yet measured (video rows never get it - see reindex.py).
     tag_source TEXT NOT NULL DEFAULT 'none',  -- 'none' | 'metadata' | 'local' | 'cloud' | 'manual'
     ai_background TEXT,  -- cached AI-generated "tell me more" writeup, so it's only generated once
     lyrics TEXT,  -- cached lyrics lookup: NULL = not yet looked up, '' = looked up, none found
@@ -232,6 +236,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN season INTEGER")
     if "episode" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN episode INTEGER")
+    if "loudness_lufs" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN loudness_lufs REAL")
 
     playlists_columns = {
         row["name"] for row in conn.execute("PRAGMA table_info(playlists)").fetchall()
@@ -414,10 +420,11 @@ def set_audio_features(
     tempo: float,
     energy: float,
     musical_key: str,
+    loudness_lufs: float | None = None,
 ) -> None:
     conn.execute(
-        "UPDATE tracks SET tempo=?, energy=?, musical_key=? WHERE id=?",
-        (tempo, energy, musical_key, track_id),
+        "UPDATE tracks SET tempo=?, energy=?, musical_key=?, loudness_lufs=? WHERE id=?",
+        (tempo, energy, musical_key, loudness_lufs, track_id),
     )
 
 

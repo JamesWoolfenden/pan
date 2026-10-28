@@ -137,6 +137,15 @@ header h1 {
   gap: 0.75rem;
 }
 
+#normalize-volume-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
 #client-logs-panel {
   flex-basis: 100%;
   background: var(--surface-alt);

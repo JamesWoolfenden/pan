@@ -18,6 +18,7 @@ dependencies = [
     "anthropic>=0.40",
     "python-dotenv>=1.0",
     "audioread>=3.1.0",
+    "pyloudnorm>=0.2.0",
 ]
 
 [dependency-groups]

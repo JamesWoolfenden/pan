@@ -6,6 +6,7 @@ from pathlib import Path
 import audioread
 import librosa
 import numpy as np
+import pyloudnorm
 
 log = logging.getLogger(__name__)
 
@@ -75,4 +76,19 @@ def extract_features(file_path: str | Path) -> dict | None:
         "tempo": float(tempo if np.isscalar(tempo) else tempo[0]),
         "energy": energy,
         "musical_key": KEY_NAMES[key_index],
+        "loudness_lufs": _measure_loudness(y, sr),
     }
+
+
+def _measure_loudness(y: np.ndarray, sr: int) -> float | None:
+    """Integrated loudness (LUFS, ITU-R BS.1770) for volume normalization (see ui/app.js) -
+    measured from the same 60s decode as tempo/energy above, not a separate file read. Returns
+    None for anything pyloudnorm can't give a real number for: too short for its gating-block
+    window, or pure/near silence (-inf)."""
+    try:
+        loudness = pyloudnorm.Meter(sr).integrated_loudness(y)
+    except Exception:  # noqa: BLE001 - pyloudnorm raises on too-short input; not worth
+        # enumerating every case, a missing loudness value just disables normalization for
+        # this one track rather than failing feature extraction altogether.
+        return None
+    return float(loudness) if np.isfinite(loudness) else None

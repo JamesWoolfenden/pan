@@ -227,6 +227,29 @@ def test_merge_plex_metadata_does_not_revert_a_manually_corrected_artist():
     assert row["artist"] == "The Rolling Stones"
 
 
+def test_set_audio_features_persists_loudness_lufs_and_defaults_to_null():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(conn, Track(external_id="a", source="local", title="Song"))
+    conn.commit()
+
+    set_audio_features(conn, track_id, tempo=120.0, energy=0.5, musical_key="C")
+    conn.commit()
+    row = conn.execute(
+        "SELECT loudness_lufs FROM tracks WHERE id = ?", (track_id,)
+    ).fetchone()
+    assert row["loudness_lufs"] is None
+
+    set_audio_features(
+        conn, track_id, tempo=120.0, energy=0.5, musical_key="C", loudness_lufs=-14.2
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT loudness_lufs FROM tracks WHERE id = ?", (track_id,)
+    ).fetchone()
+    assert row["loudness_lufs"] == -14.2
+
+
 def test_set_ai_background_persists_and_defaults_to_null():
     conn = connect(":memory:")
     init_db(conn)
