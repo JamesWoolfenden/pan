@@ -322,6 +322,17 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
     return cur.lastrowid
 
 
+def delete_track(conn: sqlite3.Connection, track_id: int) -> None:
+    """Removes a track and everything that references its id - the embedding (track_vectors is
+    keyed by rowid, not a foreign key, so it's never cleaned up automatically), play history, and
+    any playlist slots - so pruning a stale row (see backend/ingest/merge.py's prune_missing_*)
+    doesn't leave orphaned references a later join would just silently drop instead of erroring."""
+    conn.execute("DELETE FROM track_vectors WHERE rowid = ?", (track_id,))
+    conn.execute("DELETE FROM play_events WHERE track_id = ?", (track_id,))
+    conn.execute("DELETE FROM playlist_tracks WHERE track_id = ?", (track_id,))
+    conn.execute("DELETE FROM tracks WHERE id = ?", (track_id,))
+
+
 def set_tags(
     conn: sqlite3.Connection,
     track_id: int,

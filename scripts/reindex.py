@@ -37,10 +37,11 @@ def main() -> None:
 
         counts = run_ingest(conn)
         log.info(
-            "Ingested %d Plex tracks, %d local-only tracks, %d video tracks",
+            "Ingested %d Plex tracks, %d local-only tracks, %d video tracks, %d pruned",
             counts["plex"],
             counts["local"],
             counts["video"],
+            counts["pruned"],
         )
 
         # Audio analysis is by far the slowest phase on a large library, and can run for

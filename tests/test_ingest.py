@@ -5,15 +5,24 @@ import pytest
 from backend.db import (
     Track,
     connect,
+    create_playlist,
+    delete_track,
     init_db,
     merge_plex_metadata,
+    record_play_event,
     set_ai_background,
     set_artist,
     set_audio_features,
+    upsert_embedding,
     upsert_track,
 )
 from backend.ingest.local_source import normalize_path
-from backend.ingest.merge import known_file_paths, path_to_id_map
+from backend.ingest.merge import (
+    known_file_paths,
+    path_to_id_map,
+    prune_missing_local_tracks,
+    prune_missing_plex_tracks,
+)
 from backend.ingest.plex_source import remap_plex_path
 
 # See tests/test_paths.py's windows_only marker - normalize_path's separator-insensitivity
@@ -305,3 +314,166 @@ def test_migrate_adds_identity_source_defaulting_to_auto():
         "SELECT identity_source FROM tracks WHERE external_id = 'local:1'"
     ).fetchone()
     assert row["identity_source"] == "auto"
+
+
+def test_delete_track_cascades_to_embedding_history_and_playlists():
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(
+        conn, Track(external_id="local:1", source="local", title="A")
+    )
+    other_id = upsert_track(
+        conn, Track(external_id="local:2", source="local", title="B")
+    )
+    upsert_embedding(conn, track_id, [0.0] * 384)
+    record_play_event(conn, track_id, 0.9)
+    playlist_id = create_playlist(conn, "Mix", [track_id, other_id])
+    conn.commit()
+
+    delete_track(conn, track_id)
+    conn.commit()
+
+    assert (
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+        is None
+    )
+    assert (
+        conn.execute(
+            "SELECT * FROM track_vectors WHERE rowid = ?", (track_id,)
+        ).fetchone()
+        is None
+    )
+    assert (
+        conn.execute(
+            "SELECT * FROM play_events WHERE track_id = ?", (track_id,)
+        ).fetchone()
+        is None
+    )
+    remaining = [
+        row["track_id"]
+        for row in conn.execute(
+            "SELECT track_id FROM playlist_tracks WHERE playlist_id = ?", (playlist_id,)
+        ).fetchall()
+    ]
+    assert remaining == [other_id]
+
+
+def test_prune_missing_plex_tracks_removes_tracks_not_seen():
+    conn = connect(":memory:")
+    init_db(conn)
+    kept_ids = [
+        upsert_track(conn, Track(external_id=f"plex:{i}", source="plex", title="Kept"))
+        for i in range(9)
+    ]
+    stale_id = upsert_track(
+        conn, Track(external_id="plex:stale", source="plex", title="Gone")
+    )
+    conn.commit()
+
+    # 1/10 missing is a plausible real removal, under the safety threshold.
+    pruned = prune_missing_plex_tracks(
+        conn, seen_external_ids={f"plex:{i}" for i in range(9)}
+    )
+    conn.commit()
+
+    assert pruned == 1
+    assert (
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (stale_id,)).fetchone()
+        is None
+    )
+    for kept_id in kept_ids:
+        assert (
+            conn.execute("SELECT * FROM tracks WHERE id = ?", (kept_id,)).fetchone()
+            is not None
+        )
+
+
+def test_prune_missing_plex_tracks_safety_threshold_blocks_mass_deletion():
+    conn = connect(":memory:")
+    init_db(conn)
+    for i in range(10):
+        upsert_track(
+            conn, Track(external_id=f"plex:{i}", source="plex", title=f"Track {i}")
+        )
+    conn.commit()
+
+    # Only one of ten tracks actually seen - looks like a bad/partial scan, not a real removal
+    # of 90% of the library, so nothing should be deleted.
+    pruned = prune_missing_plex_tracks(conn, seen_external_ids={"plex:0"})
+    conn.commit()
+
+    assert pruned == 0
+    assert conn.execute("SELECT COUNT(*) c FROM tracks").fetchone()["c"] == 10
+
+
+def test_prune_missing_local_tracks_removes_tracks_whose_file_is_gone(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        "backend.ingest.merge.settings.shared_drive_path", str(tmp_path)
+    )
+    (tmp_path / "present.mp3").write_bytes(b"")
+    conn = connect(":memory:")
+    init_db(conn)
+    kept_ids = [
+        upsert_track(
+            conn,
+            Track(
+                external_id=f"local:{i}",
+                source="local",
+                title="Kept",
+                file_path="present.mp3",
+            ),
+        )
+        for i in range(9)
+    ]
+    stale_id = upsert_track(
+        conn,
+        Track(
+            external_id="local:stale",
+            source="local",
+            title="Gone",
+            file_path="missing.mp3",
+        ),
+    )
+    conn.commit()
+
+    # 1/10 missing is a plausible real removal, under the safety threshold.
+    pruned = prune_missing_local_tracks(conn)
+    conn.commit()
+
+    assert pruned == 1
+    assert (
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (stale_id,)).fetchone()
+        is None
+    )
+    for kept_id in kept_ids:
+        assert (
+            conn.execute("SELECT * FROM tracks WHERE id = ?", (kept_id,)).fetchone()
+            is not None
+        )
+
+
+def test_prune_missing_local_tracks_skips_when_drive_unreachable(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "backend.ingest.merge.settings.shared_drive_path",
+        str(tmp_path / "does-not-exist"),
+    )
+    conn = connect(":memory:")
+    init_db(conn)
+    track_id = upsert_track(
+        conn,
+        Track(
+            external_id="local:1", source="local", title="A", file_path="missing.mp3"
+        ),
+    )
+    conn.commit()
+
+    pruned = prune_missing_local_tracks(conn)
+    conn.commit()
+
+    assert pruned == 0
+    assert (
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (track_id,)).fetchone()
+        is not None
+    )
