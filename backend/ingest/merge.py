@@ -35,20 +35,27 @@ PRUNE_SAFETY_THRESHOLD = 0.2
 
 
 def prune_missing_plex_tracks(
-    conn: sqlite3.Connection, seen_external_ids: set[str]
+    conn: sqlite3.Connection, seen_rating_keys: set[str]
 ) -> int:
     """Deletes 'plex'-sourced tracks this run's scan didn't see - removed, moved, or a bad
     duplicate cleaned up in Plex's own library since the last reindex. Only call this after a
-    full, successful scan of every Plex music section: seen_external_ids being incomplete (a
+    full, successful scan of every Plex music section: seen_rating_keys being incomplete (a
     partial/interrupted scan) is indistinguishable here from the tracks genuinely being gone, and
-    would wrongly delete everything the scan didn't get to."""
+    would wrongly delete everything the scan didn't get to.
+
+    Matched by Plex rating key, not external_id: a row the local scan cataloged first and
+    merge_plex_metadata later enriched keeps its original "local:..." external_id, so it would
+    never match a "plex:..." id from the scan and always look stale. A row with no rating key
+    can't be checked against Plex at all, so it's left alone."""
     rows = conn.execute(
-        "SELECT id, external_id FROM tracks WHERE source = 'plex'"
+        "SELECT id, plex_rating_key FROM tracks WHERE source = 'plex'"
     ).fetchall()
     if not rows:
         return 0
     stale_ids = [
-        row["id"] for row in rows if row["external_id"] not in seen_external_ids
+        row["id"]
+        for row in rows
+        if row["plex_rating_key"] and row["plex_rating_key"] not in seen_rating_keys
     ]
     if len(stale_ids) > len(rows) * PRUNE_SAFETY_THRESHOLD:
         log.warning(
@@ -156,9 +163,9 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
 
     if settings.plex_baseurl and settings.plex_token:
         existing_by_path = path_to_id_map(conn)
-        seen_external_ids: set[str] = set()
+        seen_rating_keys: set[str] = set()
         for track in iter_plex_tracks(settings.plex_baseurl, settings.plex_token):
-            seen_external_ids.add(track.external_id)
+            seen_rating_keys.add(track.plex_rating_key)
             existing_id = (
                 existing_by_path.get(normalize_path(track.file_path))
                 if track.file_path
@@ -183,7 +190,7 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
         )
         # Only reached once the scan above has run to completion without raising - see
         # prune_missing_plex_tracks's docstring for why a partial scan must never get here.
-        pruned = prune_missing_plex_tracks(conn, seen_external_ids)
+        pruned = prune_missing_plex_tracks(conn, seen_rating_keys)
         conn.commit()
         if pruned:
             log.info("Pruned %d Plex track(s) no longer in Plex's library", pruned)

@@ -386,17 +386,31 @@ def test_prune_missing_plex_tracks_removes_tracks_not_seen():
     conn = connect(":memory:")
     init_db(conn)
     kept_ids = [
-        upsert_track(conn, Track(external_id=f"plex:{i}", source="plex", title="Kept"))
+        upsert_track(
+            conn,
+            Track(
+                external_id=f"plex:{i}",
+                source="plex",
+                plex_rating_key=str(i),
+                title="Kept",
+            ),
+        )
         for i in range(9)
     ]
     stale_id = upsert_track(
-        conn, Track(external_id="plex:stale", source="plex", title="Gone")
+        conn,
+        Track(
+            external_id="plex:stale",
+            source="plex",
+            plex_rating_key="stale",
+            title="Gone",
+        ),
     )
     conn.commit()
 
     # 1/10 missing is a plausible real removal, under the safety threshold.
     pruned = prune_missing_plex_tracks(
-        conn, seen_external_ids={f"plex:{i}" for i in range(9)}
+        conn, seen_rating_keys={str(i) for i in range(9)}
     )
     conn.commit()
 
@@ -412,18 +426,48 @@ def test_prune_missing_plex_tracks_removes_tracks_not_seen():
         )
 
 
+def test_prune_missing_plex_tracks_keeps_merged_rows_still_in_plex():
+    conn = connect(":memory:")
+    init_db(conn)
+    # Cataloged by the local scan first, then enriched by Plex - keeps its "local:" id.
+    merged_id = upsert_track(
+        conn,
+        Track(external_id="local:abc", source="local", title="Song", file_path="a.mp3"),
+    )
+    merge_plex_metadata(
+        conn,
+        merged_id,
+        Track(external_id="plex:42", source="plex", plex_rating_key="42", title="Song"),
+    )
+    conn.commit()
+
+    pruned = prune_missing_plex_tracks(conn, seen_rating_keys={"42"})
+
+    assert pruned == 0
+    assert (
+        conn.execute("SELECT * FROM tracks WHERE id = ?", (merged_id,)).fetchone()
+        is not None
+    )
+
+
 def test_prune_missing_plex_tracks_safety_threshold_blocks_mass_deletion():
     conn = connect(":memory:")
     init_db(conn)
     for i in range(10):
         upsert_track(
-            conn, Track(external_id=f"plex:{i}", source="plex", title=f"Track {i}")
+            conn,
+            Track(
+                external_id=f"plex:{i}",
+                source="plex",
+                plex_rating_key=str(i),
+                title=f"Track {i}",
+            ),
         )
     conn.commit()
 
     # Only one of ten tracks actually seen - looks like a bad/partial scan, not a real removal
     # of 90% of the library, so nothing should be deleted.
-    pruned = prune_missing_plex_tracks(conn, seen_external_ids={"plex:0"})
+    pruned = prune_missing_plex_tracks(conn, seen_rating_keys={"0"})
     conn.commit()
 
     assert pruned == 0
