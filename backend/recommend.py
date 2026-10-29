@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import re
 import sqlite3
 
 import anthropic
@@ -27,6 +28,7 @@ from backend.config import settings
 from backend.db import (
     artist_albums,
     decided_recommendation_artists,
+    distinct_album_titles,
     distinct_artists,
     previously_recommended_artists,
     top_genres_moods,
@@ -43,7 +45,9 @@ GAP_FILL_PROMPT = """For each artist below, you're given the albums already in a
 (mostly pulled from "best of"/compilation discs). Using your knowledge of their real
 discography, list up to 3 major studio albums that are NOT already represented (by any version
 of the title - be lenient about exact naming) and are worth adding for someone who clearly likes
-this artist. Skip an artist entirely (omit it) if their discography is already well covered, or
+this artist. Only list albums released under that exact artist name - not records by bands or
+side projects they were also part of, which are filed under their own name in this library and
+may well be owned already. Skip an artist entirely (omit it) if their discography is already well covered, or
 if they're primarily a singles/compilation act with no distinct studio albums worth singling out.
 
 Artists:
@@ -143,6 +147,27 @@ def _rotate_seed(
     return (fresh + covered)[:n]
 
 
+_EDITION_TAG_RE = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")
+
+
+def _album_key(title: str) -> str:
+    """Album title reduced for "already owned?" comparisons: case, punctuation and trailing
+    edition tags ("[+Digital Booklet]", "(Deluxe Edition)") ignored."""
+    title = title.strip()
+    while (stripped := _EDITION_TAG_RE.sub("", title)) != title:
+        title = stripped
+    return re.sub(r"[\W_]+", "", title.casefold())
+
+
+def _already_owned(suggested: str, owned_keys: set[str]) -> bool:
+    """Claude sometimes writes "Band - Album" (e.g. "Grandaddy - The Sophtware Slump" when
+    asked about Jason Lytle), so the part after an "Artist - " prefix is checked too."""
+    candidates = [suggested]
+    if " - " in suggested:
+        candidates.append(suggested.split(" - ", 1)[1])
+    return any((key := _album_key(c)) and key in owned_keys for c in candidates)
+
+
 def find_gap_fill(
     conn: sqlite3.Connection, loved: list[dict], max_artists: int = 5
 ) -> list[dict]:
@@ -157,16 +182,28 @@ def find_gap_fill(
     results = _ask(
         client, GAP_FILL_PROMPT.format(artists_json=json.dumps(payload)), 1024
     )
-    return [
-        {
-            "category": "gap_fill",
-            "artist": r["artist"],
-            "reasoning": r.get("reasoning"),
-            "detail": json.dumps({"missing_albums": r.get("missing_albums", [])}),
-        }
-        for r in results
-        if r.get("artist") and r.get("missing_albums")
-    ]
+
+    # The prompt only shows each artist's own albums, so a "missing" album can still be in the
+    # library under a different artist name (a band vs. its frontman's solo name) - check the
+    # whole library rather than trust it.
+    owned_keys = {_album_key(a) for a in distinct_album_titles(conn)} - {""}
+    items = []
+    for r in results:
+        missing = [
+            a
+            for a in r.get("missing_albums") or []
+            if not _already_owned(a, owned_keys)
+        ]
+        if r.get("artist") and missing:
+            items.append(
+                {
+                    "category": "gap_fill",
+                    "artist": r["artist"],
+                    "reasoning": r.get("reasoning"),
+                    "detail": json.dumps({"missing_albums": missing}),
+                }
+            )
+    return items
 
 
 def _lastfm_candidate_pool(

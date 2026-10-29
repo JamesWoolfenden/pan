@@ -849,6 +849,14 @@ def artist_albums(conn: sqlite3.Connection, artist: str) -> list[str]:
     return [row["album"] for row in rows]
 
 
+def distinct_album_titles(conn: sqlite3.Connection) -> set[str]:
+    """Every album title in the library, across all artists."""
+    rows = conn.execute(
+        "SELECT DISTINCT album FROM tracks WHERE album IS NOT NULL AND album != ''"
+    ).fetchall()
+    return {row["album"] for row in rows}
+
+
 def top_genres_moods(conn: sqlite3.Connection, limit: int = 10) -> dict:
     genres = conn.execute(
         "SELECT genre, COUNT(*) AS n FROM tracks WHERE genre IS NOT NULL AND genre != '' "
