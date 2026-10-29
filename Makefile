@@ -52,26 +52,31 @@ import-rip:
 test:
 	uv run pytest
 
-# Pushes code/config to the NAS and rebuilds - pan.db/.env on the NAS are live state, never
-# touched (see README "Updating the deployed app"). Assumes `pan-nas` is set up in your own
-# ~/.ssh/config (see README "SSH access to the NAS"). Refuses to run with uncommitted changes so
-# you can't accidentally deploy something you haven't committed (and can always tell exactly
-# what's live from VERSION/`/version` afterward).
+# Pulls the image CI built for a commit (.github/workflows/ci.yml) and restarts on it - nothing is
+# built on the NAS. pan.db/.env there are live state, never touched (see README "Updating the
+# deployed app"). Assumes `pan-nas` is set up in your own ~/.ssh/config (see README "SSH access to
+# the NAS").
+#
+# TAG defaults to the current commit, which only exists once it's pushed and CI has finished -
+# the pull fails loudly otherwise rather than quietly redeploying the old image. Roll back with
+# `make deploy TAG=<older full sha>` (`git log` for the SHA). Only docker-compose.yml is shipped,
+# with the tag baked in, since the code itself now lives in the image.
 #
 # Deliberately still a command you run by hand, not CI/CD triggered on push - see README
-# "Driving deploys over SSH without broad docker access" for why this stays manual. Running the
-# extraction over a non-interactive `ssh host 'cmd'` (rather than an interactive login shell) also
-# sidesteps this NAS's /etc/profile setting `umask 077` for login shells, which produced
-# unreadable 0600 files the one time this was done by hand over an interactive session instead.
+# "Driving deploys over SSH without broad docker access" for why this stays manual. Copying over
+# a non-interactive `ssh`/`scp` (rather than an interactive login shell) also sidesteps this NAS's
+# /etc/profile setting `umask 077` for login shells, which produced unreadable 0600 files the one
+# time this was done by hand over an interactive session instead.
+TAG ?= $(shell git rev-parse HEAD)
 deploy:
-	git diff --quiet HEAD -- backend ui scripts Dockerfile docker-compose.yml pyproject.toml uv.lock || \
-		{ echo "Uncommitted changes under backend/ui/scripts/Dockerfile/docker-compose.yml/pyproject.toml/uv.lock - commit first."; exit 1; }
-	git rev-parse --short HEAD > VERSION
-	tar -czf pan-deploy.tar.gz backend ui scripts Dockerfile docker-compose.yml pyproject.toml uv.lock VERSION
-	scp -O pan-deploy.tar.gz pan-nas:/tmp/pan-deploy.tar.gz
-	rm pan-deploy.tar.gz
-	ssh pan-nas 'cd /volume1/docker/pan && tar -xzf /tmp/pan-deploy.tar.gz && rm /tmp/pan-deploy.tar.gz'
-	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build'
+	git diff --quiet HEAD -- docker-compose.yml || \
+		{ echo "Uncommitted changes to docker-compose.yml - commit first."; exit 1; }
+	@echo "Deploying image $(TAG) - committed and pushed code only, not your working tree."
+	digest=$$(uv run python scripts/image_digest.py $(TAG)) && \
+		sed -E "s#ghcr.io/jameswoolfenden/pan:[^[:space:]]+#ghcr.io/jameswoolfenden/pan:$(TAG)@$$digest#" docker-compose.yml > pan-deploy-compose.yml
+	scp -O pan-deploy-compose.yml pan-nas:/volume1/docker/pan/docker-compose.yml
+	rm pan-deploy-compose.yml
+	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml pull pan'
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate'
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan'
 	@echo "Deployed. Verify at https://pan.tail8f9049.ts.net/version"

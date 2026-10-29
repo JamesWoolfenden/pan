@@ -177,10 +177,12 @@ needed for this path.
    - `PAN_AUTH_USER` / `PAN_AUTH_PASSWORD` — required for this path (see above): once `pan` is
      reachable beyond the LAN, nothing else stops a visitor from browsing your library or
      triggering a Claude-billed reindex.
-6. Build and start, either via Container Manager's "Project" import or over SSH:
+6. Start it, either via Container Manager's "Project" import or over SSH. Nothing is built on the
+   NAS: `pan` runs the image CI publishes to `ghcr.io/jameswoolfenden/pan` (see "Updating the
+   deployed app" below), so this just pulls it:
 
    ```sh
-   docker compose up -d --build
+   docker compose up -d
    ```
 
    The `tailscale` service runs in **userspace networking mode** (`TS_USERSPACE=true` in
@@ -214,21 +216,21 @@ Chromecast casting still only works on the LAN (Cast discovery is LAN-multicast 
 receiver hardware can't authenticate anyway) — unaffected by any of this, since `/stream/*` is
 exempt from the auth gate and the sidecar doesn't change how the NAS sits on your home network.
 
-**Updating the deployed app**: don't just re-extract a fresh copy of everything — `pan.db` and
-`.env` on the NAS are now the live state (play counts, favorites, Chromecast history, your
-filled-in secrets), and your local copies of those two files are stale forks of them. Only
-redeploy code/config (`backend/`, `ui/`, `scripts/`, `Dockerfile`, `docker-compose.yml`,
-`pyproject.toml`, `uv.lock`, `VERSION`), and in Container Manager use the project's explicit
-**Build** action afterward, not just Start/Restart — restarting alone reuses the already-built
-image and won't pick up source changes. Before packaging, write the current commit into
-`VERSION` (`git rev-parse --short HEAD > VERSION`) so the deployed app can prove which build
-it's actually running — check `curl https://pan.<your-tailnet>.ts.net/version` (no auth needed,
-deliberately) or the small version string next to the "pan" logo in the UI, rather than guessing
-from symptoms whether a deploy actually took.
+**Updating the deployed app**: every push to `master` runs CI (`.github/workflows/ci.yml`),
+which runs the tests, builds the image, smoke-tests the container, and only then pushes it to
+GHCR tagged with the full commit SHA (plus `:latest`). A broken build fails there, never on the
+NAS. Once CI is green, `make deploy` ships just `docker-compose.yml` with that commit's tag baked
+in, pulls the image, and recreates the container. `pan.db` and `.env` on the NAS are live state
+(play counts, favorites, your filled-in secrets) and are never touched.
 
-Pushing files over `scp`/`rsync` to `/volume1/docker/pan/` (once SSH access is set up, see below)
-works fine as an alternative to File Station for this — just keep the same exclusions (`pan.db`,
-`.env`).
+Rolling back is the same command with an older commit: `make deploy TAG=<full sha>`. Every
+image CI has ever published is still in the registry. Check what's actually running with
+`curl https://pan.<your-tailnet>.ts.net/version` (no auth needed, deliberately) or the small
+version string next to the "pan" logo in the UI — CI stamps the commit into the image itself.
+
+The GHCR package must be **public** for the NAS to pull it without logging in. New packages
+start private, so after the first CI push: GitHub → your profile → Packages → `pan` → Package
+settings → Change visibility → Public. The repo is already public, so this exposes nothing new.
 
 **If you enable DSM's firewall on this NAS**: create your rules under an interface-specific
 profile (e.g. the physical LAN NIC), not the default **"All interfaces"** one. DSM evaluates
@@ -261,11 +263,11 @@ access means either full root-group membership (too broad for a key that's meant
 narrowly scoped) or a `sudoers.d` rule limited to exactly the commands needed. If set up:
 
 ```text
-woolfenden ALL=(root) NOPASSWD: /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml build, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml ps
+woolfenden ALL=(root) NOPASSWD: /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml pull pan, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan, /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml ps
 ```
 
 in `/etc/sudoers.d/pan-deploy` (mode `0440`) lets that one SSH key run exactly those four
-commands as root - build, start, read logs, check status - with no shell access and no wildcard
+commands as root - pull the image, start, read logs, check status - with no shell access and no wildcard
 that could be widened into anything broader. This NAS's busybox environment has no `visudo`
 binary, so validate edits to this file with `sudo -l` instead (it re-parses sudoers on every
 invocation and reports a syntax error immediately rather than silently locking you out) - and

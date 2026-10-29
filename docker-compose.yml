@@ -37,7 +37,14 @@ services:
     restart: unless-stopped
 
   pan:
-    build: .
+    # Built by CI on every push to master (.github/workflows/ci.yml), tagged with the full commit
+    # SHA. `make deploy` replaces whatever tag/digest is here with that commit's tag *and* its
+    # digest (scripts/image_digest.py) in the copy it ships, so the NAS always runs a
+    # digest-pinned image - :latest here is only a placeholder. Rollback is
+    # `make deploy TAG=<older sha>`.
+    # holden:ignore:HLD_DC_001
+    # holden:ignore:HLD_DC_007
+    image: ghcr.io/jameswoolfenden/pan:latest
     # Shares the tailscale container's network namespace, so pan is only reachable via the
     # tailnet address (or locally on the NAS) - never via the NAS's own LAN ports.
     network_mode: service:tailscale

@@ -37,11 +37,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: test
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # The committed VERSION is only ever as fresh as the last time someone wrote it by hand -
+      # stamp the real commit so /version on the deployed image is trustworthy.
+      - name: Stamp version
+        run: git rev-parse --short HEAD > VERSION
+
       - name: Build image
-        run: docker build -t pan:ci .
+        run: docker build --label org.opencontainers.image.source=https://github.com/JamesWoolfenden/pan -t pan:ci .
 
       # Catches import-time failures (e.g. a bad DB migration) that only show up once the
       # container actually starts, not just from the build succeeding.
@@ -59,3 +67,19 @@ jobs:
           docker logs pan-smoke
           docker stop pan-smoke
           [ -n "$ok" ] || { echo "Container never became healthy"; exit 1; }
+
+      # Only images that passed the tests and smoke test above get published - `make deploy` pulls
+      # the :<sha> tag, :latest is just for a fresh first-time setup.
+      - name: Push to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          IMAGE: ghcr.io/jameswoolfenden/pan
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+        run: |
+          echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
+          docker tag pan:ci "$IMAGE:$SHA"
+          docker tag pan:ci "$IMAGE:latest"
+          docker push "$IMAGE:$SHA"
+          docker push "$IMAGE:latest"
