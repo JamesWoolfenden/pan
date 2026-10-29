@@ -423,6 +423,18 @@ def _track_number(row: sqlite3.Row) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _album_position(row: sqlite3.Row) -> tuple:
+    """Disc then track from the stored tags/Plex metadata, falling back to the filename's
+    leading number for a row that has none; unnumbered tracks go last, by title."""
+    number = row["track_number"] or _track_number(row)
+    return (
+        number is None,
+        row["disc_number"] or 1,
+        number or 0,
+        (row["title"] or "").lower(),
+    )
+
+
 def album_tracks(
     conn: sqlite3.Connection, track_id: int, limit: int = 200
 ) -> list[dict]:
@@ -437,9 +449,8 @@ def album_tracks(
 def album_tracks_by_name(
     conn: sqlite3.Connection, artist: str, album: str, limit: int = 200
 ) -> list[dict]:
-    """All tracks for a given (artist, album), in track order (parsed from the leading number
-    in each file's name, since the catalog has no explicit track-number field), deduped the
-    same way search results are."""
+    """All tracks for a given (artist, album), in disc/track order (see _album_position),
+    deduped the same way search results are."""
     rows = conn.execute(
         "SELECT * FROM tracks WHERE lower(trim(artist)) = ? AND lower(trim(album)) = ?",
         ((artist or "").strip().lower(), (album or "").strip().lower()),
@@ -452,13 +463,7 @@ def album_tracks_by_name(
         members[0] if len(members) == 1 else max(members, key=_file_quality)
         for members in groups.values()
     ]
-    deduped.sort(
-        key=lambda r: (
-            _track_number(r) is None,
-            _track_number(r) or 0,
-            (r["title"] or "").lower(),
-        )
-    )
+    deduped.sort(key=_album_position)
 
     return [_to_result(row, 0.0) for row in deduped[:limit]]
 

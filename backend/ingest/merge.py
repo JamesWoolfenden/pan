@@ -5,11 +5,19 @@ import sqlite3
 from pathlib import Path
 
 from backend.config import settings
-from backend.db import all_tracks, delete_track, merge_plex_metadata, upsert_track
+from backend.db import (
+    all_tracks,
+    delete_track,
+    local_tracks_missing_track_number,
+    merge_plex_metadata,
+    set_track_position,
+    upsert_track,
+)
 from backend.ingest.local_source import (
     VIDEO_EXTENSIONS,
     iter_local_tracks,
     normalize_path,
+    read_track_position,
 )
 from backend.ingest.plex_source import iter_plex_tracks
 from backend.paths import resolve as resolve_file_path
@@ -95,6 +103,26 @@ def prune_missing_local_tracks(conn: sqlite3.Connection) -> int:
     return len(stale_ids)
 
 
+def backfill_local_track_positions(conn: sqlite3.Connection) -> int:
+    """Reads disc/track numbers for local rows that don't have them yet - the local scan skips
+    files already cataloged, so rows from before these were stored would otherwise never get
+    them. A file whose tags have no track number just stays NULL (and is re-read next run,
+    which is cheap - it's only the handful of untagged local files)."""
+    filled = 0
+    for i, row in enumerate(local_tracks_missing_track_number(conn), start=1):
+        path = resolve_file_path(row["file_path"], row["source"])
+        if path is None or not path.exists():
+            continue
+        disc_number, track_number = read_track_position(path)
+        if track_number is not None:
+            set_track_position(conn, row["id"], disc_number, track_number)
+            filled += 1
+        if i % COMMIT_EVERY == 0:
+            conn.commit()
+    conn.commit()
+    return filled
+
+
 def known_file_paths(conn: sqlite3.Connection) -> set[str]:
     rows = conn.execute(
         "SELECT file_path, source FROM tracks WHERE file_path IS NOT NULL"
@@ -173,6 +201,9 @@ def run_ingest(conn: sqlite3.Connection) -> dict:
             if counts["local"] % COMMIT_EVERY == 0:
                 conn.commit()
         conn.commit()
+        filled = backfill_local_track_positions(conn)
+        if filled:
+            log.info("Read track numbers for %d existing local track(s)", filled)
     else:
         log.info("SHARED_DRIVE_PATH not configured - skipping local scan")
 

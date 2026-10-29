@@ -558,6 +558,68 @@ def test_album_tracks_orders_by_leading_track_number_in_filename():
     assert [r["title"] for r in results] == ["First", "Second", "Third"]
 
 
+def test_album_tracks_orders_multi_disc_albums_by_disc_then_track():
+    conn = connect(":memory:")
+    init_db(conn)
+    # Per-disc folders restart the filename numbering, so only the stored numbers can order
+    # these - by filename alone the two discs would interleave (1, 1, 2, 2).
+    positions = [("D2T2", 2, 2), ("D1T1", 1, 1), ("D2T1", 2, 1), ("D1T2", 1, 2)]
+    ids = [
+        upsert_track(
+            conn,
+            Track(
+                external_id=title,
+                source="plex",
+                title=title,
+                artist="Band",
+                album="Box Set",
+                file_path=f"Box Set/cd {disc}/0{track} {title}.mp3",
+                disc_number=disc,
+                track_number=track,
+            ),
+        )
+        for title, disc, track in positions
+    ]
+    conn.commit()
+
+    results = album_tracks(conn, ids[0])
+
+    assert [r["title"] for r in results] == ["D1T1", "D1T2", "D2T1", "D2T2"]
+
+
+def test_album_tracks_uses_stored_track_number_over_filename():
+    conn = connect(":memory:")
+    init_db(conn)
+    anchor = upsert_track(
+        conn,
+        Track(
+            external_id="a",
+            source="plex",
+            title="Opener",
+            artist="Band",
+            album="LP",
+            file_path="Band - Opener.mp3",
+            track_number=1,
+        ),
+    )
+    upsert_track(
+        conn,
+        Track(
+            external_id="b",
+            source="local",
+            title="Closer",
+            artist="Band",
+            album="LP",
+            file_path="02 Closer.mp3",
+        ),
+    )
+    conn.commit()
+
+    results = album_tracks(conn, anchor)
+
+    assert [r["title"] for r in results] == ["Opener", "Closer"]
+
+
 def test_album_tracks_ignores_tracks_from_other_albums():
     conn = connect(":memory:")
     init_db(conn)

@@ -55,6 +55,9 @@ def iter_plex_tracks(baseurl: str, token: str) -> Iterator[Track]:
                 mood=_first_tag(plex_track, "moods"),
                 year=getattr(plex_track, "parentYear", None)
                 or getattr(plex_track, "year", None),
+                # Plex's own track/disc position within the album (index/parentIndex).
+                disc_number=getattr(plex_track, "parentIndex", None),
+                track_number=getattr(plex_track, "index", None),
                 duration_ms=plex_track.duration,
                 tag_source="metadata" if _first_tag(plex_track, "genres") else "none",
             )

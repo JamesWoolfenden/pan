@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS tracks (
                      -- whose naming didn't match a recognized TV pattern, and always NULL for
                      -- a 'plex'/'local' (music) row, which has no concept of season/episode
     episode INTEGER,  -- same source/caveats as season
+    disc_number INTEGER,  -- from Plex (parentIndex) or the file's own tags; NULL = unknown, in
+    track_number INTEGER,  -- which case album order falls back to the filename's leading number
+                           -- (see backend/search/engine.py's album_tracks_by_name)
     duration_ms INTEGER,
     tempo REAL,
     energy REAL,
@@ -164,6 +167,8 @@ class Track:
     year: int | None = None
     season: int | None = None
     episode: int | None = None
+    disc_number: int | None = None
+    track_number: int | None = None
     duration_ms: int | None = None
     tempo: float | None = None
     energy: float | None = None
@@ -238,6 +243,10 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN episode INTEGER")
     if "loudness_lufs" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN loudness_lufs REAL")
+    if "disc_number" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN disc_number INTEGER")
+    if "track_number" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN track_number INTEGER")
 
     playlists_columns = {
         row["name"] for row in conn.execute("PRAGMA table_info(playlists)").fetchall()
@@ -272,6 +281,7 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
                 album=CASE WHEN identity_source='manual' THEN album ELSE ? END,
                 genre=COALESCE(?, genre), mood=COALESCE(?, mood), year=?,
                 season=COALESCE(?, season), episode=COALESCE(?, episode),
+                disc_number=COALESCE(?, disc_number), track_number=COALESCE(?, track_number),
                 duration_ms=?, tempo=COALESCE(?, tempo), energy=COALESCE(?, energy),
                 musical_key=COALESCE(?, musical_key)
             WHERE id=?
@@ -288,6 +298,8 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
                 track.year,
                 track.season,
                 track.episode,
+                track.disc_number,
+                track.track_number,
                 track.duration_ms,
                 track.tempo,
                 track.energy,
@@ -301,9 +313,9 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
         """
         INSERT INTO tracks (
             external_id, source, plex_rating_key, file_path, title, artist, album,
-            genre, mood, year, season, episode, duration_ms, tempo, energy, musical_key,
-            tag_source
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            genre, mood, year, season, episode, disc_number, track_number, duration_ms,
+            tempo, energy, musical_key, tag_source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             track.external_id,
@@ -318,6 +330,8 @@ def upsert_track(conn: sqlite3.Connection, track: Track) -> int:
             track.year,
             track.season,
             track.episode,
+            track.disc_number,
+            track.track_number,
             track.duration_ms,
             track.tempo,
             track.energy,
@@ -488,7 +502,9 @@ def merge_plex_metadata(conn: sqlite3.Connection, track_id: int, track: Track) -
             album = CASE WHEN identity_source='manual' THEN album ELSE COALESCE(NULLIF(?, ''), album) END,
             genre = COALESCE(?, genre),
             mood = COALESCE(?, mood),
-            year = COALESCE(?, year)
+            year = COALESCE(?, year),
+            disc_number = COALESCE(?, disc_number),
+            track_number = COALESCE(?, track_number)
         WHERE id = ?
         """,
         (
@@ -499,8 +515,32 @@ def merge_plex_metadata(conn: sqlite3.Connection, track_id: int, track: Track) -
             track.genre,
             track.mood,
             track.year,
+            track.disc_number,
+            track.track_number,
             track_id,
         ),
+    )
+
+
+def local_tracks_missing_track_number(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    """Local music rows cataloged before track numbers were stored - the local scan skips
+    files it already knows, so these never get their tags re-read otherwise."""
+    return conn.execute(
+        "SELECT id, file_path, source FROM tracks "
+        "WHERE source = 'local' AND track_number IS NULL AND file_path IS NOT NULL"
+    ).fetchall()
+
+
+def set_track_position(
+    conn: sqlite3.Connection,
+    track_id: int,
+    disc_number: int | None,
+    track_number: int | None,
+) -> None:
+    conn.execute(
+        "UPDATE tracks SET disc_number = COALESCE(?, disc_number), "
+        "track_number = COALESCE(?, track_number) WHERE id = ?",
+        (disc_number, track_number, track_id),
     )
 
 

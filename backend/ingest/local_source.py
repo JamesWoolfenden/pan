@@ -158,9 +158,28 @@ def iter_local_tracks(
             year=tags.get("year"),
             season=season,
             episode=episode,
+            disc_number=tags.get("disc_number"),
+            track_number=tags.get("track_number"),
             duration_ms=tags.get("duration_ms"),
             tag_source="metadata" if tags.get("genre") else "none",
         )
+
+
+def _position(value: str | None) -> int | None:
+    """A track/disc number tag - "3", "3/12" (of 12), sometimes "03" - as just the number."""
+    if not value:
+        return None
+    try:
+        number = int(str(value).split("/")[0].strip())
+    except ValueError:
+        return None
+    return number if number > 0 else None
+
+
+def read_track_position(file_path: Path) -> tuple[int | None, int | None]:
+    """(disc_number, track_number) from a file's own tags - see merge.py's backfill."""
+    tags = _read_tags(file_path)
+    return tags.get("disc_number"), tags.get("track_number")
 
 
 def _read_tags(file_path: Path) -> dict:
@@ -194,6 +213,8 @@ def _read_tags(file_path: Path) -> dict:
         "album": first("album"),
         "genre": first("genre"),
         "year": year,
+        "disc_number": _position(first("discnumber")),
+        "track_number": _position(first("tracknumber")),
         "duration_ms": duration_ms,
     }
 

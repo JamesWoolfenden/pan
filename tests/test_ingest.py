@@ -16,8 +16,9 @@ from backend.db import (
     upsert_embedding,
     upsert_track,
 )
-from backend.ingest.local_source import normalize_path
+from backend.ingest.local_source import _position, normalize_path
 from backend.ingest.merge import (
+    backfill_local_track_positions,
     known_file_paths,
     path_to_id_map,
     prune_missing_local_tracks,
@@ -475,6 +476,53 @@ def test_prune_missing_local_tracks_removes_tracks_whose_file_is_gone(
             conn.execute("SELECT * FROM tracks WHERE id = ?", (kept_id,)).fetchone()
             is not None
         )
+
+
+def test_position_parses_track_and_disc_number_tags():
+    assert _position("3") == 3
+    assert _position("03/12") == 3
+    assert _position(" 2 / 2") == 2
+    assert _position("") is None
+    assert _position("0") is None
+    assert _position("A1") is None
+
+
+def test_backfill_local_track_positions_fills_only_rows_without_one(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        "backend.ingest.merge.settings.shared_drive_path", str(tmp_path)
+    )
+    (tmp_path / "a.mp3").write_bytes(b"")
+    (tmp_path / "untagged.mp3").write_bytes(b"")
+    positions = {"a.mp3": (2, 5), "untagged.mp3": (None, None)}
+    monkeypatch.setattr(
+        "backend.ingest.merge.read_track_position", lambda path: positions[path.name]
+    )
+    conn = connect(":memory:")
+    init_db(conn)
+    needs_fill = upsert_track(
+        conn, Track(external_id="local:a", source="local", file_path="a.mp3")
+    )
+    untagged = upsert_track(
+        conn,
+        Track(external_id="local:u", source="local", file_path="untagged.mp3"),
+    )
+    conn.commit()
+
+    filled = backfill_local_track_positions(conn)
+
+    assert filled == 1
+    row = conn.execute(
+        "SELECT disc_number, track_number FROM tracks WHERE id = ?", (needs_fill,)
+    ).fetchone()
+    assert (row["disc_number"], row["track_number"]) == (2, 5)
+    assert (
+        conn.execute(
+            "SELECT track_number FROM tracks WHERE id = ?", (untagged,)
+        ).fetchone()["track_number"]
+        is None
+    )
 
 
 def test_prune_missing_local_tracks_skips_when_drive_unreachable(tmp_path, monkeypatch):
