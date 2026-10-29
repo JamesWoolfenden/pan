@@ -14,6 +14,9 @@ dependencies = [
     "mutagen>=1.47",
     "librosa>=0.10",
     "sentence-transformers>=3.3",
+    # Listed directly (it's already a sentence-transformers dependency) only so the CPU-only
+    # [tool.uv.sources] override below applies - uv ignores sources for transitive deps.
+    "torch",
     "sqlite-vec>=0.1.6",
     "anthropic>=0.40",
     "python-dotenv>=1.0",
@@ -30,6 +33,17 @@ dev = [
 
 [tool.uv]
 package = false
+
+# PyPI's Linux torch wheels bundle ~3 GB of NVIDIA CUDA libraries (pulled in via
+# sentence-transformers); the NAS has no GPU, so the Docker image takes the CPU-only build.
+# Windows torch from PyPI is already CPU-only, so local dev is unaffected.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
