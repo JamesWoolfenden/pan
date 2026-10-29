@@ -2,7 +2,12 @@ import json
 
 from backend import recommend
 from backend.db import Track, connect, init_db, upsert_track
-from backend.recommend import _album_key, _already_owned, find_gap_fill
+from backend.recommend import (
+    _album_key,
+    _already_owned,
+    _salvage_objects,
+    find_gap_fill,
+)
 
 
 def _album(conn, artist, album):
@@ -40,6 +45,25 @@ def test_already_owned_matches_an_artist_prefixed_suggestion():
     assert _already_owned("Grandaddy - The Sophtware Slump", owned)
     assert _already_owned("The Sophtware Slump", owned)
     assert not _already_owned("Nine Clouds", owned)
+
+
+def test_salvage_objects_keeps_complete_entries_of_a_truncated_array():
+    # The shape of a real discovery response cut off at max_tokens.
+    text = (
+        "[\n"
+        '  {"artist": "Mary Wells", "reasoning": "Motown, {braces} and \\"quotes\\"."},\n'
+        '  {"artist": "Jr. Walker & The All Stars", "reasoning": "Sax-driven."},\n'
+        '  {"artist": "The Melodians", "sources_note": "'
+    )
+
+    assert [i["artist"] for i in _salvage_objects(text)] == [
+        "Mary Wells",
+        "Jr. Walker & The All Stars",
+    ]
+
+
+def test_salvage_objects_returns_nothing_without_an_array():
+    assert _salvage_objects("Sorry, I can't help with that.") == []
 
 
 def test_find_gap_fill_drops_albums_owned_under_another_artist(mocker):

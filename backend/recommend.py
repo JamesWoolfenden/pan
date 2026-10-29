@@ -113,20 +113,53 @@ def _client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def _ask(client: anthropic.Anthropic, prompt: str, max_tokens: int) -> list[dict]:
+# Billed by tokens actually generated, not the cap - a dozen artists with a sentence of reasoning
+# each overran the old 1024 and every discovery run came back as unparseable, truncated JSON.
+MAX_TOKENS = 16000
+
+
+def _salvage_objects(text: str) -> list[dict]:
+    """The complete {...} entries of a JSON array that was cut off partway through, so a
+    truncated response still yields everything before the cut rather than nothing."""
+    start = text.find("[")
+    if start < 0:
+        return []
+    decoder = json.JSONDecoder()
+    items, pos = [], start + 1
+    while True:
+        while pos < len(text) and text[pos] in " \t\r\n,":
+            pos += 1
+        try:
+            obj, pos = decoder.raw_decode(text, pos)
+        except json.JSONDecodeError:
+            return items
+        if isinstance(obj, dict):
+            items.append(obj)
+
+
+def _ask(client: anthropic.Anthropic, prompt: str) -> list[dict]:
     message = client.messages.create(
         model=MODEL,
-        max_tokens=max_tokens,
+        max_tokens=MAX_TOKENS,
         thinking={"type": "between_tools"},
         messages=[{"role": "user", "content": prompt}],
     )
     text = "".join(block.text for block in message.content if block.type == "text")
+    if message.stop_reason == "max_tokens":
+        log.warning(
+            "Recommendation response hit max_tokens (%d) - truncated", MAX_TOKENS
+        )
     try:
         parsed = json.loads(strip_code_fence(text))
         return parsed if isinstance(parsed, list) else []
     except json.JSONDecodeError:
-        log.warning("Could not parse recommendation response: %s", text[:500])
-        return []
+        salvaged = _salvage_objects(text)
+        log.warning(
+            "Could not parse recommendation response - kept %d complete entries: %s",
+            len(salvaged),
+            text[:500],
+        )
+        return salvaged
 
 
 def _rotate_seed(
@@ -179,9 +212,7 @@ def find_gap_fill(
         for c in candidates
     ]
     client = _client()
-    results = _ask(
-        client, GAP_FILL_PROMPT.format(artists_json=json.dumps(payload)), 1024
-    )
+    results = _ask(client, GAP_FILL_PROMPT.format(artists_json=json.dumps(payload)))
 
     # The prompt only shows each artist's own albums, so a "missing" album can still be in the
     # library under a different artist name (a band vs. its frontman's solo name) - check the
@@ -257,7 +288,7 @@ def find_discovery(
         )
     else:
         prompt = DISCOVERY_PROMPT.format(**common_args)
-    results = _ask(client, prompt, 1024)
+    results = _ask(client, prompt)
 
     # Claude's knowledge of exactly what's already in the library/already suggested is only as
     # good as what fit in the prompt - cross-check against the real, full sets rather than trust
