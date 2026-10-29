@@ -16,6 +16,9 @@ USER app
 
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
+# uv run would otherwise re-sync at every start (CMD or a terminal session), installing the
+# dev group from the network - use only what the build installed.
+ENV UV_NO_SYNC=1
 
 COPY backend ./backend
 COPY scripts ./scripts
