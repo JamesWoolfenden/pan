@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import struct
 from collections.abc import Iterator
@@ -45,6 +46,8 @@ CREATE TABLE IF NOT EXISTS tracks (
                          -- NULL means not yet measured (video rows never get it - see reindex.py).
     tag_source TEXT NOT NULL DEFAULT 'none',  -- 'none' | 'metadata' | 'local' | 'cloud' | 'manual'
     ai_background TEXT,  -- cached AI-generated "tell me more" writeup, so it's only generated once
+    about_links TEXT,  -- JSON {"wikipedia"?, "review"?, "musicbrainz"?} - the sources found for
+                       -- that writeup (backend/info.py), cached alongside it
     lyrics TEXT,  -- cached lyrics lookup: NULL = not yet looked up, '' = looked up, none found
     synced_lyrics TEXT,  -- time-stamped LRC text alongside `lyrics`, when lrclib has it - NULL
                          -- whenever `lyrics` is NULL/'' too, no separate "looked up" state needed
@@ -245,6 +248,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE tracks ADD COLUMN episode INTEGER")
     if "loudness_lufs" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN loudness_lufs REAL")
+    if "about_links" not in existing_columns:
+        conn.execute("ALTER TABLE tracks ADD COLUMN about_links TEXT")
     if "disc_number" not in existing_columns:
         conn.execute("ALTER TABLE tracks ADD COLUMN disc_number INTEGER")
     if "track_number" not in existing_columns:
@@ -446,6 +451,19 @@ def set_audio_features(
 
 def set_ai_background(conn: sqlite3.Connection, track_id: int, text: str) -> None:
     conn.execute("UPDATE tracks SET ai_background=? WHERE id=?", (text, track_id))
+
+
+def set_about_links(
+    conn: sqlite3.Connection, track_id: int, links: dict[str, str]
+) -> None:
+    conn.execute(
+        "UPDATE tracks SET about_links=? WHERE id=?",
+        (json.dumps(links) if links else None, track_id),
+    )
+
+
+def about_links(row: sqlite3.Row) -> dict[str, str]:
+    return json.loads(row["about_links"]) if row["about_links"] else {}
 
 
 def set_year(conn: sqlite3.Connection, track_id: int, year: int) -> None:

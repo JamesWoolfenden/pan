@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import logging
 import random
-import re
 import sqlite3
 
 import anthropic
@@ -183,16 +182,7 @@ def _rotate_seed(
     return (fresh + covered)[:n]
 
 
-_EDITION_TAG_RE = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")
-
-
-def _album_key(title: str) -> str:
-    """Album title reduced for "already owned?" comparisons: case, punctuation and trailing
-    edition tags ("[+Digital Booklet]", "(Deluxe Edition)") ignored."""
-    title = title.strip()
-    while (stripped := _EDITION_TAG_RE.sub("", title)) != title:
-        title = stripped
-    return re.sub(r"[\W_]+", "", title.casefold())
+_album_key = musicbrainz.album_key
 
 
 def _title_keys(suggested: str) -> set[str]:

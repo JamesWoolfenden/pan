@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
 import time
 import urllib.error
@@ -29,6 +30,17 @@ MIN_ARTIST_SCORE = 90
 
 _lock = threading.Lock()
 _last_request = 0.0
+
+_EDITION_TAG_RE = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")
+
+
+def album_key(title: str) -> str:
+    """Album title reduced for matching one source's title against another's: case,
+    punctuation and trailing edition tags ("[+Digital Booklet]", "(Deluxe Edition)") ignored."""
+    title = title.strip()
+    while (stripped := _EDITION_TAG_RE.sub("", title)) != title:
+        title = stripped
+    return re.sub(r"[\W_]+", "", title.casefold())
 
 
 def _throttle() -> None:
@@ -106,22 +118,77 @@ def artist_albums(artist: str) -> list[dict] | None:
     return albums
 
 
+def find_album(artist: str, album: str) -> dict | None:
+    """This exact album's MusicBrainz record (artist_albums' shape) plus its album_links, or
+    None if MusicBrainz has no album by that title for that artist, or couldn't be reached.
+    A title-only match within the artist's own discography - so a track filed under a
+    compilation pan has named differently simply finds nothing, never some other album."""
+    if not artist or not album:
+        return None
+    key = album_key(album)
+    if not key:
+        return None
+    match = next(
+        (a for a in artist_albums(artist) or [] if album_key(a["title"]) == key), None
+    )
+    if match is None:
+        return None
+    return {**match, **(album_links(match["id"]) if match["id"] else {})}
+
+
 def album_links(group_id: str) -> dict:
     """{"wikipedia": url, "review": url} - whichever of these MusicBrainz's editors have
     attached to this exact album (release group), for something that says what the music is
     actually like; MusicBrainz's own page is a catalog entry. Only links recorded against the
-    album itself, never a search. Empty on failure (logged, never raised) - the album is
-    already verified by then, so it's still worth showing, just without these extras."""
+    album itself, never a search:
+    - wikipedia: a direct link, or else the English article of the album's Wikidata entry -
+      MusicBrainz records most albums' Wikipedia articles only via Wikidata now.
+    - review: a dedicated review link, or else the album's AllMusic page (which carries one).
+    Empty on failure (logged, never raised) - the album is already verified by then, so it's
+    still worth showing, just without these extras."""
     try:
         data = _get(f"release-group/{group_id}", {"inc": "url-rels"})
     except Exception as exc:  # noqa: BLE001 - deliberately broad, see docstring: never raised
         log.warning("MusicBrainz link lookup failed for %s: %s", group_id, exc)
         return {}
 
-    links: dict[str, str] = {}
+    found: dict[str, str] = {}
     for relation in data.get("relations") or []:
         kind = relation.get("type")
         url = (relation.get("url") or {}).get("resource")
-        if kind in ("wikipedia", "review") and url and kind not in links:
-            links[kind] = url
+        if url and kind not in found:
+            found[kind] = url
+
+    links: dict[str, str] = {}
+    wikipedia = found.get("wikipedia") or (
+        _wikidata_enwiki(found["wikidata"]) if "wikidata" in found else None
+    )
+    if wikipedia:
+        links["wikipedia"] = wikipedia
+    review = found.get("review") or found.get("allmusic")
+    if review:
+        links["review"] = review
     return links
+
+
+def _wikidata_enwiki(entity_url: str) -> str | None:
+    """The English Wikipedia article a Wikidata entity (https://www.wikidata.org/wiki/Q123)
+    links to - Wikidata's own sitelink for it, not a search. None if it has none, or on any
+    failure (logged)."""
+    entity = entity_url.rstrip("/").rsplit("/", 1)[-1]
+    if not re.fullmatch(r"Q\d+", entity):
+        return None
+    req = urllib.request.Request(
+        f"https://www.wikidata.org/wiki/Special:EntityData/{entity}.json",
+        headers={"User-Agent": USER_AGENT},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+    except Exception as exc:  # noqa: BLE001 - enrichment only, never raised
+        log.warning("Wikidata lookup failed for %s: %s", entity, exc)
+        return None
+    entities = data.get("entities") or {}
+    # A merged entity comes back keyed by the ID it now redirects to.
+    record = entities.get(entity) or next(iter(entities.values()), {})
+    return ((record.get("sitelinks") or {}).get("enwiki") or {}).get("url")

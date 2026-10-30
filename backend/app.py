@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from backend.art import extract_album_art
 from backend.config import settings
 from backend.db import (
+    about_links,
     add_client_log,
     add_track_to_playlist,
     connection,
@@ -32,6 +33,7 @@ from backend.db import (
     record_play_event,
     record_startup,
     rename_playlist,
+    set_about_links,
     set_ai_background,
     set_album,
     set_artist,
@@ -694,19 +696,25 @@ def track_about(track_id: int, refresh: bool = False):
         if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
         if row["ai_background"] and not refresh:
-            return {"text": row["ai_background"], "cached": True}
+            return {
+                "text": row["ai_background"],
+                "links": about_links(row),
+                "cached": True,
+            }
 
-        text, inferred_year = get_track_background(row)
-        if text:
-            set_ai_background(conn, track_id, text)
+        background = get_track_background(row)
+        if background.text:
+            set_ai_background(conn, track_id, background.text)
+            set_about_links(conn, track_id, background.links)
             # The catalog's own `year` only comes from file/Plex metadata (backend/ingest/*),
-            # which is frequently missing - if this writeup was confident enough to state one
-            # (see info.py's YEAR_LINE_RE), backfill it so it's not left stranded in prose where
-            # nothing else (the results list's "(year) · source" line, search, etc.) can see it.
-            if inferred_year and row["year"] is None:
-                set_year(conn, track_id, inferred_year)
+            # which is frequently missing - if one was found (MusicBrainz's release date, or the
+            # writeup's own confident YEAR line - see info.py), backfill it so it's not left
+            # stranded where nothing else (the results list's "(year) · source" line, search,
+            # etc.) can see it.
+            if background.inferred_year and row["year"] is None:
+                set_year(conn, track_id, background.inferred_year)
             conn.commit()
-        return {"text": text, "cached": False}
+        return {"text": background.text, "links": background.links, "cached": False}
 
 
 class AboutUpdate(BaseModel):
@@ -719,11 +727,12 @@ def update_track_about(track_id: int, update: AboutUpdate):
     tag correction - useful when there's no ANTHROPIC_API_KEY configured, or the AI's answer was
     close but not quite right."""
     with connection() as conn:
-        if get_track(conn, track_id) is None:
+        row = get_track(conn, track_id)
+        if row is None:
             raise HTTPException(status_code=404, detail="Track not found")
         set_ai_background(conn, track_id, update.text)
         conn.commit()
-    return {"text": update.text}
+    return {"text": update.text, "links": about_links(row)}
 
 
 @app.get("/track/{track_id}/lyrics")

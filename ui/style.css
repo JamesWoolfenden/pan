@@ -1549,6 +1549,23 @@ header h1 {
   padding-left: 1.2rem;
 }
 
+.info-about-links {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+.info-about-links a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--text-muted);
+}
+
+.info-about-links a:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
 .info-lyrics {
   font-size: 0.85rem;
   color: var(--text);

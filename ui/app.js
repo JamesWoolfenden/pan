@@ -1513,16 +1513,30 @@ function buildInfoPanel(r) {
   aboutBtn.textContent = "✨ Tell me more (AI)";
   const aboutEl = document.createElement("div");
   aboutEl.className = "info-about";
+  // Where the writeup's album context came from - links MusicBrainz records against this exact
+  // album (backend/info.py), so it can be read further or checked.
+  const aboutLinksEl = document.createElement("div");
+  aboutLinksEl.className = "info-about-links";
+  aboutLinksEl.hidden = true;
 
   // dataset.rawText keeps the original markdown source (for the Edit textarea) separate from
   // aboutEl's rendered DOM.
-  function setAboutText(text) {
+  function setAboutText(text, links = {}) {
     aboutEl.dataset.rawText = text || "";
     if (text) {
       renderMarkdown(aboutEl, text);
     } else {
       aboutEl.textContent = "No background available (is ANTHROPIC_API_KEY configured?).";
     }
+    const sources = [
+      ["Wikipedia", links.wikipedia],
+      ["Review", links.review],
+      ["MusicBrainz", links.musicbrainz],
+    ]
+      .map(([label, url]) => safeHref(url) && externalLink(safeHref(url), label))
+      .filter(Boolean);
+    aboutLinksEl.innerHTML = sources.length ? `Album: ${sources.join(" · ")}` : "";
+    aboutLinksEl.hidden = !text || !sources.length;
   }
 
   const aboutEditBtn = document.createElement("button");
@@ -1566,7 +1580,7 @@ function buildInfoPanel(r) {
     aboutSaveBtn.disabled = false;
     if (!res.ok) return;
     const data = await res.json();
-    setAboutText(data.text);
+    setAboutText(data.text, data.links);
     aboutTextarea.hidden = true;
     aboutEl.hidden = false;
     aboutSaveBtn.hidden = true;
@@ -1817,7 +1831,7 @@ function buildInfoPanel(r) {
     aboutBtn.textContent = "⏳ Thinking...";
     const res = await fetch(`/track/${r.id}/about${refreshing ? "?refresh=true" : ""}`);
     const data = await res.json();
-    setAboutText(data.text);
+    setAboutText(data.text, data.links);
     aboutBtn.textContent = "🔄 Regenerate";
     aboutBtn.dataset.loaded = "true";
     aboutBtn.disabled = false;
@@ -1853,7 +1867,7 @@ function buildInfoPanel(r) {
   };
 
   panel.onHide = teardownSyncedLyrics;
-  panel.append(factsEl, actionsRow, aboutEl, aboutTextarea, aboutSaveBtn, lyricsWrapper, lyricsTextarea, lyricsSaveBtn);
+  panel.append(factsEl, actionsRow, aboutEl, aboutLinksEl, aboutTextarea, aboutSaveBtn, lyricsWrapper, lyricsTextarea, lyricsSaveBtn);
   return panel;
 }
 
