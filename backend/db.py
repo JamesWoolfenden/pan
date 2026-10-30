@@ -137,7 +137,9 @@ CREATE TABLE IF NOT EXISTS recommendations (
     category TEXT NOT NULL,  -- 'gap_fill' | 'discovery'
     artist TEXT NOT NULL,
     reasoning TEXT,
-    detail TEXT,  -- JSON, e.g. {"missing_albums": [...]} for gap_fill
+    detail TEXT,  -- JSON, e.g. {"missing_albums": [{"title", "year", "url", "wikipedia"?,
+                  -- "review"?}, ...]} for gap_fill
+                  -- (plain title strings in rows from before MusicBrainz verification)
     status TEXT NOT NULL DEFAULT 'pending'  -- 'pending' | 'accepted' | 'dismissed'
 );
 

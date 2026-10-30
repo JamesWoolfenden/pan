@@ -3708,10 +3708,8 @@ function renderRecommendations(data) {
     recommendationsPanel.appendChild(heading);
     const list = document.createElement("ul");
     for (const r of gapFill) {
-      const albums = (r.detail?.missing_albums || []).join(", ");
-      list.appendChild(
-        buildRecommendationItem(r, `<strong>${escapeHtml(r.artist)}</strong> — ${escapeHtml(albums)}`)
-      );
+      const albums = (r.detail?.missing_albums || []).map(missingAlbumHtml).join(", ");
+      list.appendChild(buildRecommendationItem(r, `<strong>${escapeHtml(r.artist)}</strong> — ${albums}`));
     }
     recommendationsPanel.appendChild(list);
   }
@@ -3726,6 +3724,31 @@ function renderRecommendations(data) {
     }
     recommendationsPanel.appendChild(list);
   }
+}
+
+// A gap-fill album is {title, year, url, wikipedia?, review?} once verified against
+// MusicBrainz - url is its MusicBrainz page, wikipedia/review whatever MusicBrainz links that
+// exact album to; rows from before that are plain title strings. The title links to the best
+// write-up of the music (Wikipedia, else a review, else MusicBrainz), with the review
+// alongside when there's both.
+function missingAlbumHtml(album) {
+  if (typeof album === "string") return escapeHtml(album);
+  const label = escapeHtml(album.year ? `${album.title} (${album.year})` : album.title);
+  const primary = safeHref(album.wikipedia) || safeHref(album.review) || safeHref(album.url);
+  const review = album.wikipedia && safeHref(album.review);
+  let html = primary ? externalLink(primary, label) : label;
+  if (review) html += ` <span class="recommendation-extra">(${externalLink(review, "review")})</span>`;
+  return html;
+}
+
+// Only http(s) links, and attribute-safe - escapeHtml leaves quotes alone.
+function safeHref(url) {
+  if (typeof url !== "string" || !/^https?:\/\//.test(url)) return null;
+  return escapeHtml(url).replaceAll('"', "&quot;");
+}
+
+function externalLink(href, labelHtml) {
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer">${labelHtml}</a>`;
 }
 
 function buildRecommendationItem(r, headlineHtml) {

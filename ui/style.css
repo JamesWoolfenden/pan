@@ -238,6 +238,22 @@ header h1 {
   font-size: 0.8rem;
 }
 
+.recommendation-main a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--text-muted);
+}
+
+.recommendation-main a:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+.recommendation-extra {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
 .recommendation-actions {
   display: flex;
   gap: 0.3rem;

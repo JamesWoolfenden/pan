@@ -66,7 +66,32 @@ def test_salvage_objects_returns_nothing_without_an_array():
     assert _salvage_objects("Sorry, I can't help with that.") == []
 
 
-def test_find_gap_fill_drops_albums_owned_under_another_artist(mocker):
+def _mb(title, year, group_id=None):
+    return {
+        "id": group_id,
+        "title": title,
+        "year": year,
+        "url": f"https://musicbrainz.org/release-group/{group_id}"
+        if group_id
+        else None,
+    }
+
+
+MUSICBRAINZ_ALBUMS = {
+    "Jason Lytle": [
+        _mb("Yours Truly, the Commuter", 2009),
+        _mb("Dept. of Disappearance", 2012, "dept"),
+    ],
+    "Grandaddy": [
+        _mb("Under the Western Freeway", 1997),
+        _mb("The Sophtware Slump", 2000),
+        _mb("Last Place", 2017),
+    ],
+}
+WIKIPEDIA = "https://en.wikipedia.org/wiki/Dept._of_Disappearance"
+
+
+def _gap_fill_library():
     conn = connect(":memory:")
     init_db(conn)
     _album(conn, "Grandaddy", "The Sophtware Slump [+Digital Booklet]")
@@ -74,18 +99,37 @@ def test_find_gap_fill_drops_albums_owned_under_another_artist(mocker):
     _album(conn, "Grandaddy", "Last Place")
     _album(conn, "Jason Lytle", "Yours Truly, the Commuter")
     conn.commit()
+    return conn
 
+
+def _mock_gap_fill(mocker, suggestions, musicbrainz_albums=MUSICBRAINZ_ALBUMS):
     mocker.patch.object(recommend, "_client")
+    mocker.patch.object(recommend, "_ask", return_value=suggestions)
     mocker.patch.object(
-        recommend,
-        "_ask",
-        return_value=[
+        recommend.musicbrainz,
+        "artist_albums",
+        side_effect=lambda artist: (
+            None if musicbrainz_albums is None else musicbrainz_albums.get(artist, [])
+        ),
+    )
+    mocker.patch.object(
+        recommend.musicbrainz,
+        "album_links",
+        side_effect=lambda group_id: {"wikipedia": WIKIPEDIA} if group_id else {},
+    )
+
+
+def test_find_gap_fill_drops_owned_and_invented_albums(mocker):
+    conn = _gap_fill_library()
+    _mock_gap_fill(
+        mocker,
+        [
             {
                 "artist": "Jason Lytle",
                 "missing_albums": [
-                    "Grandaddy - The Sophtware Slump",
-                    "Grandaddy - Under the Western Freeway",
-                    "Nine Clouds",
+                    "Grandaddy - The Sophtware Slump",  # owned, under the band's name
+                    "Joy Square",  # not a real album
+                    "Dept of Disappearance",  # real, loosely spelled
                 ],
                 "reasoning": "x",
             },
@@ -99,6 +143,33 @@ def test_find_gap_fill_drops_albums_owned_under_another_artist(mocker):
 
     items = find_gap_fill(conn, [{"artist": "Jason Lytle"}, {"artist": "Grandaddy"}])
 
-    # Owned albums are filtered out, and an artist left with nothing missing is dropped.
+    # An artist left with nothing real and unowned is dropped; what's kept is MusicBrainz's
+    # own record - title, year, its page there, and the write-up it links that album to.
     assert [i["artist"] for i in items] == ["Jason Lytle"]
-    assert json.loads(items[0]["detail"]) == {"missing_albums": ["Nine Clouds"]}
+    assert json.loads(items[0]["detail"]) == {
+        "missing_albums": [
+            {
+                "title": "Dept. of Disappearance",
+                "year": 2012,
+                "url": "https://musicbrainz.org/release-group/dept",
+                "wikipedia": WIKIPEDIA,
+            }
+        ]
+    }
+
+
+def test_find_gap_fill_shows_nothing_unverified_when_musicbrainz_is_down(mocker):
+    conn = _gap_fill_library()
+    _mock_gap_fill(
+        mocker,
+        [
+            {
+                "artist": "Jason Lytle",
+                "missing_albums": ["Dept. of Disappearance"],
+                "reasoning": "x",
+            }
+        ],
+        musicbrainz_albums=None,
+    )
+
+    assert find_gap_fill(conn, [{"artist": "Jason Lytle"}]) == []

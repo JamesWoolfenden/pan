@@ -8,7 +8,9 @@ Two kinds of suggestion:
 - discovery: new artists not in the library at all, adjacent to the confirmed taste profile.
 
 gap_fill leans on Claude's own music knowledge (same pattern as backend/tagging/cloud_tagger.py)
-- there's no local data that could answer "what are this artist's real studio albums". discovery
+- there's no local data that could answer "what are this artist's real studio albums" - but
+checks every suggested album against MusicBrainz (backend/musicbrainz.py) before showing it,
+since that memory can invent plausible albums for a less well-known artist. discovery
 grounds itself in real listener co-occurrence data from Last.fm when LASTFM_API_KEY is
 configured (see backend/lastfm.py) rather than purely an LLM's own associations, falling back to
 asking Claude directly otherwise. Cheap either way: a handful of calls per run, not one per track.
@@ -24,6 +26,7 @@ import sqlite3
 
 import anthropic
 
+from backend import musicbrainz
 from backend.config import settings
 from backend.db import (
     artist_albums,
@@ -192,13 +195,59 @@ def _album_key(title: str) -> str:
     return re.sub(r"[\W_]+", "", title.casefold())
 
 
-def _already_owned(suggested: str, owned_keys: set[str]) -> bool:
+def _title_keys(suggested: str) -> set[str]:
     """Claude sometimes writes "Band - Album" (e.g. "Grandaddy - The Sophtware Slump" when
-    asked about Jason Lytle), so the part after an "Artist - " prefix is checked too."""
+    asked about Jason Lytle), so the part after an "Artist - " prefix is a candidate too."""
     candidates = [suggested]
     if " - " in suggested:
         candidates.append(suggested.split(" - ", 1)[1])
-    return any((key := _album_key(c)) and key in owned_keys for c in candidates)
+    return {key for c in candidates if (key := _album_key(c))}
+
+
+def _already_owned(suggested: str, owned_keys: set[str]) -> bool:
+    return bool(_title_keys(suggested) & owned_keys)
+
+
+def _verified_missing(
+    artist: str, suggested: list[str], owned_keys: set[str]
+) -> list[dict] | None:
+    """The suggested albums that are both not already owned and real - matched against the
+    artist's MusicBrainz discography, since Claude's own memory of a less well-known artist can
+    include albums that don't exist. Returned as MusicBrainz's own record ({"title", "year",
+    "url"} - see musicbrainz.artist_albums) plus any "wikipedia"/"review" links it has for the
+    album (musicbrainz.album_links). None if MusicBrainz couldn't be reached: unverified
+    suggestions are dropped, not shown."""
+    known = musicbrainz.artist_albums(artist)
+    if known is None:
+        return None
+    by_key: dict[str, dict] = {}
+    for album in known:
+        by_key.setdefault(_album_key(album["title"]), album)
+
+    verified: list[dict] = []
+    seen_ids: set[str | None] = set()
+    for title in suggested:
+        if _already_owned(title, owned_keys):
+            continue
+        match = next((by_key[k] for k in _title_keys(title) if k in by_key), None)
+        if match is None:
+            log.info(
+                "Dropping gap-fill album not on MusicBrainz: %s - %r", artist, title
+            )
+            continue
+        if match["id"] in seen_ids:
+            continue
+        seen_ids.add(match["id"])
+        links = musicbrainz.album_links(match["id"]) if match["id"] else {}
+        verified.append(
+            {
+                "title": match["title"],
+                "year": match["year"],
+                "url": match["url"],
+                **links,
+            }
+        )
+    return verified
 
 
 def find_gap_fill(
@@ -220,12 +269,18 @@ def find_gap_fill(
     owned_keys = {_album_key(a) for a in distinct_album_titles(conn)} - {""}
     items = []
     for r in results:
-        missing = [
-            a
-            for a in r.get("missing_albums") or []
-            if not _already_owned(a, owned_keys)
-        ]
-        if r.get("artist") and missing:
+        if not r.get("artist"):
+            continue
+        missing = _verified_missing(
+            r["artist"], r.get("missing_albums") or [], owned_keys
+        )
+        if missing is None:
+            log.warning(
+                "Skipping gap-fill for %s - MusicBrainz unavailable to verify it",
+                r["artist"],
+            )
+            continue
+        if missing:
             items.append(
                 {
                     "category": "gap_fill",
