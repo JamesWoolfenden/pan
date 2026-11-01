@@ -15,7 +15,11 @@
     (function () {
       try {
         var saved = localStorage.getItem("pan_theme");
-        if (["light", "dark", "midnight", "green", "amber", "cassette"].indexOf(saved) !== -1) {
+        if (
+          ["light", "dark", "midnight", "paper", "braun", "blueprint", "deco", "green", "amber",
+           "c64", "gameboy", "cassette", "nostromo", "hifi", "synthwave", "neon", "vaporwave",
+           "cyberpunk"].indexOf(saved) !== -1
+        ) {
           document.documentElement.dataset.theme = saved;
         }
       } catch {
@@ -35,15 +39,6 @@
   <header>
     <h1>pan</h1>
     <span id="app-version" title="Build version - confirms a deploy actually picked up new code"></span>
-    <select id="theme-select" title="Colour scheme" aria-label="Colour scheme">
-      <option value="system">System</option>
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-      <option value="midnight">Midnight</option>
-      <option value="green">Green screen</option>
-      <option value="amber">Amber</option>
-      <option value="cassette">Cassette</option>
-    </select>
     <button id="recommendations-btn" title="Recommendations: library-improvement and discovery suggestions from your listening history, refreshed each reindex">&#10024;</button>
     <div id="recommendations-panel" hidden></div>
     <button id="admin-toggle" title="Admin" aria-expanded="false">&#9881;</button>
@@ -65,6 +60,39 @@
         title="Normalise volume: reduce loud tracks to match quieter ones"
         aria-pressed="false"
       >Normalise</button>
+      <!-- Colour scheme lives in settings rather than the always-visible header - it's a set-once
+           preference. Wired up in app.js (applyTheme); saved in localStorage. -->
+      <label id="theme-label" for="theme-select">Colour scheme
+        <select id="theme-select" title="Colour scheme">
+          <option value="system">System</option>
+          <optgroup label="Standard">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="midnight">Midnight</option>
+          </optgroup>
+          <optgroup label="Graphic design">
+            <option value="paper">Paper</option>
+            <option value="braun">Braun</option>
+            <option value="blueprint">Blueprint</option>
+            <option value="deco">Art Deco</option>
+          </optgroup>
+          <optgroup label="Retro hardware">
+            <option value="green">Green screen</option>
+            <option value="amber">Amber</option>
+            <option value="c64">Commodore 64</option>
+            <option value="gameboy">Game Boy</option>
+          </optgroup>
+          <optgroup label="Retro-future">
+            <option value="cassette">Cassette</option>
+            <option value="nostromo">Nostromo</option>
+            <option value="hifi">Hi-fi</option>
+            <option value="synthwave">Synthwave</option>
+            <option value="neon">Neon noir</option>
+            <option value="vaporwave">Vaporwave</option>
+            <option value="cyberpunk">Cyberpunk</option>
+          </optgroup>
+        </select>
+      </label>
     </div>
   </header>
 

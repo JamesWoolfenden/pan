@@ -30,7 +30,12 @@ adminToggleBtn.addEventListener("click", () => {
 // match THEMES here; this just takes over the picking/persisting from there.
 const THEME_KEY = "pan_theme";
 const themeSelect = document.getElementById("theme-select");
-const THEMES = ["light", "dark", "midnight", "green", "amber", "cassette"];
+const THEMES = [
+  "light", "dark", "midnight",
+  "paper", "braun", "blueprint", "deco",
+  "green", "amber", "c64", "gameboy",
+  "cassette", "nostromo", "hifi", "synthwave", "neon", "vaporwave", "cyberpunk",
+];
 // Browser/PWA chrome colour (status bar) per custom theme, so it doesn't clash with the page.
 // light/dark/system keep index.html's own prefers-color-scheme-aware <meta theme-color> tags.
 const THEME_CHROME = {
@@ -38,6 +43,18 @@ const THEME_CHROME = {
   green: "#020b03",
   amber: "#0d0800",
   cassette: "#1b1915",
+  paper: "#f4ecd8",
+  c64: "#352879",
+  nostromo: "#0a1214",
+  hifi: "#cfd0d2",
+  synthwave: "#140a2a",
+  neon: "#05070d",
+  vaporwave: "#f3e8ff",
+  braun: "#ebe9e4",
+  blueprint: "#0f3d7a",
+  deco: "#0e0e0e",
+  gameboy: "#9bbc0f",
+  cyberpunk: "#08080a",
 };
 
 function currentTheme() {
