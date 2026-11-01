@@ -22,33 +22,41 @@ adminToggleBtn.addEventListener("click", () => {
   adminToggleBtn.setAttribute("aria-expanded", String(!adminPanelEl.hidden));
 });
 
-// Light/Dark/System, cycled by clicking #theme-toggle - System (no [data-theme] override) is
-// what index.html's inline head script leaves things in by default, letting :root's own
-// prefers-color-scheme media query follow the OS. The inline script (not this file, loaded at
-// the end of body) applies a saved light/dark choice before first paint, so there's no flash of
-// the wrong theme on load; this just takes over the cycling/persisting from there.
+// Colour scheme, picked from #theme-select. "system" (no [data-theme] override) is what
+// index.html's inline head script leaves things in by default, letting :root's own
+// prefers-color-scheme media query follow the OS; every other name is a [data-theme] block in
+// style.css. The inline script (not this file, loaded at the end of body) applies a saved choice
+// before first paint, so there's no flash of the wrong theme on load - its list of names must
+// match THEMES here; this just takes over the picking/persisting from there.
 const THEME_KEY = "pan_theme";
-const themeToggleBtn = document.getElementById("theme-toggle");
-const THEME_CYCLE = { system: "light", light: "dark", dark: "system" };
-// Plain Unicode glyphs, not emoji - color emoji ignore CSS `color` entirely, same reason
-// repeatBtn's own glyph was picked (see updateShuffleRepeatButtons).
-const THEME_GLYPHS = { system: "◐", light: "☀", dark: "☾" };
-const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
+const themeSelect = document.getElementById("theme-select");
+const THEMES = ["light", "dark", "midnight", "green", "amber", "cassette"];
+// Browser/PWA chrome colour (status bar) per custom theme, so it doesn't clash with the page.
+// light/dark/system keep index.html's own prefers-color-scheme-aware <meta theme-color> tags.
+const THEME_CHROME = {
+  midnight: "#0b1020",
+  green: "#020b03",
+  amber: "#0d0800",
+  cassette: "#1b1915",
+};
 
 function currentTheme() {
   const attr = document.documentElement.dataset.theme;
-  return attr === "light" || attr === "dark" ? attr : "system";
+  return THEMES.includes(attr) ? attr : "system";
 }
 
 function applyTheme(theme) {
-  if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+  if (THEMES.includes(theme)) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
-  themeToggleBtn.textContent = THEME_GLYPHS[theme];
-  themeToggleBtn.title = `Theme: ${THEME_LABELS[theme]} - click for ${THEME_LABELS[THEME_CYCLE[theme]]}`;
+  themeSelect.value = theme;
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    if (!meta.dataset.original) meta.dataset.original = meta.content;
+    meta.content = THEME_CHROME[theme] || meta.dataset.original;
+  }
 }
 
-themeToggleBtn.addEventListener("click", () => {
-  const next = THEME_CYCLE[currentTheme()];
+themeSelect.addEventListener("change", () => {
+  const next = themeSelect.value;
   applyTheme(next);
   try {
     if (next === "system") localStorage.removeItem(THEME_KEY);

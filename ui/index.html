@@ -6,16 +6,18 @@
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f9f9f7" />
   <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15171a" />
   <title>pan</title>
-  <!-- Applies a saved light/dark override before first paint, synchronously, so there's no flash
+  <!-- Applies a saved colour-scheme choice before first paint, synchronously, so there's no flash
        of the OS-default theme before app.js (loaded at the end of body) gets a chance to run -
-       see #theme-toggle's wiring there for the cycle this persists. Absence of pan_theme (or an
-       unrecognized value) leaves [data-theme] unset, which is what lets :root's own
+       see #theme-select's wiring there (THEMES must list the same names). Absence of pan_theme
+       (or an unrecognized value) leaves [data-theme] unset, which is what lets :root's own
        prefers-color-scheme media query keep following the OS. -->
   <script>
     (function () {
       try {
         var saved = localStorage.getItem("pan_theme");
-        if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+        if (["light", "dark", "midnight", "green", "amber", "cassette"].indexOf(saved) !== -1) {
+          document.documentElement.dataset.theme = saved;
+        }
       } catch {
         // localStorage unavailable (private browsing etc) - falls back to the OS theme
       }
@@ -33,7 +35,15 @@
   <header>
     <h1>pan</h1>
     <span id="app-version" title="Build version - confirms a deploy actually picked up new code"></span>
-    <button id="theme-toggle" title="Theme"></button>
+    <select id="theme-select" title="Colour scheme" aria-label="Colour scheme">
+      <option value="system">System</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+      <option value="midnight">Midnight</option>
+      <option value="green">Green screen</option>
+      <option value="amber">Amber</option>
+      <option value="cassette">Cassette</option>
+    </select>
     <button id="recommendations-btn" title="Recommendations: library-improvement and discovery suggestions from your listening history, refreshed each reindex">&#10024;</button>
     <div id="recommendations-panel" hidden></div>
     <button id="admin-toggle" title="Admin" aria-expanded="false">&#9881;</button>
