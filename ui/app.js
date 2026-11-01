@@ -958,7 +958,7 @@ let lastResults = [];
 let previousResults = null;
 
 let shuffle = false;
-let shuffledOrder = []; // indices into queue, in shuffled playback order (only meaningful when shuffle is true)
+let unshuffledIds = null; // ids in pre-shuffle order while shuffle is on, see shuffleQueueInPlace
 let repeatMode = "none"; // "none" -> "all" -> "one" -> "none"
 
 const SEARCH_PAGE_SIZE = 25;
@@ -1438,6 +1438,7 @@ function buildPlaylistPickerPanel(trackIdsSource) {
             const newTracks = data.results.filter((t) => t.file_path && !queuedIds.has(t.id));
             if (newTracks.length) {
               queue = queue.concat(newTracks.map(toQueueEntry));
+              noteQueuedWhileShuffled(newTracks.map((t) => t.id));
               renderQueue();
               persistQueueState();
             }
@@ -1488,6 +1489,7 @@ function playTrackList(results, bannerText, sourcePlaylist = null) {
   lastResults = results;
   renderResults(lastResults);
   queue = results.filter((r) => r.file_path).map(toQueueEntry);
+  shuffleNewQueue();
   // Only set when loaded via playPlaylist (below) - lets "Save as playlist" offer to update
   // this same playlist instead of always creating a new one. Stays set across queue edits
   // (add/remove) within this session, so tweaking a playlist and saving updates it in place;
@@ -2361,6 +2363,7 @@ function pauseOtherPlayers(current) {
 playAllBtn.addEventListener("click", () => {
   const playable = lastResults.filter((r) => r.file_path);
   queue = playable.map(toQueueEntry);
+  shuffleNewQueue();
   currentPlaylistId = null;
   currentPlaylistName = null;
   renderQueue();
@@ -2378,6 +2381,7 @@ playlistAllBtn.addEventListener("click", () => {
 
 function addToQueue(track) {
   queue.push(toQueueEntry(track));
+  noteQueuedWhileShuffled([track.id]);
   renderQueue();
   if (currentIndex === -1) playAt(0);
 }
@@ -2390,6 +2394,7 @@ function playFromResults(track) {
   let index = queue.findIndex((t) => t.id === track.id);
   if (index === -1) {
     queue.push(toQueueEntry(track));
+    noteQueuedWhileShuffled([track.id]);
     renderQueue();
     index = queue.length - 1;
   }
@@ -2427,44 +2432,74 @@ function toQueueEntry(r) {
   return r;
 }
 
-// Shuffle doesn't reorder the visible queue list - it only changes which track next/prev
-// moves to, via a separate permutation of queue indices. Rebuilding is keyed off the queue's
-// length changing, which covers add/remove without needing an explicit dirty flag; the
-// current track is always pinned first so toggling shuffle on mid-playback doesn't jump away
-// from what's currently playing.
-function rebuildShuffleOrder() {
-  const indices = queue.map((_, i) => i);
-  for (let i = indices.length - 1; i > 0; i--) {
+// Shuffle physically reorders the visible queue, so what you see is what plays. The pre-shuffle
+// order is kept as a list of track ids (unshuffledIds, persisted with the rest of the queue
+// state) so turning shuffle off restores it, and so "Save as playlist" can still write the
+// playlist's real order rather than a random one. The current track is pinned first so
+// toggling shuffle on mid-playback doesn't jump away from what's playing. Ids rather than
+// objects because the queue round-trips through JSON (localStorage, /now-playing).
+
+function shuffleQueueInPlace() {
+  const current = currentIndex !== -1 ? queue[currentIndex] : null;
+  const rest = queue.filter((_, i) => i !== currentIndex);
+  for (let i = rest.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
+    [rest[i], rest[j]] = [rest[j], rest[i]];
   }
-  if (currentIndex !== -1) {
-    const pos = indices.indexOf(currentIndex);
-    if (pos > 0) {
-      indices.splice(pos, 1);
-      indices.unshift(currentIndex);
-    }
+  queue = current ? [current, ...rest] : rest;
+  currentIndex = current ? 0 : -1;
+}
+
+// Call after a whole new queue replaces the old one (play all, play playlist) with shuffle on.
+function shuffleNewQueue() {
+  if (!shuffle) return;
+  currentIndex = -1;
+  unshuffledIds = queue.map((t) => t.id);
+  shuffleQueueInPlace();
+}
+
+// The queue entries in their pre-shuffle order (non-mutating). Tracks added or removed since
+// shuffling are handled: removed ones are skipped, new ones go on the end.
+function originalOrderedQueue() {
+  // Keyed on unshuffledIds alone (null whenever shuffle is off), not the `shuffle` flag - the
+  // toggle handler flips that flag before calling disableShuffle().
+  if (!unshuffledIds) return queue.slice();
+  const pool = queue.slice();
+  const ordered = [];
+  for (const id of unshuffledIds) {
+    const k = pool.findIndex((t) => t.id === id);
+    if (k !== -1) ordered.push(...pool.splice(k, 1));
   }
-  shuffledOrder = indices;
+  return ordered.concat(pool);
+}
+
+function enableShuffle() {
+  unshuffledIds = queue.map((t) => t.id);
+  shuffleQueueInPlace();
+}
+
+function disableShuffle() {
+  const current = currentIndex !== -1 ? queue[currentIndex] : null;
+  queue = originalOrderedQueue();
+  currentIndex = current ? queue.indexOf(current) : -1;
+  unshuffledIds = null;
+}
+
+// Ids in the order a playlist should be saved: the real order, not the shuffled one.
+function queueIdsForSave() {
+  return originalOrderedQueue().map((t) => t.id);
+}
+
+function noteQueuedWhileShuffled(ids) {
+  if (unshuffledIds) unshuffledIds.push(...ids);
 }
 
 function nextQueueIndex(i) {
-  if (shuffle) {
-    if (shuffledOrder.length !== queue.length) rebuildShuffleOrder();
-    const pos = shuffledOrder.indexOf(i);
-    if (pos === -1 || pos + 1 >= shuffledOrder.length) return repeatMode === "all" ? shuffledOrder[0] ?? -1 : -1;
-    return shuffledOrder[pos + 1];
-  }
   if (i + 1 < queue.length) return i + 1;
   return repeatMode === "all" && queue.length ? 0 : -1;
 }
 
 function prevQueueIndex(i) {
-  if (shuffle) {
-    if (shuffledOrder.length !== queue.length) rebuildShuffleOrder();
-    const pos = shuffledOrder.indexOf(i);
-    return pos > 0 ? shuffledOrder[pos - 1] : -1;
-  }
   return i - 1 >= 0 ? i - 1 : -1;
 }
 
@@ -2482,9 +2517,12 @@ function updateShuffleRepeatButtons() {
 
 shuffleBtn.addEventListener("click", () => {
   shuffle = !shuffle;
-  if (shuffle) rebuildShuffleOrder();
+  if (shuffle) enableShuffle();
+  else disableShuffle();
   updateShuffleRepeatButtons();
-  persistQueueState();
+  renderQueue(); // also persists the new state
+  // The next track changed with the order, so the gapless prefetch must follow.
+  if (currentIndex !== -1) schedulePrefetch(queue[nextQueueIndex(currentIndex)]);
 });
 
 repeatBtn.addEventListener("click", () => {
@@ -2687,6 +2725,7 @@ function persistQueueState() {
     queue,
     currentIndex,
     shuffle,
+    unshuffledIds: shuffle ? unshuffledIds : null,
     repeatMode,
     currentPlaylistId,
     currentPlaylistName,
@@ -2744,7 +2783,9 @@ async function restoreQueueState() {
   repeatMode = ["all", "one"].includes(saved.repeatMode) ? saved.repeatMode : "none";
   currentPlaylistId = typeof saved.currentPlaylistId === "number" ? saved.currentPlaylistId : null;
   currentPlaylistName = currentPlaylistId ? saved.currentPlaylistName || null : null;
-  if (shuffle) rebuildShuffleOrder();
+  // States saved before shuffle reordered the queue have no unshuffledIds: they stay in their
+  // stored order, and turning shuffle off just leaves it as is.
+  unshuffledIds = shuffle && Array.isArray(saved.unshuffledIds) ? saved.unshuffledIds : null;
   updateShuffleRepeatButtons();
   renderQueue();
 
@@ -3421,7 +3462,7 @@ async function saveAsNewPlaylist() {
   await fetch("/playlists", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: name.trim(), track_ids: queue.map((t) => t.id) }),
+    body: JSON.stringify({ name: name.trim(), track_ids: queueIdsForSave() }),
   });
   loadPlaylists();
 }
@@ -3431,7 +3472,7 @@ saveBtn.addEventListener("click", async () => {
     await fetch(`/playlists/${currentPlaylistId}/tracks`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ track_ids: queue.map((t) => t.id) }),
+      body: JSON.stringify({ track_ids: queueIdsForSave() }),
     });
     loadPlaylists();
     return;
@@ -3441,7 +3482,7 @@ saveBtn.addEventListener("click", async () => {
 
 // Unlike Save (which creates a new playlist or overwrites the one the queue was loaded from),
 // this adds the whole queue onto an existing playlist of your choice, same as per-track +Playlist.
-const addToPlaylistPanel = buildPlaylistPickerPanel(() => queue.map((t) => t.id));
+const addToPlaylistPanel = buildPlaylistPickerPanel(() => queueIdsForSave());
 document.getElementById("queue-header").appendChild(addToPlaylistPanel);
 addToPlaylistBtn.addEventListener("click", () => {
   addToPlaylistPanel.hidden = !addToPlaylistPanel.hidden;
@@ -3458,6 +3499,7 @@ clearBtn.addEventListener("click", () => {
     activeBlobUrl = null;
   }
   queue = [];
+  unshuffledIds = null;
   currentIndex = -1;
   currentPlaylistId = null;
   currentPlaylistName = null;
