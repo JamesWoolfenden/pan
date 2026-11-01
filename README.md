@@ -50,6 +50,10 @@ playlists and stats panels](docs/screenshot.jpg)
   behavior (play count × completion rate, not just genre tags). Discovery is grounded in real
   Last.fm listener co-occurrence data when `LASTFM_API_KEY` is set (optional, also free),
   otherwise falls back to asking Claude directly. Viewable/downloadable from the admin panel.
+- **Scrobbles to Last.fm** (optional): plays that meet Last.fm's rules (track over 30s, heard
+  for half or 4 minutes) are queued and submitted with their real start time, retried if
+  Last.fm or the network is down. Needs `LASTFM_API_SECRET` and `LASTFM_SESSION_KEY` alongside
+  the API key — run `uv run python scripts/lastfm_auth.py` once to get the session key.
 - **Installable as a PWA** on a phone's home screen, with offline-friendly static assets via a
   service worker.
 

@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # signup at https://www.last.fm/api/account/create. Recommendations still work without it -
     # falls back to asking Claude directly, see recommend.py.
     lastfm_api_key: str = ""
+    # Scrobbling (backend/scrobble.py) additionally needs the API account's shared secret and a
+    # session key for your Last.fm user - get the key once with `uv run python scripts/lastfm_auth.py`.
+    # Scrobbling is off unless all three are set.
+    lastfm_api_secret: str = ""
+    lastfm_session_key: str = ""
     # Grounds backend/youtube.py's video-mode matching in a real duration check rather than
     # trusting the top text-search result. Free Google Cloud API key with YouTube Data API v3
     # enabled - note its free quota is 10,000 units/day and a search costs 100, so ~100 track

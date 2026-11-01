@@ -8,7 +8,7 @@ import secrets
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -65,6 +65,7 @@ from backend.search.engine import search_by_tag as run_search_by_tag
 from backend.search.engine import similar as run_similar
 from backend.search.engine import suggest_for_playlist as run_suggest_for_playlist
 from backend.search.engine import versions as run_versions
+from backend.scrobble import enqueue_play, flush_queue
 from backend.stats import (
     dislikes,
     favorites,
@@ -346,12 +347,19 @@ class PlayEvent(BaseModel):
 
 
 @app.post("/track/{track_id}/play-event")
-def play_event_endpoint(track_id: int, event: PlayEvent):
+def play_event_endpoint(
+    track_id: int, event: PlayEvent, background_tasks: BackgroundTasks
+):
     with connection() as conn:
-        if get_track(conn, track_id) is None:
+        track = get_track(conn, track_id)
+        if track is None:
             raise HTTPException(status_code=404, detail="Track not found")
         record_play_event(conn, track_id, event.percent_listened)
+        queued = enqueue_play(conn, track, event.percent_listened)
         conn.commit()
+    if queued:
+        # After the response: the Last.fm call can take seconds and the player shouldn't wait.
+        background_tasks.add_task(flush_queue)
     return {"status": "ok"}
 
 

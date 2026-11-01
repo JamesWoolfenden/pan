@@ -108,6 +108,19 @@ CREATE TABLE IF NOT EXISTS play_events (
 );
 CREATE INDEX IF NOT EXISTS idx_play_events_track ON play_events(track_id);
 
+-- Plays waiting to be scrobbled to Last.fm (backend/scrobble.py). A queue rather than a
+-- fire-and-forget call so plays made while Last.fm or the network is down aren't lost - they
+-- stay here until a later flush succeeds. timestamp is when the play STARTED (unix seconds),
+-- which is what Last.fm wants, not when the play-event arrived.
+CREATE TABLE IF NOT EXISTS scrobble_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    artist TEXT NOT NULL,
+    track TEXT NOT NULL,
+    album TEXT,
+    duration_s INTEGER,
+    timestamp INTEGER NOT NULL
+);
+
 -- Single-row (id=1) table, not per-device: the point is one shared "what was I listening to"
 -- state that follows you between devices, not independent state per device. Whichever device
 -- last wrote wins; a device picks it up on load if it's newer than what it has locally.
