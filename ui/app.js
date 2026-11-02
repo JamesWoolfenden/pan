@@ -3038,10 +3038,20 @@ function guessCastContentType(track) {
 // reachable there except the page's own origin, which is also the only thing that actually needs
 // to be: casting from a phone against the deployed app was failing because this was hardcoded to
 // always assume the dev :8080 workaround, even in a deployment with no such port.
-const CAST_STREAM_ORIGIN =
+let CAST_STREAM_ORIGIN =
   location.protocol === "https:" && location.port === "8000"
     ? `http://${location.hostname}:8080`
     : location.origin;
+
+// The deployed app is served from a tailnet address the Chromecast can't reach at all, so the
+// server can name a LAN-reachable stream-only origin instead (CAST_STREAM_ORIGIN in .env /
+// docker-compose.yml's pan-stream). When set it wins over the guess above.
+fetch("/config")
+  .then((r) => (r.ok ? r.json() : {}))
+  .then((cfg) => {
+    if (cfg.cast_stream_origin) CAST_STREAM_ORIGIN = cfg.cast_stream_origin.replace(/\/+$/, "");
+  })
+  .catch(() => {});
 
 function isCasting() {
   return !!(castPlayer && castPlayer.isConnected);

@@ -216,9 +216,13 @@ needed for this path.
 8. Install [Tailscale](https://tailscale.com/download) on your phone/laptop and sign in to the
    same tailnet. The URL from step 7 now works from anywhere, not just the LAN.
 
-Chromecast casting still only works on the LAN (Cast discovery is LAN-multicast and the
-receiver hardware can't authenticate anyway) — unaffected by any of this, since `/stream/*` is
-exempt from the auth gate and the sidecar doesn't change how the NAS sits on your home network.
+**Chromecast on the deployed app**: the receiver can't reach the tailnet address, so
+`docker-compose.yml` also runs `pan-stream`: the same image, publishing only `/stream/*` (everything
+else 404s) on NAS port 8080, plain HTTP because the receiver does real TLS validation. Set
+`CAST_STREAM_ORIGIN=http://<NAS LAN IP>:8080` in the NAS's `.env` and the UI hands that URL to the
+Chromecast. Cast discovery is still LAN-multicast, so your phone must be on the home Wi-Fi to see
+the device. `/stream/*` is exempt from the auth gate (the receiver can't send credentials), so
+anyone on your LAN who knows a track id can fetch that file.
 
 **Updating the deployed app**: every push to `master` runs CI (`.github/workflows/ci.yml`),
 which runs the tests, builds the image, smoke-tests the container, and only then pushes it to

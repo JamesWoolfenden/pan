@@ -114,7 +114,12 @@ async def require_auth(request, call_next):
     reindex. /stream/* is exempt: Chromecast's receiver fetches it directly and can't supply
     credentials, and it's already LAN-trust-only per the Makefile's port-8080 plain-HTTP path.
     /version is exempt too - harmless to expose, and needs to be checkable without logging in,
-    the whole point being to confirm a deploy actually updated before chasing a phantom bug."""
+    the whole point being to confirm a deploy actually updated before chasing a phantom bug.
+
+    PAN_STREAM_ONLY instances (the LAN-published Chromecast stream container) 404 everything
+    except /stream/*, so nothing else is ever exposed on that port."""
+    if settings.pan_stream_only and not request.url.path.startswith("/stream/"):
+        return Response(status_code=404)
     if (
         settings.pan_auth_user
         and settings.pan_auth_password
@@ -145,17 +150,27 @@ def version_endpoint():
     return {"version": VERSION, **_startup_info}
 
 
+@app.get("/config")
+def config_endpoint():
+    return {"cast_stream_origin": settings.cast_stream_origin}
+
+
 _reindex_lock = threading.Lock()
 _reindex_status = {"running": False, "last_result": None, "error": None}
 
 
-with connection() as _conn:
-    init_db(_conn)
-    _startup_info = record_startup(_conn)
+if settings.pan_stream_only:
+    _startup_info = {}
+else:
+    with connection() as _conn:
+        init_db(_conn)
+        _startup_info = record_startup(_conn)
 
 
 @app.on_event("shutdown")
 def _on_shutdown():
+    if settings.pan_stream_only:
+        return
     with connection() as conn:
         record_app_event(conn, "shutdown")
 
