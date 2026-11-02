@@ -64,6 +64,7 @@ def main() -> None:
                         features["tempo"],
                         features["energy"],
                         features["musical_key"],
+                        features["loudness_lufs"],
                     )
                     succeeded += 1
                 else:
