@@ -10,10 +10,18 @@ audio_features.py) fixes new extractions; this script redoes the old ones.
 Parallelized across CPU cores since librosa's beat tracking is pure CPU work with no shared
 state - each worker just reads one audio file and returns numbers. DB writes happen sequentially
 in the main process so SQLite isn't hit with concurrent writers.
+
+Usage:
+    uv run python -m scripts.reextract_tempo --limit 300      # trial run on a few hundred tracks
+    uv run python -m scripts.reextract_tempo --workers 10     # full library on a big machine
+
+The default is 2 workers, safe on a NAS CPU alongside the running server. Local video rows are
+skipped: tempo/energy/key are music-specific heuristics (see reindex.py).
 """
 
 from __future__ import annotations
 
+import argparse
 import logging
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -27,7 +35,7 @@ log = logging.getLogger("reextract_tempo")
 
 COMMIT_EVERY = 50
 LOG_EVERY = 200
-WORKERS = 10  # leaves headroom on a 12-core machine for the running server + normal use
+DEFAULT_WORKERS = 2
 
 
 def _extract(job: tuple[int, str]) -> tuple[int, dict | None]:
@@ -36,24 +44,43 @@ def _extract(job: tuple[int, str]) -> tuple[int, dict | None]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("Usage:")[0].strip())
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help=f"Parallel decode processes (default: {DEFAULT_WORKERS})",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Only process the first N tracks (by id) - for a trial run",
+    )
+    args = parser.parse_args()
+    workers = max(1, args.workers)
+
     with connection() as conn:
         init_db(conn)
         rows = conn.execute(
-            "SELECT id, file_path FROM tracks WHERE file_path IS NOT NULL"
+            "SELECT id, file_path FROM tracks "
+            "WHERE file_path IS NOT NULL AND source != 'local_video' ORDER BY id"
+            + (" LIMIT ?" if args.limit else ""),
+            (args.limit,) if args.limit else (),
         ).fetchall()
         jobs = [(row["id"], row["file_path"]) for row in rows]
 
     log.info(
         "Re-extracting audio features for %d tracks across %d workers",
         len(jobs),
-        WORKERS,
+        workers,
     )
     succeeded = 0
     failed = 0
     start = time.monotonic()
 
     with connection() as conn:
-        with ProcessPoolExecutor(max_workers=WORKERS) as pool:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
             for processed, (track_id, features) in enumerate(
                 pool.map(_extract, jobs, chunksize=4), start=1
             ):
