@@ -111,14 +111,11 @@ async def require_auth(request, call_next):
     """Single-user HTTP Basic auth gate - a no-op when PAN_AUTH_USER/PASSWORD aren't set, so
     LAN-only use (`make run`) is unaffected. Once the app is reachable beyond the LAN (e.g. over
     Tailscale), set both so a visitor can't browse the library or trigger the Claude-billed
-    reindex. /stream/* is exempt (a leftover from Chromecast support, which can't send
-    credentials) - it is still only reachable on the tailnet, but is a candidate to gate too.
-    /version is exempt too - harmless to expose, and needs to be checkable without logging in,
+    reindex. /version is exempt - harmless to expose, and needs to be checkable without logging in,
     the whole point being to confirm a deploy actually updated before chasing a phantom bug."""
     if (
         settings.pan_auth_user
         and settings.pan_auth_password
-        and not request.url.path.startswith("/stream/")
         and request.url.path != "/version"
     ):
         valid = False

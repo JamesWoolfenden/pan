@@ -61,8 +61,7 @@ playlists and stats panels](docs/screenshot.jpg)
 - LAN-only by default, or reachable from anywhere via the Tailscale-based NAS deployment below
   (no port-forwarding, no public exposure).
 - Single-user HTTP Basic Auth (`PAN_AUTH_USER`/`PAN_AUTH_PASSWORD`) gates everything once the
-  app is reachable beyond the LAN, except `/stream/*` (exempt for historical reasons — it was
-  needed for Chromecast, which is no longer supported — and still only reachable on your tailnet).
+  app is reachable beyond the LAN, including `/stream/*`, except `/version`.
 
 ## Setup
 
