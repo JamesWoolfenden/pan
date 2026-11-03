@@ -1,6 +1,6 @@
 .PHONY: install run stop reindex import-rip test deploy FORCE
 
-# This machine's LAN IP, baked into the self-signed cert's SAN so phones/Chromecast on the
+# This machine's LAN IP, baked into the self-signed cert's SAN so phones on the
 # LAN can reach it over HTTPS (needed for PWA install - browsers require a secure context).
 # Auto-detected fresh on every `make run` (scripts/host_ip.py filters Windows' adapter list by
 # name to skip Tailscale/NordVPN/other VPN adapters, even a full-tunnel one that's become the
@@ -27,13 +27,8 @@ certs/cert.pem: certs/.host_ip
 		-subj "/CN=pan.local" \
 		-addext "subjectAltName=IP:$(HOST_IP),DNS:localhost,IP:127.0.0.1"
 
-# Chromecast's receiver hardware fetches /stream/{id} directly and does real TLS validation -
-# it can't click through a self-signed cert warning the way a browser can, so casting needs a
-# plain-HTTP path. Port 8080 here is that path (whole app, but only /stream is actually used
-# over it); the main app stays on HTTPS:8000 for the PWA/secure-context requirement.
+# HTTPS on :8000 for the PWA/secure-context requirement.
 run: certs/cert.pem
-	uv run uvicorn backend.app:app --host 0.0.0.0 --port 8080 & \
-	trap 'kill %1' EXIT; \
 	uv run uvicorn backend.app:app --reload --host 0.0.0.0 --port 8000 \
 		--ssl-keyfile certs/key.pem --ssl-certfile certs/cert.pem
 

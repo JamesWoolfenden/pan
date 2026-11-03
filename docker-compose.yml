@@ -60,24 +60,3 @@ services:
       # these are deliberately two different variables, see README.
       - ${NAS_MUSIC_PATH}:/music:ro
     restart: unless-stopped
-
-  # Chromecast-only: the receiver fetches /stream/{id} itself over the home LAN and can't reach
-  # the tailnet address above. This runs the same image publishing ONLY /stream/* (everything
-  # else 404s, no database writes) on a LAN port. Set CAST_STREAM_ORIGIN in .env to
-  # http://<NAS LAN IP>:8080 so the UI hands that URL to the Chromecast. Plain HTTP on purpose:
-  # the receiver does real TLS validation and a LAN IP can't have a trusted cert.
-  pan-stream:
-    # holden:ignore:HLD_DC_001
-    # holden:ignore:HLD_DC_007
-    image: ghcr.io/jameswoolfenden/pan:latest
-    env_file:
-      - .env
-    environment:
-      - PAN_STREAM_ONLY=true
-    ports:
-      - "8080:8000"
-    volumes:
-      # Read-only: this instance only reads track paths from the db and streams the file.
-      - ./pan.db:/app/pan.db:ro
-      - ${NAS_MUSIC_PATH}:/music:ro
-    restart: unless-stopped

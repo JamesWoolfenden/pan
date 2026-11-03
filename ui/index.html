@@ -121,7 +121,6 @@
           <button id="queue-next" disabled>&#9654;&#9654;</button>
           <button id="queue-repeat" disabled title="Repeat off">&#128257;</button>
           <button id="queue-video-mode" disabled title="Video mode: play a YouTube match instead of audio, when one's found" aria-pressed="false">&#127909;</button>
-          <google-cast-launcher id="cast-button"></google-cast-launcher>
           <button id="queue-save" disabled title="Save as playlist">&#128190;</button>
           <button id="queue-add-to-playlist" disabled title="Add all queued tracks to a playlist - new or existing">&#10133; Playlist</button>
           <button id="queue-clear" disabled title="Clear">&#128465;</button>
@@ -159,19 +158,6 @@
       <div id="local-video-wrap" class="video-surface" hidden>
         <video id="local-video-player" class="video-surface-el" controls preload="auto"></video>
       </div>
-      <div id="cast-status" hidden></div>
-      <div id="cast-progress-controls" hidden>
-        <span id="cast-time-current">0:00</span>
-        <input id="cast-progress" type="range" min="0" max="0" step="1" title="Seek" />
-        <span id="cast-time-duration">0:00</span>
-      </div>
-      <div id="cast-volume-controls" hidden>
-        <button id="cast-volume-toggle" title="Show volume control" aria-expanded="false">&#128266;</button>
-        <div id="cast-volume-sliders" class="collapsed">
-          <button id="cast-mute" title="Mute">&#128266;</button>
-          <input id="cast-volume" type="range" min="0" max="1" step="0.05" title="Cast volume" />
-        </div>
-      </div>
       <ol id="queue-list"></ol>
     </section>
 
@@ -203,8 +189,8 @@
          only, no room for a graphic EQ without it dominating the page). A permanent pane here,
          same shape as #playlists-panel (header + collapsible body), rather than the popup/flyout
          this used to be - this column has the width to just hold it in place. Only has an effect
-         on the local <audio> element in #queue-panel, since Chromecast and video mode both play
-         back through an entirely separate path (the receiver, and the YouTube iframe) that this
+         on the local <audio> element in #queue-panel, since YouTube video mode plays
+         back through an entirely separate path (the iframe) that this
          Web Audio graph never touches, so app.js's updateEqAvailability() greys the body out in
          those modes rather than leaving sliders that silently do nothing. -->
     <section id="eq-pane">
@@ -337,7 +323,6 @@
     </div>
   </main>
 
-  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

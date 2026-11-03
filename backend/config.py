@@ -48,14 +48,6 @@ class Settings(BaseSettings):
     # triggering the Claude-billed reindex or browsing the library.
     pan_auth_user: str = ""
     pan_auth_password: str = ""
-    # Chromecast's receiver fetches /stream/{id} itself, so it needs a URL on the home LAN - the
-    # tailnet address the page is served from isn't reachable by it. Set to the LAN-published
-    # stream-only container (docker-compose.yml's pan-stream), e.g. http://192.168.1.50:8080.
-    # Blank = the UI falls back to guessing from the page's own origin (fine for `make run`).
-    cast_stream_origin: str = ""
-    # Serve nothing but /stream/* (404 for everything else) and don't touch the database at
-    # startup. For the LAN-published pan-stream container, which must expose only audio streaming.
-    pan_stream_only: bool = False
 
     @property
     def db_file(self) -> Path:

@@ -1,7 +1,7 @@
 # pan
 
 A self-hosted web app for a music library spread across a Plex server and a shared drive of
-local files: AI-assisted search/tagging, a full in-browser player with Chromecast support, and
+local files: AI-assisted search/tagging, a full in-browser player, and
 installable as a PWA — reachable just on the LAN, or from anywhere via the Tailscale deployment
 below.
 
@@ -28,8 +28,7 @@ playlists and stats panels](docs/screenshot.jpg)
 ## Listening
 
 - **Plays** tracks in-browser with a persistent queue (shuffle/repeat, save-as-playlist,
-  gapless prefetch of the next track), or casts to a **Chromecast** with its own volume and
-  seek controls.
+  gapless prefetch of the next track).
 - **Remembers what you were listening to between devices** — pause on your phone, pick it back
   up on the desktop.
 - **Playlists**, **favorites**, and **listening stats** (most/never played, most skipped,
@@ -62,8 +61,8 @@ playlists and stats panels](docs/screenshot.jpg)
 - LAN-only by default, or reachable from anywhere via the Tailscale-based NAS deployment below
   (no port-forwarding, no public exposure).
 - Single-user HTTP Basic Auth (`PAN_AUTH_USER`/`PAN_AUTH_PASSWORD`) gates everything once the
-  app is reachable beyond the LAN, except `/stream/*` (Chromecast's receiver can't send
-  credentials, and that endpoint is LAN-trust-only regardless).
+  app is reachable beyond the LAN, except `/stream/*` (exempt for historical reasons — it was
+  needed for Chromecast, which is no longer supported — and still only reachable on your tailnet).
 
 ## Setup
 
@@ -130,10 +129,6 @@ the filesystem, or the Claude API.
 - **Audio feature extraction** only runs for tracks whose file is reachable from this machine;
   Plex tracks are only feature-analyzed if their underlying file path also resolves locally
   (e.g. the Plex library and the shared drive are the same mount).
-- **Local video + Chromecast**: casting a local video file (`source: local_video`) isn't
-  supported — casting assumes audio-style streaming. Rare enough combination that it's not worth
-  building for yet; local video plays fine in-browser with the full EQ chain, just not on a cast
-  target.
 
 ## Deploying elsewhere
 
@@ -215,14 +210,6 @@ needed for this path.
    from here on, with no manual step.
 8. Install [Tailscale](https://tailscale.com/download) on your phone/laptop and sign in to the
    same tailnet. The URL from step 7 now works from anywhere, not just the LAN.
-
-**Chromecast on the deployed app**: the receiver can't reach the tailnet address, so
-`docker-compose.yml` also runs `pan-stream`: the same image, publishing only `/stream/*` (everything
-else 404s) on NAS port 8080, plain HTTP because the receiver does real TLS validation. Set
-`CAST_STREAM_ORIGIN=http://<NAS LAN IP>:8080` in the NAS's `.env` and the UI hands that URL to the
-Chromecast. Cast discovery is still LAN-multicast, so your phone must be on the home Wi-Fi to see
-the device. `/stream/*` is exempt from the auth gate (the receiver can't send credentials), so
-anyone on your LAN who knows a track id can fetch that file.
 
 **Updating the deployed app**: every push to `master` runs CI (`.github/workflows/ci.yml`),
 which runs the tests, builds the image, smoke-tests the container, and only then pushes it to

@@ -6,7 +6,7 @@ for the next scheduled reindex or clicking "Reindex library" in the admin panel 
 
 Usage:
     uv run python -m scripts.import_rip
-    uv run python -m scripts.import_rip --url http://localhost:8080
+    uv run python -m scripts.import_rip --url https://localhost:8000
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import httpx
 
 from backend.config import settings
 
-DEFAULT_URL = "http://localhost:8080"
+DEFAULT_URL = "https://localhost:8000"
 POLL_INTERVAL_SECONDS = 2
 
 
@@ -28,7 +28,12 @@ def trigger_reindex(base_url: str) -> None:
     if settings.pan_auth_user and settings.pan_auth_password:
         auth = (settings.pan_auth_user, settings.pan_auth_password)
 
-    with httpx.Client(base_url=base_url, auth=auth, timeout=10) as client:
+    # `make run` serves HTTPS with a self-signed cert, so verification can only be skipped for
+    # the machine's own loopback - never for a remote URL.
+    local = httpx.URL(base_url).host in ("localhost", "127.0.0.1")
+    with httpx.Client(
+        base_url=base_url, auth=auth, timeout=10, verify=not local
+    ) as client:
         response = client.post("/admin/reindex")
         response.raise_for_status()
         status = response.json()["status"]

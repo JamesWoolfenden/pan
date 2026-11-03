@@ -1008,13 +1008,6 @@ header h1 {
   padding: 0.35rem 0.45rem;
 }
 
-#cast-button {
-  width: 1.6rem;
-  height: 1.6rem;
-  --connected-color: var(--accent);
-  --disconnected-color: var(--text-muted);
-}
-
 #queue-shuffle.is-active,
 #queue-repeat.is-active,
 #queue-video-mode.is-active,
@@ -1053,7 +1046,7 @@ header h1 {
    showing a stale/wrong percentage with no apparent cause) - hiding WebKit's internal parts here
    leaves the dial as the single volume control for local playback, mirroring how #eq-panel etc.
    already assume one source of truth per control. Chrome/WebKit-only (non-standard pseudo-
-   elements), but so is Cast support, so that's already the baseline here. */
+   elements). */
 #queue-player::-webkit-media-controls-volume-slider,
 #queue-player::-webkit-media-controls-mute-button,
 #local-video-player::-webkit-media-controls-volume-slider,
@@ -1094,46 +1087,6 @@ header h1 {
 
 #video-dismiss-btn:hover {
   background: rgba(0, 0, 0, 0.8);
-}
-
-#cast-status {
-  margin-top: 0.6rem;
-  padding: 0.5rem 0.7rem;
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-radius: 6px;
-  font-size: 0.85rem;
-}
-
-#cast-progress-controls,
-#cast-volume-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.4rem;
-}
-
-#cast-volume,
-#cast-progress {
-  flex: 1;
-}
-
-#cast-time-current,
-#cast-time-duration {
-  font-size: 0.75rem;
-  color: var(--text-faint);
-  min-width: 2.5em;
-}
-
-#cast-volume-sliders {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-#cast-volume-sliders.collapsed {
-  display: none;
 }
 
 /* Hidden on mobile by default - see the @media (min-width: 1000px) override near the end of this
@@ -1183,7 +1136,7 @@ header h1 {
 }
 
 /* Local-playback-only (see the comment above #eq-panel in index.html) - dimmed and
-   non-interactive rather than hidden, so switching to video/cast doesn't make the panel
+   non-interactive rather than hidden, so switching to video mode doesn't make the panel
    disappear out from under someone who just had it open. The live meter is paused the same way
    (see updateEqAvailability in app.js) since it has nothing real to show either in that case. */
 #eq-panel.eq-unavailable {

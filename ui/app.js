@@ -96,16 +96,6 @@ fetch("/version")
   .catch(() => {});
 
 const queuePlayer = document.getElementById("queue-player");
-const castStatusEl = document.getElementById("cast-status");
-const castVolumeControlsEl = document.getElementById("cast-volume-controls");
-const castVolumeToggleBtn = document.getElementById("cast-volume-toggle");
-const castVolumeSlidersEl = document.getElementById("cast-volume-sliders");
-const castMuteBtn = document.getElementById("cast-mute");
-const castVolumeSlider = document.getElementById("cast-volume");
-const castProgressControlsEl = document.getElementById("cast-progress-controls");
-const castProgressSlider = document.getElementById("cast-progress");
-const castTimeCurrentEl = document.getElementById("cast-time-current");
-const castTimeDurationEl = document.getElementById("cast-time-duration");
 const queueListEl = document.getElementById("queue-list");
 const nowPlayingEl = document.getElementById("queue-now-playing");
 const shuffleBtn = document.getElementById("queue-shuffle");
@@ -159,8 +149,8 @@ wireCollapseToggle(queueListToggleBtn, queueListEl);
 wireCollapseToggle(playlistsToggleBtn, playlistsListEl);
 
 // 10-band graphic equaliser + live spectrum meter, applied via the Web Audio API to the local
-// <audio> element only - Chromecast and video mode both play back through an entirely separate
-// path (the receiver, and the YouTube iframe) that this graph never touches.
+// <audio> element only - YouTube video mode plays back through an entirely separate path
+// (the iframe) that this graph never touches.
 // updateEqAvailability() greys the panel out (and halts the meter) rather than hiding it whenever
 // queuePlayer.hidden flips for either of those.
 //
@@ -814,34 +804,23 @@ bindKnobDrag(queueVolumeKnobEl, {
 });
 
 function seekBy(deltaSeconds) {
-  if (isCasting()) {
-    if (!Number.isFinite(castPlayer.duration)) return;
-    castPlayer.currentTime = Math.max(0, Math.min(castPlayer.duration, castPlayer.currentTime + deltaSeconds));
-    castController.seek();
-  } else if (!activePlaybackEl().hidden && Number.isFinite(activePlaybackEl().duration)) {
+  if (!activePlaybackEl().hidden && Number.isFinite(activePlaybackEl().duration)) {
     const el = activePlaybackEl();
     el.currentTime = Math.max(0, Math.min(el.duration, el.currentTime + deltaSeconds));
   }
 }
 
 function adjustVolumeBy(deltaPercent) {
-  if (isCasting()) {
-    castPlayer.volumeLevel = Math.max(0, Math.min(1, castPlayer.volumeLevel + deltaPercent / 100));
-    castController.setVolumeLevel();
-    updateCastVolumeUi();
-    // queuePlayer.hidden is also true during local-video playback, but setQueueVolume() already
-    // keeps both elements' volume in sync - only the YouTube iframe (which supplies its own
-    // volume control) has nothing for this to act on, so local video should still pass here.
-  } else if (!queuePlayer.hidden || playingViaLocalVideo) {
+  // queuePlayer.hidden is also true during local-video playback, but setQueueVolume() already
+  // keeps both elements' volume in sync - only the YouTube iframe (which supplies its own
+  // volume control) has nothing for this to act on, so local video should still pass here.
+  if (!queuePlayer.hidden || playingViaLocalVideo) {
     setQueueVolume(queuePlayer.volume * 100 + deltaPercent);
   }
 }
 
 function toggleMute() {
-  if (isCasting()) {
-    castController.muteOrUnmute();
-    updateCastVolumeUi();
-  } else if (!queuePlayer.hidden) {
+  if (!queuePlayer.hidden) {
     queuePlayer.muted = !queuePlayer.muted;
   }
 }
@@ -926,7 +905,7 @@ wireCollapseToggle(eqToggleBtn, eqPanelEl);
 eqToggleBtn.addEventListener("click", () => engageEqIfPanelOpen(activePlaybackEl()));
 
 // queuePlayer.hidden is the existing signal for "local <audio> isn't what's actually playing
-// right now" (see updateCastUi/stopVideoPlayback/onYtStateChange below), reused here - but it's
+// right now" (see stopVideoPlayback/onYtStateChange below), reused here - but it's
 // also true during local-video playback, where the EQ actually SHOULD stay available (audio is
 // flowing into the shared chain from localVideoPlayer, not silent) - playingViaLocalVideo is the
 // one case where queuePlayer.hidden alone would give the wrong answer.
@@ -946,7 +925,7 @@ function updateEqAvailability() {
   eqBalanceKnobEl.tabIndex = eqUnavailable ? -1 : 0;
   // Volume now lives in this same pane (under Balance - see index.html), so it's dimmed and
   // blocked the same way as everything else here rather than needing its own hide/disable path:
-  // Cast and the YouTube iframe both supply their own volume control, so this one would have
+  // The YouTube iframe supplies its own volume control, so this one would have
   // nothing to act on - local video doesn't, so it stays enabled there (see setQueueVolume()).
   queueVolumeKnobEl.tabIndex = eqUnavailable ? -1 : 0;
 }
@@ -966,8 +945,7 @@ function activePlaybackEl() {
 }
 // Locking the phone pauses queuePlayer with no code of ours calling .pause() - confirmed via the
 // client log (a "pause" mid-track, then currentTime frozen through several hidden/visible cycles
-// until a manual tap). pauseQueuePlayer() marks our own deliberate pauses (button, track-switch,
-// cast handoff, ...) so the native "pause" listener below can tell those apart from the OS's and
+// until a manual tap). pauseQueuePlayer() marks our own deliberate pauses (button, track-switch, ...) so the native "pause" listener below can tell those apart from the OS's and
 // only auto-resume the latter once the page is actually foregrounded again.
 let deliberatePause = false;
 let awaitingBackgroundResume = false;
@@ -2562,7 +2540,7 @@ videoModeBtn.addEventListener("click", () => {
   videoModeBtn.setAttribute("aria-pressed", String(videoModeEnabled));
   if (!videoModeEnabled) {
     stopVideoPlayback();
-  } else if (currentIndex !== -1 && !isCasting()) {
+  } else if (currentIndex !== -1) {
     playAt(currentIndex); // re-triggers so the current track picks up video mode immediately
   }
 });
@@ -3010,230 +2988,6 @@ function recordCurrentPlayProgress() {
   }).catch(() => {});
 }
 
-// Chromecast. The receiver fetches /stream/{id} directly over the network itself (not through
-// this browser tab), so it only works when the Chromecast can reach this server - same LAN today,
-// or wherever Tailscale/the eventual deployment makes reachable. Google's <google-cast-launcher>
-// custom element (in index.html) renders its own icon/button and handles the device-picker UI;
-// we just react to connect/disconnect and route playback through the cast session while one's
-// active, via the SDK's RemotePlayer/RemotePlayerController rather than hand-rolling state sync.
-let castPlayer = null;
-let castController = null;
-
-const CAST_CONTENT_TYPES = {
-  flac: "audio/flac", wma: "audio/x-ms-wma", aac: "audio/aac", mp3: "audio/mpeg",
-  m4a: "audio/mp4", ogg: "audio/ogg", wav: "audio/wav",
-};
-
-function guessCastContentType(track) {
-  const ext = (track.file_path || "").split(".").pop().toLowerCase();
-  return CAST_CONTENT_TYPES[ext] || "audio/mpeg";
-}
-
-// Chromecast's receiver hardware fetches this URL itself, directly over the network, and does
-// real TLS certificate validation - unlike a browser, it has no way to click through a warning.
-// Locally (`make run`), the app's HTTPS cert is self-signed, so casting needs the plain-HTTP
-// sibling served in parallel on :8080 (see Makefile) instead - that's the one case this app ever
-// has an untrusted cert. A real deployment (the Tailscale sidecar's `tailscale serve`, HTTPS on
-// the default 443) has a properly trusted cert and no :8080 listener at all - nothing is
-// reachable there except the page's own origin, which is also the only thing that actually needs
-// to be: casting from a phone against the deployed app was failing because this was hardcoded to
-// always assume the dev :8080 workaround, even in a deployment with no such port.
-let CAST_STREAM_ORIGIN =
-  location.protocol === "https:" && location.port === "8000"
-    ? `http://${location.hostname}:8080`
-    : location.origin;
-
-// The deployed app is served from a tailnet address the Chromecast can't reach at all, so the
-// server can name a LAN-reachable stream-only origin instead (CAST_STREAM_ORIGIN in .env /
-// docker-compose.yml's pan-stream). When set it wins over the guess above.
-fetch("/config")
-  .then((r) => (r.ok ? r.json() : {}))
-  .then((cfg) => {
-    if (cfg.cast_stream_origin) CAST_STREAM_ORIGIN = cfg.cast_stream_origin.replace(/\/+$/, "");
-  })
-  .catch(() => {});
-
-function isCasting() {
-  return !!(castPlayer && castPlayer.isConnected);
-}
-
-// The native <audio controls> bar's own play/scrubber UI isn't wired to the Chromecast session
-// at all - while casting it just sits there looking broken (stuck, unresponsive to clicks) since
-// actual playback is happening on the receiver, not locally. Swap it for a plain status line;
-// the real transport buttons (prev/play/next) already branch on isCasting() and work correctly.
-function updateCastUi() {
-  const casting = isCasting();
-  if (casting) stopVideoPlayback(); // video mode and casting can't both be showing at once
-  queuePlayer.hidden = casting;
-  updateEqAvailability();
-  castStatusEl.hidden = !casting;
-  castVolumeControlsEl.hidden = !casting;
-  castProgressControlsEl.hidden = !casting;
-  if (casting) {
-    const session = cast.framework.CastContext.getInstance().getCurrentSession();
-    const deviceName = session?.getCastDevice()?.friendlyName || "Chromecast";
-    castStatusEl.textContent = `Casting to ${deviceName} - use the controls above to play/pause/skip.`;
-    updateCastVolumeUi();
-    startCastProgressPolling();
-  } else {
-    stopCastProgressPolling();
-  }
-}
-
-// Reflects the receiver's actual volume/mute state - kept in sync both after our own slider/mute
-// changes and after an external one (the device's physical remote, Google Home app, etc.) via
-// the VOLUME_LEVEL_CHANGED/IS_MUTED_CHANGED listeners below.
-function updateCastVolumeUi() {
-  castVolumeSlider.value = castPlayer.volumeLevel;
-  castMuteBtn.textContent = castPlayer.isMuted ? "\u{1F507}" : "\u{1F50A}";
-  castMuteBtn.title = castPlayer.isMuted ? "Unmute" : "Mute";
-  // The toggle button mirrors mute state at a glance, even collapsed - only clicking it reveals
-  // the actual slider/mute button, keeping the status line from being dominated by a control
-  // most casting sessions never need to touch.
-  castVolumeToggleBtn.textContent = castPlayer.isMuted ? "\u{1F507}" : "\u{1F50A}";
-}
-
-castVolumeToggleBtn.addEventListener("click", () => {
-  const collapsed = castVolumeSlidersEl.classList.toggle("collapsed");
-  castVolumeToggleBtn.setAttribute("aria-expanded", String(!collapsed));
-  castVolumeToggleBtn.title = collapsed ? "Show volume control" : "Hide volume control";
-});
-
-// Unlike the local <audio> element, the Cast SDK has no continuous "time updated" event - the
-// framework only refreshes castPlayer.currentTime/duration periodically on its own, so a poll
-// is the normal way sender apps drive a progress bar. Paused while the user is actively dragging
-// the slider (castSeeking), so the poll can't fight with their in-progress drag.
-let castProgressTimer = null;
-let castSeeking = false;
-
-function startCastProgressPolling() {
-  if (castProgressTimer) return;
-  castProgressTimer = setInterval(() => {
-    if (castSeeking || !isCasting()) return;
-    const duration = castPlayer.duration || 0;
-    castProgressSlider.max = String(duration);
-    castProgressSlider.value = String(castPlayer.currentTime || 0);
-    castTimeCurrentEl.textContent = formatDuration((castPlayer.currentTime || 0) * 1000);
-    castTimeDurationEl.textContent = formatDuration(duration * 1000);
-  }, 1000);
-}
-
-function stopCastProgressPolling() {
-  if (castProgressTimer) {
-    clearInterval(castProgressTimer);
-    castProgressTimer = null;
-  }
-}
-
-castProgressSlider.addEventListener("input", () => {
-  castSeeking = true;
-  castTimeCurrentEl.textContent = formatDuration(Number(castProgressSlider.value) * 1000);
-});
-castProgressSlider.addEventListener("change", () => {
-  castPlayer.currentTime = Number(castProgressSlider.value);
-  castController.seek();
-  castSeeking = false;
-});
-
-// Whether the current load actually got as far as playing, so PLAYER_STATE_CHANGED's IDLE
-// handler (below) knows a later IDLE really means "this track ended" rather than "no media
-// loaded yet" (true before the first ever load) or "already handled via the catch below".
-// Deliberately NOT keyed off idleReason - some receiver firmware reports IDLE at the end of a
-// track with an idleReason other than FINISHED (or that lags/doesn't update in time), which is
-// what made the previous FINISHED/ERROR-only check still miss real "track ended" cases.
-let castTrackActive = false;
-
-function castCurrentTrack() {
-  if (!isCasting() || currentIndex === -1) return;
-  const session = cast.framework.CastContext.getInstance().getCurrentSession();
-  if (!session) return;
-  castTrackActive = false;
-  const track = queue[currentIndex];
-  const mediaInfo = new chrome.cast.media.MediaInfo(`${CAST_STREAM_ORIGIN}/stream/${track.id}`, guessCastContentType(track));
-  mediaInfo.metadata = new chrome.cast.media.MusicTrackMediaMetadata();
-  mediaInfo.metadata.title = track.title || "Untitled";
-  mediaInfo.metadata.artist = track.artist || "";
-  session.loadMedia(new chrome.cast.media.LoadRequest(mediaInfo))
-    .then(() => {
-      castTrackActive = true;
-      pauseQueuePlayer();
-    })
-    .catch((err) => {
-      // A rejected loadMedia (receiver can't decode this format/file, or a network hiccup
-      // reaching :8080) used to just silently stall here forever - nothing else would ever
-      // advance the queue, since the IDLE handler only ever fires for a track that actually
-      // started. Skip to the next track instead.
-      console.warn("Cast loadMedia failed, skipping track", track.id, err);
-      logClient("cast_load_failed", { castTrackId: track.id, err: String(err?.description || err) });
-      advanceOnEnded();
-    });
-}
-
-function initializeCastApi() {
-  cast.framework.CastContext.getInstance().setOptions({
-    receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
-    autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
-  });
-  castPlayer = new cast.framework.RemotePlayer();
-  castController = new cast.framework.RemotePlayerController(castPlayer);
-
-  castController.addEventListener(cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED, () => {
-    // Starting a cast session hands playback to the receiver; local <audio> would otherwise
-    // keep playing too (both audible at once). Disconnecting doesn't resume local playback
-    // automatically - press play again to continue here.
-    logClient("cast_connected_changed", { connected: isCasting() });
-    if (isCasting()) castCurrentTrack();
-    updateCastUi();
-  });
-  castController.addEventListener(cast.framework.RemotePlayerEventType.IS_PAUSED_CHANGED, () => {
-    playPauseBtn.innerHTML = castPlayer.isPaused ? "&#9654;" : "&#10074;&#10074;";
-  });
-  castController.addEventListener(cast.framework.RemotePlayerEventType.PLAYER_STATE_CHANGED, () => {
-    if (!isCasting() || castPlayer.playerState !== chrome.cast.media.PlayerState.IDLE) return;
-    // Only advance for an IDLE that follows a track that genuinely started (castTrackActive) -
-    // not the IDLE that's just the default state before the first ever load. Once consumed,
-    // reset the flag so a receiver that reports IDLE more than once for the same ended track
-    // (seen on some firmware) can't double-advance.
-    if (!castTrackActive) return;
-    castTrackActive = false;
-    logClient("cast_idle_advance");
-    advanceOnEnded();
-  });
-  castController.addEventListener(cast.framework.RemotePlayerEventType.VOLUME_LEVEL_CHANGED, updateCastVolumeUi);
-  castController.addEventListener(cast.framework.RemotePlayerEventType.IS_MUTED_CHANGED, updateCastVolumeUi);
-
-  castVolumeSlider.addEventListener("input", () => {
-    castPlayer.volumeLevel = Number(castVolumeSlider.value);
-    castController.setVolumeLevel();
-  });
-  castMuteBtn.addEventListener("click", () => castController.muteOrUnmute());
-
-  // Session-level failures (receiver unreachable, cast app launch rejected, session dropped) -
-  // the IS_CONNECTED_CHANGED/PLAYER_STATE_CHANGED listeners above only see a session that
-  // already succeeded, so a session that never gets that far would otherwise log nothing at all.
-  cast.framework.CastContext.getInstance().addEventListener(
-    cast.framework.CastContextEventType.SESSION_STATE_CHANGED,
-    (event) => {
-      logClient("cast_session_state", { state: event.sessionState, error: event.errorCode ?? null });
-    }
-  );
-}
-
-window["__onGCastApiAvailable"] = (isAvailable) => {
-  if (!isAvailable) return;
-  // chrome.cast fires this callback as soon as the base SDK is ready, but the cast.framework
-  // bundle (loaded via the ?loadCastFramework=1 query param) can finish a tick later - poll
-  // briefly rather than assuming "cast" is already defined, which throws a ReferenceError.
-  const tryInit = () => {
-    if (typeof cast === "undefined" || !cast.framework) {
-      setTimeout(tryInit, 100);
-      return;
-    }
-    initializeCastApi();
-  };
-  tryInit();
-};
-
 async function playAt(i) {
   if (i < 0 || i >= queue.length) return;
   recordCurrentPlayProgress();
@@ -3243,16 +2997,6 @@ async function playAt(i) {
   // playback-path branches below so it's already correct by the time any of them actually start
   // audio, not just on the next unrelated volume change.
   applyEffectiveVolume();
-
-  if (isCasting()) {
-    castCurrentTrack();
-    nowPlayingEl.innerHTML = "";
-    nowPlayingEl.appendChild(buildTrackTitleLine(track));
-    renderNowPlayingActions(track);
-    renderQueue();
-    updateMediaSessionMetadata(track);
-    return;
-  }
 
   if (await tryPlayLocalVideo(track)) {
     nowPlayingEl.innerHTML = "";
@@ -3306,8 +3050,8 @@ async function playAt(i) {
   schedulePrefetch(queue[nextQueueIndex(i)]);
 }
 
-// Shared by the local <audio> "ended" event and the Chromecast receiver's IDLE/FINISHED state,
-// so repeat-one/repeat-all/shuffle behave the same regardless of where playback is happening.
+// Shared by the <audio>, YouTube and local-video "ended" paths, so repeat-one/repeat-all/shuffle
+// behave the same regardless of where playback is happening.
 function advanceOnEnded() {
   logClient("ended", { willAdvance: repeatMode === "one" || nextQueueIndex(currentIndex) !== -1 });
   if (repeatMode === "one") {
@@ -3397,14 +3141,12 @@ function updateMediaSessionMetadata(track) {
 
 if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("play", () => {
-    if (isCasting()) castController.playOrPause();
-    else if (playingViaVideo && ytPlayer) ytPlayer.playVideo();
+    if (playingViaVideo && ytPlayer) ytPlayer.playVideo();
     else if (playingViaLocalVideo) localVideoPlayer.play();
     else queuePlayer.play();
   });
   navigator.mediaSession.setActionHandler("pause", () => {
-    if (isCasting()) castController.playOrPause();
-    else if (playingViaVideo && ytPlayer) ytPlayer.pauseVideo();
+    if (playingViaVideo && ytPlayer) ytPlayer.pauseVideo();
     else if (playingViaLocalVideo) localVideoPlayer.pause();
     else pauseQueuePlayer();
   });
@@ -3472,8 +3214,6 @@ localVideoPlayer.addEventListener("timeupdate", () => {
 playPauseBtn.addEventListener("click", () => {
   if (currentIndex === -1 && queue.length) {
     playAt(0);
-  } else if (isCasting()) {
-    castController.playOrPause();
   } else if (playingViaVideo && ytPlayer) {
     if (ytPlayer.getPlayerState() === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
     else ytPlayer.playVideo();
