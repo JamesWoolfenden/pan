@@ -208,10 +208,8 @@
             <div id="eq-meter"></div>
             <div id="eq-faders"></div>
           </div>
-          <!-- Preamp + the dial column are noticeably shorter than the 10-band faders/meter, so
-               the preset select sits below them (see #eq-toolbar further down) rather than above
-               the whole panel - it fills what would otherwise be dead space under this pair
-               instead of taking its own full-width row. -->
+          <!-- Preamp + the dial column (the preset/vocal dropdowns are in #eq-toolbar, a row
+               beneath this whole main row). -->
           <div id="eq-right-column">
             <div id="eq-right-knobs">
               <!-- Overall level, not a frequency band - kept visually separate (own fader, no
@@ -291,14 +289,22 @@
             <label for="eq-bypass">Byp</label>
           </div>
             </div>
-            <div id="eq-toolbar">
-              <!-- Options populated by app.js's populatePresetSelect() - built-in curves plus
-                   whatever's been saved with "Save preset…", so adding/renaming/removing a
-                   custom one is a data change, not an HTML edit. -->
-              <select id="eq-preset-select" title="EQ preset"></select>
-              <button id="eq-save-preset" class="link-btn">Save preset…</button>
-            </div>
           </div>
+        </div>
+        <div id="eq-toolbar">
+          <!-- Options populated by app.js's populatePresetSelect() - built-in curves plus
+               whatever's been saved with "Save preset…", so adding/renaming/removing a
+               custom one is a data change, not an HTML edit. -->
+          <select id="eq-preset-select" title="EQ preset"></select>
+          <button id="eq-save-preset" class="link-btn">Save preset…</button>
+          <!-- Mid/side tricks on the live stereo signal (see app.js's setVoiceMode) - a cheap
+               approximation, not real stem separation. Session-only: never silently restored. -->
+          <select id="eq-voice-select" title="Vocal filter: cut or isolate centre-panned vocals (approximate)">
+            <option value="normal">Vocals: normal</option>
+            <option value="cut">Cut vocals</option>
+            <option value="only">Vocals only</option>
+            <option value="mono">Mono</option>
+          </select>
         </div>
         <button id="eq-reset" class="link-btn">Reset</button>
       </div>

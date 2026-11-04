@@ -110,6 +110,7 @@ const eqMeterEl = document.getElementById("eq-meter");
 const eqFadersEl = document.getElementById("eq-faders");
 const eqResetBtn = document.getElementById("eq-reset");
 const eqPresetSelectEl = document.getElementById("eq-preset-select");
+const eqVoiceSelectEl = document.getElementById("eq-voice-select");
 const eqSavePresetBtn = document.getElementById("eq-save-preset");
 const eqBypassBtn = document.getElementById("eq-bypass");
 const eqBypassStatusEl = document.getElementById("eq-bypass-status");
@@ -493,7 +494,9 @@ function ensureEqChain() {
     node = filter;
   });
   node.connect(eqLimiterNode);
-  eqLimiterNode.connect(eqPannerNode);
+  buildVoiceStage();
+  eqLimiterNode.connect(eqVoiceIn);
+  eqVoiceOut.connect(eqPannerNode);
   eqPannerNode.connect(eqAnalyser);
   eqAnalyser.connect(eqAudioCtx.destination);
   startEqMeterLoop();
@@ -501,6 +504,109 @@ function ensureEqChain() {
 
 let eqQueueSourceNode = null;
 let eqVideoSourceNode = null;
+
+// Vocal filter: mid/side maths on the live stereo signal, between the limiter and the balance
+// panner. Lead vocals are usually mixed dead centre, so subtracting right from left (the "side"
+// signal) cancels them; adding (the "mid" signal) keeps them. It is an approximation, not stem
+// separation: kick, snare, bass and any other centred instrument vanish with the vocal, reverb and
+// stereo backing vocals stay, and a mono recording cancels to silence. Four parallel paths feed
+// one output, each with a gain of 0 or 1 chosen by setVoiceMode, so switching is click-free and
+// "normal" stays an exact pass-through.
+const VOICE_MODES = ["normal", "cut", "only", "mono"];
+let eqVoiceIn = null;
+let eqVoiceOut = null;
+let eqVoicePathGains = null; // mode -> GainNode
+let voiceMode = "normal";
+
+function buildVoiceStage() {
+  const ctx = eqAudioCtx;
+  eqVoiceIn = ctx.createGain();
+  eqVoiceOut = ctx.createGain();
+  const split = ctx.createChannelSplitter(2);
+  eqVoiceIn.connect(split);
+
+  // mid = (L+R)/2 and side = (L-R)/2 as mono buses.
+  const mid = ctx.createGain();
+  const side = ctx.createGain();
+  const rightForSide = ctx.createGain();
+  rightForSide.gain.value = -1;
+  for (const bus of [mid, side]) {
+    bus.channelCount = 1;
+    bus.channelCountMode = "explicit";
+    bus.gain.value = 0.5;
+  }
+  split.connect(mid, 0);
+  split.connect(mid, 1);
+  split.connect(side, 0);
+  split.connect(rightForSide, 1);
+  rightForSide.connect(side);
+
+  // Each path ends in a merger that duplicates its mono result to both ears.
+  const toBothEars = (source) => {
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    const merger = ctx.createChannelMerger(2);
+    source.connect(gain);
+    gain.connect(merger, 0, 0);
+    gain.connect(merger, 0, 1);
+    merger.connect(eqVoiceOut);
+    return gain;
+  };
+
+  const passthrough = ctx.createGain();
+  passthrough.gain.value = 1;
+  eqVoiceIn.connect(passthrough);
+  passthrough.connect(eqVoiceOut);
+
+  // Vocals only: the mid signal squeezed into the voice's main band (~200Hz-4kHz).
+  const vocalLow = ctx.createBiquadFilter();
+  vocalLow.type = "highpass";
+  vocalLow.frequency.value = 200;
+  const vocalHigh = ctx.createBiquadFilter();
+  vocalHigh.type = "lowpass";
+  vocalHigh.frequency.value = 4000;
+  const vocalBoost = ctx.createGain();
+  vocalBoost.gain.value = 1.5;
+  mid.connect(vocalLow);
+  vocalLow.connect(vocalHigh);
+  vocalHigh.connect(vocalBoost);
+
+  // Cut vocals: the side signal is only (L-R)/2 and has the loud centre removed, so it plays much
+  // quieter than the original. +6dB make-up gain, then a limiter so a loud wide mix can't clip.
+  const cutMakeup = ctx.createGain();
+  cutMakeup.gain.value = 2;
+  const cutLimiter = ctx.createDynamicsCompressor();
+  cutLimiter.threshold.value = -3;
+  cutLimiter.knee.value = 0;
+  cutLimiter.ratio.value = 20;
+  cutLimiter.attack.value = 0.003;
+  cutLimiter.release.value = 0.25;
+  side.connect(cutMakeup);
+  cutMakeup.connect(cutLimiter);
+
+  eqVoicePathGains = {
+    normal: passthrough,
+    cut: toBothEars(cutLimiter),
+    only: toBothEars(vocalBoost),
+    mono: toBothEars(mid),
+  };
+  setVoiceMode(voiceMode);
+}
+
+function setVoiceMode(mode) {
+  voiceMode = VOICE_MODES.includes(mode) ? mode : "normal";
+  eqVoiceSelectEl.value = voiceMode;
+  if (!eqVoicePathGains) return;
+  for (const [name, gain] of Object.entries(eqVoicePathGains)) {
+    gain.gain.setTargetAtTime(name === voiceMode ? 1 : 0, eqAudioCtx.currentTime, 0.015);
+  }
+}
+
+eqVoiceSelectEl.addEventListener("change", () => {
+  // Can't be heard until the Web Audio graph exists (it is built lazily - see ensureEqChain).
+  engageEqIfPanelOpen(activePlaybackEl());
+  setVoiceMode(eqVoiceSelectEl.value);
+});
 
 // queuePlayer and localVideoPlayer are mutually exclusive (only one plays at a time - see
 // playAt()'s video/audio swap), so both source nodes just stay permanently connected to
@@ -917,6 +1023,7 @@ function updateEqAvailability() {
   });
   eqPreampSlider.disabled = eqUnavailable;
   eqPresetSelectEl.disabled = eqUnavailable;
+  eqVoiceSelectEl.disabled = eqUnavailable;
   eqBypassBtn.disabled = eqUnavailable;
   eqSavePresetBtn.disabled = eqUnavailable;
   // Not a native form control, so there's no .disabled - pointer-events is blocked by the
@@ -3154,7 +3261,18 @@ if ("mediaSession" in navigator) {
   navigator.mediaSession.setActionHandler("nexttrack", () => playAt(nextQueueIndex(currentIndex)));
 }
 
+// Restoring a saved session that wasn't playing appends "(paused — press play to resume)" to the
+// now-playing title (see the restore path above); drop it once playback actually starts.
+function clearRestoredPausedHint() {
+  if (!nowPlayingEl.textContent.includes("press play to resume")) return;
+  const track = queue[currentIndex];
+  if (!track) return;
+  nowPlayingEl.innerHTML = "";
+  nowPlayingEl.appendChild(buildTrackTitleLine(track));
+}
+
 queuePlayer.addEventListener("play", () => {
+  clearRestoredPausedHint();
   logClient("play");
   playPauseBtn.innerHTML = "&#10074;&#10074;";
   pauseOtherPlayers(queuePlayer);
@@ -3191,6 +3309,7 @@ window.addEventListener("beforeunload", persistQueueState);
 // handlers (advanceOnEnded, logClient, persistQueueState, resumeEqAudioCtx) as-is - only the
 // play/pause icon + mediaSession.playbackState bits are duplicated, since those don't generalize.
 localVideoPlayer.addEventListener("play", () => {
+  clearRestoredPausedHint();
   logClient("local_video_play");
   playPauseBtn.innerHTML = "&#10074;&#10074;";
   pauseOtherPlayers(localVideoPlayer);

@@ -1119,9 +1119,8 @@ header h1 {
 #eq-panel {
   display: flex;
   flex-direction: column;
-  /* flex-start, not center: the main row (spectrum block + preamp/balance when expanded) is
-     narrower than the toolbar row above it, and centering each row independently left it
-     starting to the right of the preset dropdown instead of lining up under it. */
+  /* flex-start, not center: centering each row independently left rows of different widths
+     starting at different x positions instead of lining up on the left edge. */
   align-items: flex-start;
   gap: 0.2rem;
   margin-top: 0.6rem;
@@ -1160,7 +1159,8 @@ header h1 {
   align-self: stretch;
 }
 
-#eq-preset-select {
+#eq-preset-select,
+#eq-voice-select {
   font-family: inherit;
   font-size: 0.78rem;
   padding: 0.25rem 0.5rem;
@@ -1197,9 +1197,8 @@ header h1 {
   gap: 0.9rem;
 }
 
-/* Preamp + the dial column (Balance/Volume/Bypass) side by side, with the preset toolbar below
-   them (see index.html) - together they're noticeably shorter than the 10-band faders/meter
-   beside them, so stacking the toolbar underneath uses that space instead of leaving it empty. */
+/* Preamp + the dial column (Balance/Volume/Bypass) side by side. The preset and vocal-filter
+   dropdowns (#eq-toolbar) sit in one horizontal row beneath the whole main row, not in here. */
 #eq-right-column {
   display: flex;
   flex-direction: column;
