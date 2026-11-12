@@ -8,7 +8,7 @@
     "pan.tail8f9049.ts.net:443": {
       "Handlers": {
         "/": {
-          "Proxy": "http://127.0.0.1:8000"
+          "Proxy": "http://pan:8000"
         }
       }
     }

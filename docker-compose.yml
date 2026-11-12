@@ -1,7 +1,7 @@
-# Synology (Container Manager) deployment: pan + a Tailscale sidecar, so the app gets a
-# private HTTPS address on your tailnet (https://pan.<your-tailnet>.ts.net) reachable from
-# your phone/laptop anywhere, with no port-forwarding and no public exposure. See README.md
-# "Deploying elsewhere" for setup steps.
+# Synology (Container Manager) deployment: pan + a Tailscale sidecar. pan is reachable two ways:
+# on the home LAN at http://<NAS LAN IP>:8080 (plain HTTP, no Tailscale needed), and from anywhere
+# at a private HTTPS address on your tailnet (https://pan.<your-tailnet>.ts.net) via the sidecar,
+# with no port-forwarding and no public exposure. See README.md "Deploying elsewhere".
 services:
   tailscale:
     image: tailscale/tailscale:stable
@@ -22,18 +22,6 @@ services:
       # Mounted as a directory, not a single file - Tailscale watches the directory for changes
       # to pick up edits, which doesn't work reliably against a single-file bind mount.
       - ./tailscale-config:/config
-    # tailscaled does an internal process handoff while starting up (different PID than the
-    # container's initial process), so a plain `depends_on` isn't enough - pan can grab a
-    # network-namespace reference to a PID that's about to disappear, failing with "unable to
-    # create new parent process: ... no such file or directory" on next start. Waiting for this
-    # healthcheck (not just container start) means pan only attaches once tailscaled has
-    # actually settled.
-    healthcheck:
-      test: ["CMD", "tailscale", "status"]
-      interval: 5s
-      timeout: 3s
-      start_period: 20s
-      retries: 5
     restart: unless-stopped
 
   pan:
@@ -45,12 +33,12 @@ services:
     # holden:ignore:HLD_DC_001
     # holden:ignore:HLD_DC_007
     image: ghcr.io/jameswoolfenden/pan:latest
-    # Shares the tailscale container's network namespace, so pan is only reachable via the
-    # tailnet address (or locally on the NAS) - never via the NAS's own LAN ports.
-    network_mode: service:tailscale
-    depends_on:
-      tailscale:
-        condition: service_healthy
+    # Own network namespace, published on the NAS's LAN port 8080 (plain HTTP). The tailscale
+    # sidecar reaches it by service name (tailscale-config/serve.json proxies to http://pan:8000).
+    # Plain HTTP on the LAN means Basic Auth credentials aren't encrypted there - set
+    # PAN_AUTH_USER/PAN_AUTH_PASSWORD in .env, since anyone on the LAN can reach this port.
+    ports:
+      - "8080:8000"
     env_file:
       - .env
     volumes:

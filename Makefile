@@ -71,6 +71,7 @@ deploy:
 		sed -E "s#ghcr.io/jameswoolfenden/pan:[^[:space:]]+#ghcr.io/jameswoolfenden/pan:$(TAG)@$$digest#" docker-compose.yml > pan-deploy-compose.yml
 	scp -O pan-deploy-compose.yml pan-nas:/volume1/docker/pan/docker-compose.yml
 	rm pan-deploy-compose.yml
+	scp -O tailscale-config/serve.json pan-nas:/volume1/docker/pan/tailscale-config/serve.json
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml pull pan'
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml up -d --force-recreate'
 	ssh pan-nas 'sudo /volume1/@appstore/ContainerManager/usr/bin/docker compose -f /volume1/docker/pan/docker-compose.yml logs --tail=200 pan'

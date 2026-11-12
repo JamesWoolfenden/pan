@@ -139,6 +139,11 @@ phone or laptop from anywhere — no port-forwarding, no public exposure. Tailsc
 TLS with a real (not self-signed) cert, so none of the LAN-only `certs/`/`make run` setup is
 needed for this path.
 
+pan is also published on the NAS's LAN at `http://<NAS LAN IP>:8080` (plain HTTP, no Tailscale
+needed at home). The sidecar reaches pan by service name (`tailscale-config/serve.json` proxies
+to `http://pan:8000`). Credentials travel unencrypted on the LAN, so set `PAN_AUTH_USER` and
+`PAN_AUTH_PASSWORD` — anyone on your network can reach that port.
+
 1. Install **Container Manager** from Synology Package Center (DSM 7+) if not already present.
 2. In the [Tailscale admin console](https://login.tailscale.com/admin/settings/keys), generate
    a reusable auth key.
@@ -195,7 +200,7 @@ needed for this path.
    (`pan.<your-tailnet>.ts.net`) isn't known until the node registers:
 
    ```sh
-   docker compose exec tailscale tailscale serve --bg http://127.0.0.1:8000
+   docker compose exec tailscale tailscale serve --bg http://pan:8000
    docker compose exec tailscale tailscale serve status   # prints the https://pan.<tailnet>.ts.net URL
    ```
 
