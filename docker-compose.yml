@@ -36,7 +36,7 @@ services:
     # Own network namespace, published on the NAS's LAN port 8080 (plain HTTP). The tailscale
     # sidecar reaches it by service name (tailscale-config/serve.json proxies to http://pan:8000).
     # Plain HTTP on the LAN means Basic Auth credentials aren't encrypted there - set
-    # PAN_AUTH_USER/PAN_AUTH_PASSWORD in .env, since anyone on the LAN can reach this port.
+    # PAN_AUTH_USER/PAN_AUTH_PASSWORD in .env (required - pan answers 503 without them).
     ports:
       - "8080:8000"
     env_file:

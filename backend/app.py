@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import logging
-import secrets
 import threading
 from pathlib import Path
 
@@ -14,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from backend.art import extract_album_art
+from backend.auth import basic_auth_valid, credentials_configured
 from backend.config import settings
 from backend.db import (
     about_links,
@@ -108,32 +106,27 @@ except OSError:
 
 @app.middleware("http")
 async def require_auth(request, call_next):
-    """Single-user HTTP Basic auth gate - a no-op when PAN_AUTH_USER/PASSWORD aren't set, so
-    LAN-only use (`make run`) is unaffected. Once the app is reachable beyond the LAN (e.g. over
-    Tailscale), set both so a visitor can't browse the library or trigger the Claude-billed
-    reindex. /version is exempt - harmless to expose, and needs to be checkable without logging in,
-    the whole point being to confirm a deploy actually updated before chasing a phantom bug."""
-    if (
-        settings.pan_auth_user
-        and settings.pan_auth_password
-        and request.url.path != "/version"
+    """Single-user HTTP Basic auth gate. Fails closed: if PAN_AUTH_USER/PAN_AUTH_PASSWORD aren't
+    both set, every route except /version answers 503 rather than serving the library, streaming
+    files, or allowing the Claude-billed reindex to anyone who can reach the port. /version is
+    exempt - harmless to expose, and needs to be checkable without logging in, the whole point
+    being to confirm a deploy actually updated before chasing a phantom bug."""
+    if request.url.path == "/version":
+        return await call_next(request)
+    if not credentials_configured(settings.pan_auth_user, settings.pan_auth_password):
+        return Response(
+            status_code=503,
+            content="pan: PAN_AUTH_USER and PAN_AUTH_PASSWORD must both be set in .env",
+            media_type="text/plain",
+        )
+    if not basic_auth_valid(
+        request.headers.get("authorization", ""),
+        settings.pan_auth_user,
+        settings.pan_auth_password,
     ):
-        valid = False
-        header = request.headers.get("authorization", "")
-        if header.startswith("Basic "):
-            try:
-                decoded = base64.b64decode(header[6:]).decode("utf-8")
-                user, _, password = decoded.partition(":")
-                valid = secrets.compare_digest(
-                    user, settings.pan_auth_user
-                ) and secrets.compare_digest(password, settings.pan_auth_password)
-            except (binascii.Error, UnicodeDecodeError):
-                # The only ways b64decode/.decode("utf-8") can fail on a malformed header.
-                valid = False
-        if not valid:
-            return Response(
-                status_code=401, headers={"WWW-Authenticate": 'Basic realm="pan"'}
-            )
+        return Response(
+            status_code=401, headers={"WWW-Authenticate": 'Basic realm="pan"'}
+        )
     return await call_next(request)
 
 

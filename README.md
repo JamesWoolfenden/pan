@@ -60,8 +60,9 @@ playlists and stats panels](docs/screenshot.jpg)
 
 - LAN-only by default, or reachable from anywhere via the Tailscale-based NAS deployment below
   (no port-forwarding, no public exposure).
-- Single-user HTTP Basic Auth (`PAN_AUTH_USER`/`PAN_AUTH_PASSWORD`) gates everything once the
-  app is reachable beyond the LAN, including `/stream/*`, except `/version`.
+- Single-user HTTP Basic Auth (`PAN_AUTH_USER`/`PAN_AUTH_PASSWORD`) gates everything, including
+  `/stream/*`, except `/version`. Both must be set: if either is blank every other route answers
+  503 rather than serving unauthenticated.
 
 ## Setup
 
