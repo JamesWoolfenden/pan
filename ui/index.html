@@ -115,6 +115,8 @@
         <strong>Queue</strong>
         <span id="queue-now-playing"></span>
         <div id="queue-controls">
+          <button id="voice-btn" type="button" hidden title="Voice control: tap to start listening, tap again to stop. Say next, pause, volume 60, play something upbeat" aria-pressed="false">&#127908;</button>
+          <button id="voice-handsfree" type="button" hidden title="Wake word: only act on commands that start with &quot;pan&quot; (e.g. &quot;pan next&quot;). Off = everything you say is a command" aria-pressed="false">pan&hellip;</button>
           <button id="queue-shuffle" disabled title="Shuffle">&#8644;</button>
           <button id="queue-prev" disabled>&#9664;&#9664;</button>
           <button id="queue-playpause" disabled>&#9654;</button>
@@ -329,6 +331,9 @@
     </div>
   </main>
 
+  <span id="voice-toast" role="status" aria-live="polite" hidden></span>
   <script src="/static/app.js"></script>
+  <script src="/static/voice-intents.js"></script>
+  <script src="/static/voice.js"></script>
 </body>
 </html>

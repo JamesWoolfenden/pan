@@ -1155,11 +1155,14 @@ mediaTypeFilterEl.addEventListener("click", (e) => {
   if (lastQuery) form.requestSubmit();
 });
 
-form.addEventListener("submit", async (e) => {
+form.addEventListener("submit", (e) => {
   e.preventDefault();
   const q = input.value.trim();
-  if (!q) return;
+  if (q) runSearch(q);
+});
 
+// Resolves to the number of results, so callers other than the form (ui/voice.js) can await it.
+async function runSearch(q) {
   addToHistory(q);
   lastQuery = q;
   searchOffset = 0;
@@ -1177,7 +1180,8 @@ form.addEventListener("submit", async (e) => {
   renderResults(lastResults);
   loadMoreHandler = searchHasMore ? loadMoreSearch : null;
   loadMoreBtn.hidden = !searchHasMore;
-});
+  return data.results.length;
+}
 
 async function loadMoreSearch() {
   loadMoreBtn.disabled = true;

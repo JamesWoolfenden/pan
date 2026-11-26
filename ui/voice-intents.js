@@ -1,8 +1,13 @@
 // Turns a speech transcript into a player intent. Pure (no DOM, no player state) so it can be unit
 // tested under Node - see tests/voice_intents.test.mjs. ui/voice.js maps intents onto the player.
 (function (root) {
-  // "pam" is the commonest mishearing of "pan" by browser speech recognition.
-  const WAKE_WORDS = ["pan", "pam"];
+  // Browser speech recognition is shaky on a short word like "pan": these are the usual mishearings.
+  const WAKE_WORDS = ["pan", "pam", "pen", "penn", "ben", "pin"];
+  // Allowed in front of the wake word ("hey pan, next").
+  const WAKE_LEAD_INS = ["hey", "okay", "ok"];
+  // Dropped when looking a command up ("skip this song", "pause the music"); never applied to a
+  // search query, so "play the beatles" still searches for "the beatles".
+  const FILLER_WORDS = new Set(["please", "the", "this", "that", "it", "now", "song", "track", "music", "one"]);
 
   const PHRASES = {
     next: { type: "next" },
@@ -52,13 +57,22 @@
   function parseIntent(transcript, opts) {
     let text = normalise(transcript);
     if (opts && opts.handsFree) {
-      const [first, ...rest] = text.split(" ");
-      if (!WAKE_WORDS.includes(first)) return { type: "ignore" };
-      text = rest.join(" ");
+      const words = text.split(" ");
+      if (WAKE_LEAD_INS.includes(words[0])) words.shift();
+      if (!WAKE_WORDS.includes(words[0])) return { type: "ignore" };
+      text = words.slice(1).join(" ");
     }
     if (!text) return { type: "ignore" };
 
     if (Object.prototype.hasOwnProperty.call(PHRASES, text)) return { ...PHRASES[text] };
+
+    const stripped = text
+      .split(" ")
+      .filter((w) => !FILLER_WORDS.has(w))
+      .join(" ");
+    if (stripped !== text && Object.prototype.hasOwnProperty.call(PHRASES, stripped)) {
+      return { ...PHRASES[stripped] };
+    }
 
     const setVolume = text.match(/^(?:set )?volume (?:to )?(-?\d{1,4})(?: percent)?$/);
     if (setVolume) {

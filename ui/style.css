@@ -1008,6 +1008,48 @@ header h1 {
   padding: 0.35rem 0.45rem;
 }
 
+/* Voice control: the mic is deliberately bigger than its neighbours - it's meant to be hit with a
+   glove or a sweaty thumb mid-ride. */
+#queue-controls #voice-btn {
+  min-width: 3rem;
+  min-height: 3rem;
+  font-size: 1.4rem;
+}
+
+#voice-btn.is-listening {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+  animation: voice-pulse 1.2s ease-in-out infinite;
+}
+
+#voice-handsfree.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+@keyframes voice-pulse {
+  50% {
+    opacity: 0.65;
+  }
+}
+
+#voice-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  max-width: 90vw;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 1rem;
+  z-index: 1000;
+  pointer-events: none;
+}
+
 #queue-shuffle.is-active,
 #queue-repeat.is-active,
 #queue-video-mode.is-active,

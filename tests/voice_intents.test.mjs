@@ -87,3 +87,25 @@ test("hands-free: bare wake word does nothing", () => {
 test("hands-free: wake word then play <words> searches", () => {
   assert.deepEqual(free("pan play some jazz"), { type: "search", query: "some jazz" });
 });
+
+test("hands-free: common mishearings of the wake word still work", () => {
+  for (const w of ["pen", "ben", "pin", "penn"]) {
+    assert.deepEqual(free(`${w} next`), { type: "next" }, w);
+  }
+});
+
+test("hands-free: 'hey'/'okay' before the wake word is allowed", () => {
+  assert.deepEqual(free("hey pan next"), { type: "next" });
+  assert.deepEqual(free("okay pan pause"), { type: "pause" });
+});
+
+test("filler words around a command are tolerated", () => {
+  assert.deepEqual(tap("skip this song"), { type: "next" });
+  assert.deepEqual(tap("pause the music"), { type: "pause" });
+  assert.deepEqual(tap("next one"), { type: "next" });
+  assert.deepEqual(tap("next please"), { type: "next" });
+});
+
+test("fillers do not mangle searches", () => {
+  assert.deepEqual(tap("play the beatles"), { type: "search", query: "the beatles" });
+});
