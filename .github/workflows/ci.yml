@@ -55,15 +55,17 @@ jobs:
       # container actually starts, not just from the build succeeding.
       - name: Smoke test container
         run: |
-          docker run -d --name pan-smoke -p 8000:8000 pan:ci
+          docker run -d --name pan-smoke -p 8000:8000 -e PAN_AUTH_USER=ci -e PAN_AUTH_PASSWORD=ci pan:ci
           ok=
           for i in $(seq 1 20); do
-            if curl -sf http://localhost:8000/ -o /dev/null; then
+            if curl -sf -u ci:ci http://localhost:8000/ -o /dev/null; then
               ok=1
               break
             fi
             sleep 1
           done
+          # The auth gate must actually refuse an anonymous request, not just let a logged-in one by.
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/)" = 401 ] || { echo "Unauthenticated request was not refused"; ok=; }
           docker logs pan-smoke
           docker stop pan-smoke
           [ -n "$ok" ] || { echo "Container never became healthy"; exit 1; }
